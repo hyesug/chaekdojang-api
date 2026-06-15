@@ -6,12 +6,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "access_logs")
 @Getter
 @NoArgsConstructor
 public class AccessLog {
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +44,6 @@ public class AccessLog {
         this.uri = uri;
         this.status = status;
         this.elapsedMs = elapsedMs;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(KST);
     }
 }

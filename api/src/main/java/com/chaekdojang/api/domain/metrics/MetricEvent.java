@@ -5,9 +5,9 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -20,6 +20,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Getter
 @NoArgsConstructor(access = PROTECTED)
 public class MetricEvent {
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,7 +51,6 @@ public class MetricEvent {
     @Column(length = 50)
     private String ip;
 
-    @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -65,5 +65,6 @@ public class MetricEvent {
         this.durationMs = durationMs;
         this.device = device;
         this.ip = ip;
+        this.createdAt = LocalDateTime.now(KST);
     }
 }

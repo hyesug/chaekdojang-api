@@ -22,6 +22,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     long countByAuthorIdAndDeletedAtIsNull(Long authorId);
 
+    long countByBookIdAndDeletedAtIsNullAndHiddenFalse(Long bookId);
+
     List<Review> findAllByAuthorIdInAndDeletedAtIsNullOrderByCreatedAtDesc(List<Long> authorIds);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long bookId);
@@ -33,6 +35,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByAuthorIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long authorId);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);
+
+    @Query("SELECT r FROM Review r JOIN r.book b " +
+           "WHERE r.deletedAt IS NULL AND r.hidden = false " +
+           "AND LOWER(b.title) LIKE LOWER(CONCAT('%', :title, '%')) " +
+           "AND REPLACE(LOWER(b.author), ' ', '') LIKE LOWER(CONCAT('%', :author, '%')) " +
+           "ORDER BY r.createdAt DESC")
+    List<Review> findAllByBookTitleAndAuthorLike(
+            @Param("title") String title,
+            @Param("author") String author);
 
     // 나와 같은 책을 읽고 별점을 남긴 유저별 유사도 점수 반환
     // 별점 동일: 2점, 차이 1: 1점, 차이 2 이상: 0점

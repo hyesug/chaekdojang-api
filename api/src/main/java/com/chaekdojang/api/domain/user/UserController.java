@@ -75,6 +75,12 @@ public class UserController {
         return ApiResponse.ok(userService.getUserProfile(userId));
     }
 
+    @Operation(summary = "닉네임으로 프로필 조회", description = "공유 URL용으로 닉네임에 해당하는 사용자 프로필을 조회합니다. 인증 불필요.")
+    @GetMapping("/nickname/{nickname}")
+    public ApiResponse<UserProfileResponse> getUserProfileByNickname(@PathVariable String nickname) {
+        return ApiResponse.ok(userService.getUserProfileByNickname(nickname));
+    }
+
     @Operation(summary = "특정 유저 독후감 목록", description = "userId에 해당하는 사용자의 독후감 목록을 반환합니다. 인증 불필요.")
     @GetMapping("/{userId}/reviews")
     public ApiResponse<List<ReviewResponse>> getUserReviews(@PathVariable Long userId) {

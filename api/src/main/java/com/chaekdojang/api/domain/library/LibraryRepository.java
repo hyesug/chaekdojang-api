@@ -19,6 +19,8 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
 
     Optional<Library> findByUserIdAndBookId(Long userId, Long bookId);
 
+    long countByUserIdAndStatus(Long userId, LibraryStatus status);
+
     @Query("SELECT l.book.id FROM Library l WHERE l.user.id = :userId")
     List<Long> findBookIdsByUserId(@Param("userId") Long userId);
 

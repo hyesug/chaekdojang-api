@@ -29,6 +29,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReviewService {
+    private static final String EDITION_KEYWORDS = "초판|개정|양장|표지|오리지널|리커버|특별|한정|무선|반양장";
+    private static final String EDITION_NOTE_PATTERN = "\\((?=[^)]*(" + EDITION_KEYWORDS + "))[^)]*\\)|\\[(?=[^]]*(" + EDITION_KEYWORDS + "))[^]]*\\]";
+    private static final String EDITION_COLON_NOTE_PATTERN = "[:：]\\s*(?=.*(" + EDITION_KEYWORDS + ")).*$";
+    private static final String NOTE_PATTERN = "\\(([^)]*)\\)|\\[([^]]*)\\]";
+    private static final String ENGLISH_SUBTITLE_PATTERN = "\\s+/\\s+[A-Za-z][A-Za-z\\s.'-]*$";
+    private static final String EDITION_SUFFIX_PATTERN = "\\s+(더클래식\\s*)?세계문학.*$";
 
     private final ReviewRepository reviewRepository;
     private final BookRepository bookRepository;
@@ -84,6 +90,7 @@ public class ReviewService {
 
     public ReviewResponse getOne(Long id) {
         Review review = findActiveReview(id);
+        if (review.isHidden()) throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));
@@ -139,6 +146,14 @@ public class ReviewService {
                 reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(bookId));
     }
 
+    public List<ReviewResponse> getByBookWork(String title, String author) {
+        String normalizedTitle = normalizeWorkTitle(title);
+        String normalizedAuthor = normalizeAuthor(author);
+        if (normalizedTitle.isBlank() || normalizedAuthor.isBlank()) return List.of();
+        return toResponseList(
+                reviewRepository.findAllByBookTitleAndAuthorLike(normalizedTitle, normalizedAuthor));
+    }
+
     // ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
 
     private Page<ReviewResponse> toResponsePage(Page<Review> page) {
@@ -177,5 +192,42 @@ public class ReviewService {
     private Review findActiveReview(Long id) {
         return reviewRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+    }
+
+    private String normalizeWorkTitle(String title) {
+        if (title == null) return "";
+        return stripNotesPreservingVolumes(title)
+                .replaceAll(EDITION_NOTE_PATTERN, " ")
+                .replaceAll(EDITION_COLON_NOTE_PATTERN, " ")
+                .replaceAll(ENGLISH_SUBTITLE_PATTERN, " ")
+                .replaceAll(EDITION_SUFFIX_PATTERN, " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private String stripNotesPreservingVolumes(String title) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(NOTE_PATTERN).matcher(title);
+        StringBuilder normalized = new StringBuilder();
+        while (matcher.find()) {
+            String note = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            matcher.appendReplacement(normalized, isVolumeNote(note)
+                    ? " " + java.util.regex.Matcher.quoteReplacement(matcher.group()) + " "
+                    : " ");
+        }
+        matcher.appendTail(normalized);
+        return normalized.toString();
+    }
+
+    private boolean isVolumeNote(String note) {
+        String value = note == null ? "" : note.replaceAll("\\s+", "");
+        return value.matches("^(상|중|하)$") || value.matches("^(제)?\\d{1,2}(권|부|편|집|권째)?$");
+    }
+
+    private String normalizeAuthor(String author) {
+        if (author == null) return "";
+        return author
+                .split("[,;/·]")[0]
+                .replaceAll("\\s+", "")
+                .trim();
     }
 }

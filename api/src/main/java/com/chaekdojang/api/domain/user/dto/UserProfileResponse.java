@@ -12,15 +12,24 @@ public record UserProfileResponse(
         long reviewCount,
         long followerCount,
         long followingCount,
+        LibrarySummary librarySummary,
         LifeBook lifeBook
 ) {
+    public record LibrarySummary(long readingCount, long finishedCount, long wishlistCount) {
+    }
+
     public record LifeBook(Long id, String title, String author, String thumbnail) {
         public static LifeBook from(Book book) {
             return new LifeBook(book.getId(), book.getTitle(), book.getAuthor(), book.getThumbnail());
         }
     }
 
-    public static UserProfileResponse of(User user, long reviewCount, long followerCount, long followingCount) {
+    public static UserProfileResponse of(
+            User user,
+            long reviewCount,
+            long followerCount,
+            long followingCount,
+            LibrarySummary librarySummary) {
         LifeBook lifeBook = user.getLifeBook() != null ? LifeBook.from(user.getLifeBook()) : null;
         return new UserProfileResponse(
                 user.getId(),
@@ -31,6 +40,7 @@ public record UserProfileResponse(
                 reviewCount,
                 followerCount,
                 followingCount,
+                librarySummary,
                 lifeBook
         );
     }

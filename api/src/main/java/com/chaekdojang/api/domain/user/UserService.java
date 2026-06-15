@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.dto.*;
@@ -72,12 +73,23 @@ public class UserService {
         return buildProfile(userId);
     }
 
+    public UserProfileResponse getUserProfileByNickname(String nickname) {
+        User user = userRepository.findByNicknameIgnoreCaseAndDeletedAtIsNull(nickname)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return buildProfile(user.getId());
+    }
+
     private UserProfileResponse buildProfile(Long userId) {
         User user = findUser(userId);
         long reviewCount = reviewRepository.countByAuthorIdAndDeletedAtIsNull(userId);
         long followerCount = followRepository.countByFollowingId(userId);
         long followingCount = followRepository.countByFollowerId(userId);
-        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount);
+        UserProfileResponse.LibrarySummary librarySummary = new UserProfileResponse.LibrarySummary(
+                libraryRepository.countByUserIdAndStatus(userId, LibraryStatus.READING),
+                libraryRepository.countByUserIdAndStatus(userId, LibraryStatus.FINISHED),
+                libraryRepository.countByUserIdAndStatus(userId, LibraryStatus.WISHLIST)
+        );
+        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary);
     }
 
     public List<UserSummary> searchUsers(String q) {

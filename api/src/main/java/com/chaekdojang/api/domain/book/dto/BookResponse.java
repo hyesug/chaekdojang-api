@@ -10,9 +10,14 @@ public record BookResponse(
         String publisher,
         String thumbnail,
         String source,
-        String category
+        String category,
+        long reviewCount
 ) {
     public static BookResponse from(Book book) {
+        return from(book, 0L);
+    }
+
+    public static BookResponse from(Book book, long reviewCount) {
         return new BookResponse(
                 book.getId(),
                 book.getIsbn13(),
@@ -21,7 +26,8 @@ public record BookResponse(
                 book.getPublisher(),
                 book.getThumbnail(),
                 book.getSource().name(),
-                book.getCategory()
+                book.getCategory(),
+                reviewCount
         );
     }
 }

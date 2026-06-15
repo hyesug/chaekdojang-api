@@ -25,8 +25,12 @@ public class BookController {
     @GetMapping("/search")
     public ApiResponse<List<BookResponse>> search(
             @Parameter(description = "검색 키워드 (예: 채식주의자)", required = true)
-            @RequestParam String q) {
-        return ApiResponse.ok(bookService.search(q));
+            @RequestParam(required = false, defaultValue = "") String q,
+            @Parameter(description = "저자명")
+            @RequestParam(required = false) String author,
+            @Parameter(description = "출판사")
+            @RequestParam(required = false) String publisher) {
+        return ApiResponse.ok(bookService.search(q, author, publisher));
     }
 
     @Operation(summary = "카테고리별 도서 조회", description = "특정 카테고리에 속한 도서 목록을 반환합니다. 인증 불필요.")
@@ -49,5 +53,15 @@ public class BookController {
             @Parameter(description = "책 ID", required = true)
             @PathVariable Long id) {
         return ApiResponse.ok(reviewService.getByBook(id));
+    }
+
+    @Operation(summary = "작품별 독후감 목록", description = "제목과 저자가 같은 작품의 여러 판본 독후감을 함께 반환합니다. 인증 불필요.")
+    @GetMapping("/work/reviews")
+    public ApiResponse<List<ReviewResponse>> getReviewsByWork(
+            @Parameter(description = "작품 제목", required = true)
+            @RequestParam String title,
+            @Parameter(description = "저자", required = true)
+            @RequestParam String author) {
+        return ApiResponse.ok(reviewService.getByBookWork(title, author));
     }
 }

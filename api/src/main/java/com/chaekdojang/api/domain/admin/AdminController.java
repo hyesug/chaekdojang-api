@@ -1,8 +1,10 @@
 package com.chaekdojang.api.domain.admin;
 
+import com.chaekdojang.api.domain.admin.dto.AccessLogResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReviewResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminUserResponse;
 import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
+import com.chaekdojang.api.domain.admin.dto.MetricEventResponse;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
 import com.chaekdojang.api.domain.user.UserRole;
 import com.chaekdojang.api.global.response.ApiResponse;
@@ -78,6 +80,21 @@ public class AdminController {
     public ResponseEntity<ApiResponse<InquiryResponse>> getInquiryDetail(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(
                 adminService.getInquiryDetail(SecurityUtils.getCurrentUserId(), id)));
+    }
+
+    // ── 접속 기록 ──────────────────────────────────────────
+    @GetMapping("/access-logs")
+    public ResponseEntity<ApiResponse<Page<AccessLogResponse>>> getAccessLogs(
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getAccessLogs(SecurityUtils.getCurrentUserId(), pageable)));
+    }
+
+    @GetMapping("/metrics")
+    public ResponseEntity<ApiResponse<Page<MetricEventResponse>>> getMetricEvents(
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), pageable)));
     }
 
     @PostMapping("/inquiries/{id}/comments")

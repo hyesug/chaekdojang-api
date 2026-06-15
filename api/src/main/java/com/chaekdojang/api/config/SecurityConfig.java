@@ -57,11 +57,16 @@ public class SecurityConfig {
                         "/api/users/me",
                         "/api/users/*/follow/status"
                 ).authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.POST,
+                        "/api/metrics/events",
+                        "/api/dev/login"
+                ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/reviews", "/api/reviews/**",
                         "/api/books/**",
                         "/api/users/*/followers", "/api/users/*/followings",
                         "/api/users/*/reviews",
+                        "/api/users/nickname/*",
                         "/api/users/*"
                 ).permitAll()
                 // 문의: POST·GET 모두 비회원 허용 (권한 체크는 서비스 레이어에서)

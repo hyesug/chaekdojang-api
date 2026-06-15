@@ -1,11 +1,14 @@
 package com.chaekdojang.api.domain.admin;
 
+import com.chaekdojang.api.domain.accesslog.AccessLog;
+import com.chaekdojang.api.domain.accesslog.AccessLogService;
 import com.chaekdojang.api.domain.admin.dto.*;
 import com.chaekdojang.api.domain.inquiry.Inquiry;
 import com.chaekdojang.api.domain.inquiry.InquiryComment;
 import com.chaekdojang.api.domain.inquiry.InquiryCommentRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
+import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -30,6 +33,8 @@ public class AdminService {
     private final ReviewRepository reviewRepository;
     private final InquiryRepository inquiryRepository;
     private final InquiryCommentRepository inquiryCommentRepository;
+    private final AccessLogService accessLogService;
+    private final MetricEventRepository metricEventRepository;
 
     // ── 권한 검증 ──────────────────────────────────────────
     private User assertAdmin(Long userId) {
@@ -96,6 +101,18 @@ public class AdminService {
         Inquiry inquiry = inquiryRepository.findByIdAndDeletedAtIsNull(inquiryId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         return InquiryResponse.from(inquiry);
+    }
+
+    // ── 접속 기록 ──────────────────────────────────────────
+    public Page<AccessLogResponse> getAccessLogs(Long adminId, Pageable pageable) {
+        assertAdmin(adminId);
+        return accessLogService.getAll(pageable).map(AccessLogResponse::from);
+    }
+
+    public Page<MetricEventResponse> getMetricEvents(Long adminId, Pageable pageable) {
+        assertAdmin(adminId);
+        return metricEventRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .map(MetricEventResponse::from);
     }
 
     @Transactional

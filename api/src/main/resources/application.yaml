@@ -74,6 +74,7 @@ server:
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   backend-url: ${BACKEND_URL:http://localhost:8080}
+  dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
   notification:
     admin-email: ${NOTIFICATION_ADMIN_EMAIL:}
 
@@ -88,3 +89,7 @@ toss:
 
 google:
   api-key: ${GOOGLE_API_KEY:}
+
+logging:
+  level:
+    ACCESS: INFO

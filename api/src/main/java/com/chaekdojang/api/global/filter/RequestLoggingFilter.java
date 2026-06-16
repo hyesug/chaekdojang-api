@@ -20,9 +20,15 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger("ACCESS");
 
-    // DB에 저장하지 않을 경로 접두사
     private static final Set<String> SKIP_PREFIXES = Set.of(
-            "/oauth2/", "/login/oauth2/", "/actuator/", "/swagger", "/v3/api-docs"
+            "/oauth2/", "/login/oauth2/", "/actuator/", "/swagger", "/v3/api-docs",
+            "/_next/", "/static/", "/assets/", "/images/", "/favicon", "/robots.txt",
+            "/sitemap.xml", "/health", "/api/metrics/events"
+    );
+
+    private static final Set<String> SKIP_SUFFIXES = Set.of(
+            ".css", ".js", ".map", ".ico", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+            ".svg", ".woff", ".woff2", ".ttf", ".txt", ".xml"
     );
 
     private final AccessLogService accessLogService;
@@ -37,22 +43,30 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } finally {
             long elapsed = System.currentTimeMillis() - start;
-            String ip = getClientIp(request);
+            String ip = maskIp(getClientIp(request));
             String method = request.getMethod();
             String uri = request.getRequestURI();
             int status = response.getStatus();
 
             log.info("[{}] {} | {} | {} | {}ms", method, uri, ip, status, elapsed);
 
-            // OPTIONS, 노이즈 경로는 DB 저장 생략
-            if (!"OPTIONS".equals(method) && !shouldSkip(uri)) {
+            if (shouldSave(method, uri)) {
                 accessLogService.save(ip, method, uri, status, elapsed);
             }
         }
     }
 
+    private boolean shouldSave(String method, String uri) {
+        if ("OPTIONS".equals(method)) return false;
+        if (shouldSkip(uri)) return false;
+        return !"GET".equals(method) || !uri.startsWith("/api/");
+    }
+
     private boolean shouldSkip(String uri) {
-        return SKIP_PREFIXES.stream().anyMatch(uri::startsWith);
+        String lower = uri.toLowerCase();
+        return SKIP_PREFIXES.stream().anyMatch(uri::startsWith)
+                || SKIP_SUFFIXES.stream().anyMatch(lower::endsWith)
+                || uri.contains("/opengraph-image");
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -61,5 +75,18 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private String maskIp(String ip) {
+        if (ip == null || ip.isBlank()) return "";
+        if (ip.contains(".")) {
+            int lastDot = ip.lastIndexOf('.');
+            return lastDot > 0 ? ip.substring(0, lastDot) + ".0" : ip;
+        }
+        if (ip.contains(":")) {
+            int lastColon = ip.lastIndexOf(':');
+            return lastColon > 0 ? ip.substring(0, lastColon) + ":0000" : ip;
+        }
+        return ip;
     }
 }

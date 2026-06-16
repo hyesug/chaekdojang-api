@@ -32,4 +32,14 @@ public class AccessLogService {
             org.springframework.data.domain.Pageable pageable) {
         return accessLogRepository.findAllByOrderByCreatedAtDesc(pageable);
     }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<AccessLog> search(
+            String q,
+            String method,
+            Integer statusMin,
+            Integer statusMax,
+            org.springframework.data.domain.Pageable pageable) {
+        return accessLogRepository.search(q, method, statusMin, statusMax, pageable);
+    }
 }

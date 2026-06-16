@@ -85,16 +85,22 @@ public class AdminController {
     // ── 접속 기록 ──────────────────────────────────────────
     @GetMapping("/access-logs")
     public ResponseEntity<ApiResponse<Page<AccessLogResponse>>> getAccessLogs(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String method,
+            @RequestParam(required = false) String statusGroup,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
-                adminService.getAccessLogs(SecurityUtils.getCurrentUserId(), pageable)));
+                adminService.getAccessLogs(SecurityUtils.getCurrentUserId(), q, method, statusGroup, pageable)));
     }
 
     @GetMapping("/metrics")
     public ResponseEntity<ApiResponse<Page<MetricEventResponse>>> getMetricEvents(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) String userType,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
-                adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), pageable)));
+                adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), q, eventType, userType, pageable)));
     }
 
     @PostMapping("/inquiries/{id}/comments")

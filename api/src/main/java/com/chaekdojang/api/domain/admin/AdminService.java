@@ -107,8 +107,16 @@ public class AdminService {
     }
 
     // ── 접속 기록 ──────────────────────────────────────────
-    public Page<AccessLogResponse> getAccessLogs(Long adminId, Pageable pageable) {
+    public Page<AccessLogResponse> getAccessLogs(
+            Long adminId,
+            String q,
+            String method,
+            String statusGroup,
+            Pageable pageable) {
         assertAdmin(adminId);
+        String normalizedQ = normalize(q);
+        String normalizedMethod = normalize(method);
+        int[] statusRange = statusRange(statusGroup);
         Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
                 .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
                 .stream()
@@ -119,13 +127,23 @@ public class AdminService {
                         (latest, ignored) -> latest
                 ));
 
-        return accessLogService.getAll(pageable)
+        return accessLogService.search(
+                        normalizedQ,
+                        normalizedMethod,
+                        statusRange[0] > 0 ? statusRange[0] : null,
+                        statusRange[1] > 0 ? statusRange[1] : null,
+                        pageable)
                 .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
     }
 
-    public Page<MetricEventResponse> getMetricEvents(Long adminId, Pageable pageable) {
+    public Page<MetricEventResponse> getMetricEvents(
+            Long adminId,
+            String q,
+            String eventType,
+            String userType,
+            Pageable pageable) {
         assertAdmin(adminId);
-        return metricEventRepository.findAllByOrderByCreatedAtDesc(pageable)
+        return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), pageable)
                 .map(MetricEventResponse::from);
     }
 
@@ -155,5 +173,25 @@ public class AdminService {
             return lastColon > 0 ? ip.substring(0, lastColon) + ":0000" : ip;
         }
         return ip;
+    }
+
+    private String normalize(String value) {
+        return value != null && !value.isBlank() ? value.trim() : null;
+    }
+
+    private String normalizeUserType(String userType) {
+        String normalized = normalize(userType);
+        if ("member".equals(normalized) || "guest".equals(normalized)) return normalized;
+        return null;
+    }
+
+    private int[] statusRange(String statusGroup) {
+        return switch (normalize(statusGroup) == null ? "" : normalize(statusGroup)) {
+            case "2xx" -> new int[] {200, 300};
+            case "3xx" -> new int[] {300, 400};
+            case "4xx" -> new int[] {400, 500};
+            case "5xx" -> new int[] {500, 600};
+            default -> new int[] {0, 0};
+        };
     }
 }

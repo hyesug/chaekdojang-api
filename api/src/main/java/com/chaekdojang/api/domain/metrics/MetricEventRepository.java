@@ -10,7 +10,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> {
-    Page<MetricEvent> findAllByOrderByCreatedAtDesc(Pageable pageable);
     List<MetricEvent> findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc();
 
     @Query("""

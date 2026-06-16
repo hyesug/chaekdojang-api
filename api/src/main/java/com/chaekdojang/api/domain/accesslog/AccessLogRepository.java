@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
-    Page<AccessLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
-
     @Query("""
             SELECT a FROM AccessLog a
             WHERE (:q IS NULL OR LOWER(a.uri) LIKE LOWER(CONCAT('%', :q, '%')) OR a.ip LIKE CONCAT('%', :q, '%'))

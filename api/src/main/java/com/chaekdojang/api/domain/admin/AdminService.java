@@ -8,6 +8,7 @@ import com.chaekdojang.api.domain.inquiry.InquiryComment;
 import com.chaekdojang.api.domain.inquiry.InquiryCommentRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
+import com.chaekdojang.api.domain.metrics.MetricEvent;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
@@ -23,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -106,7 +109,18 @@ public class AdminService {
     // ── 접속 기록 ──────────────────────────────────────────
     public Page<AccessLogResponse> getAccessLogs(Long adminId, Pageable pageable) {
         assertAdmin(adminId);
-        return accessLogService.getAll(pageable).map(AccessLogResponse::from);
+        Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
+                .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
+                .stream()
+                .filter(event -> event.getUser() != null)
+                .collect(Collectors.toMap(
+                        event -> maskIp(event.getIp()),
+                        this::toUserMatch,
+                        (latest, ignored) -> latest
+                ));
+
+        return accessLogService.getAll(pageable)
+                .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
     }
 
     public Page<MetricEventResponse> getMetricEvents(Long adminId, Pageable pageable) {
@@ -123,5 +137,23 @@ public class AdminService {
         inquiryCommentRepository.save(InquiryComment.create(inquiry, admin, content));
         // 변경감지를 위해 다시 조회
         return InquiryResponse.from(inquiryRepository.findByIdAndDeletedAtIsNull(inquiryId).get());
+    }
+
+    private AccessLogResponse.UserMatch toUserMatch(MetricEvent event) {
+        User user = event.getUser();
+        return new AccessLogResponse.UserMatch(user.getId(), user.getNickname());
+    }
+
+    private String maskIp(String ip) {
+        if (ip == null || ip.isBlank()) return "";
+        if (ip.contains(".")) {
+            int lastDot = ip.lastIndexOf('.');
+            return lastDot > 0 ? ip.substring(0, lastDot) + ".0" : ip;
+        }
+        if (ip.contains(":")) {
+            int lastColon = ip.lastIndexOf(':');
+            return lastColon > 0 ? ip.substring(0, lastColon) + ":0000" : ip;
+        }
+        return ip;
     }
 }

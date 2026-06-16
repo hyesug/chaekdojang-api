@@ -79,10 +79,16 @@ public class User {
     public void updateProfile(String nickname, String bio, String profileImage) {
         if (nickname != null) this.nickname = nickname;
         if (bio != null) this.bio = bio;
-        if (profileImage != null) this.profileImage = profileImage;
+        if (profileImage != null) this.profileImage = profileImage.isBlank() ? null : profileImage;
     }
 
-    public void softDelete() {
+    public void anonymizeForDeletion(String deletedNickname) {
+        this.email = null;
+        this.nickname = deletedNickname;
+        this.profileImage = null;
+        this.bio = null;
+        this.lifeBook = null;
+        this.role = UserRole.USER;
         this.deletedAt = LocalDateTime.now();
     }
 

@@ -21,6 +21,8 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
 
     long countByUserIdAndStatus(Long userId, LibraryStatus status);
 
+    void deleteAllByUserId(Long userId);
+
     @Query("SELECT l.book.id FROM Library l WHERE l.user.id = :userId")
     List<Long> findBookIdsByUserId(@Param("userId") Long userId);
 

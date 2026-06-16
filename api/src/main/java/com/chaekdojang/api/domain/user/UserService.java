@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
+import com.chaekdojang.api.domain.notification.NotificationRepository;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.dto.*;
 import com.chaekdojang.api.global.exception.CustomException;
@@ -29,6 +30,7 @@ public class UserService {
     private final ReviewRepository reviewRepository;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
+    private final NotificationRepository notificationRepository;
 
     public UserProfileResponse getMyProfile() {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -38,7 +40,10 @@ public class UserService {
     @Transactional
     public void deleteMe() {
         Long userId = SecurityUtils.getCurrentUserId();
-        findUser(userId).softDelete();
+        followRepository.deleteAllByFollowerIdOrFollowingId(userId, userId);
+        libraryRepository.deleteAllByUserId(userId);
+        notificationRepository.deleteAllByReceiverIdOrSenderId(userId, userId);
+        findUser(userId).anonymizeForDeletion("탈퇴한 사용자_" + userId);
     }
 
     @Transactional

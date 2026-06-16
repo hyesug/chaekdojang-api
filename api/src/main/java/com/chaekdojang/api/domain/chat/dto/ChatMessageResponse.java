@@ -13,11 +13,12 @@ public record ChatMessageResponse(
         LocalDateTime createdAt
 ) {
     public static ChatMessageResponse from(ChatMessage m) {
+        boolean deletedSender = m.getSender().getDeletedAt() != null;
         return new ChatMessageResponse(
                 m.getId(),
-                m.getSender().getId(),
-                m.getSender().getNickname(),
-                m.getSender().getProfileImage(),
+                deletedSender ? null : m.getSender().getId(),
+                deletedSender ? "탈퇴한 사용자" : m.getSender().getNickname(),
+                deletedSender ? null : m.getSender().getProfileImage(),
                 m.getContent(),
                 m.getCreatedAt()
         );

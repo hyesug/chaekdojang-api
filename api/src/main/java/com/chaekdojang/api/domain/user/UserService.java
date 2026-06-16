@@ -2,10 +2,15 @@ package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
+import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import com.chaekdojang.api.domain.notification.NotificationRepository;
+import com.chaekdojang.api.domain.review.ReviewBookmarkRepository;
+import com.chaekdojang.api.domain.review.ReviewLikeRepository;
 import com.chaekdojang.api.domain.review.ReviewRepository;
+import com.chaekdojang.api.domain.subscription.SubscriptionRepository;
 import com.chaekdojang.api.domain.user.dto.*;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
@@ -28,9 +33,15 @@ public class UserService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final ReviewRepository reviewRepository;
+    private final ReviewLikeRepository reviewLikeRepository;
+    private final ReviewBookmarkRepository reviewBookmarkRepository;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
     private final NotificationRepository notificationRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final UserAuthProviderRepository userAuthProviderRepository;
+    private final MetricEventRepository metricEventRepository;
+    private final InquiryRepository inquiryRepository;
 
     public UserProfileResponse getMyProfile() {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -40,10 +51,20 @@ public class UserService {
     @Transactional
     public void deleteMe() {
         Long userId = SecurityUtils.getCurrentUserId();
-        followRepository.deleteAllByFollowerIdOrFollowingId(userId, userId);
+        User user = findUser(userId);
+
+        reviewLikeRepository.deleteAllByUserId(userId);
+        reviewBookmarkRepository.deleteAllByUserId(userId);
         libraryRepository.deleteAllByUserId(userId);
+        followRepository.deleteAllByFollowerIdOrFollowingId(userId, userId);
         notificationRepository.deleteAllByReceiverIdOrSenderId(userId, userId);
-        findUser(userId).anonymizeForDeletion("탈퇴한 사용자_" + userId);
+        subscriptionRepository.deleteAllByUserId(userId);
+        userAuthProviderRepository.deleteAllByUserId(userId);
+        metricEventRepository.anonymizeUser(userId);
+        inquiryRepository.findAllByUserIdAndDeletedAtIsNull(userId)
+                .forEach(inquiry -> inquiry.softDelete());
+
+        user.anonymizeForDeletion("deleted-user-" + userId);
     }
 
     @Transactional
@@ -98,7 +119,7 @@ public class UserService {
     }
 
     public List<UserSummary> searchUsers(String q) {
-        return userRepository.findByNicknameContainingIgnoreCase(q)
+        return userRepository.findByNicknameContainingIgnoreCaseAndDeletedAtIsNull(q)
                 .stream()
                 .map(UserSummary::from)
                 .toList();

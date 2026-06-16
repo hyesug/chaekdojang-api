@@ -12,6 +12,8 @@ public interface ReviewLikeRepository extends JpaRepository<ReviewLike, Long> {
 
     void deleteByReviewIdAndUserId(Long reviewId, Long userId);
 
+    void deleteAllByUserId(Long userId);
+
     long countByReviewId(Long reviewId);
 
     // 리뷰 ID 목록을 한 번의 쿼리로 카운트 — N+1 방지

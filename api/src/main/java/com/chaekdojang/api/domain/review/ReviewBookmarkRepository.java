@@ -10,5 +10,7 @@ public interface ReviewBookmarkRepository extends JpaRepository<ReviewBookmark, 
 
     void deleteByReviewIdAndUserId(Long reviewId, Long userId);
 
+    void deleteAllByUserId(Long userId);
+
     List<ReviewBookmark> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 }

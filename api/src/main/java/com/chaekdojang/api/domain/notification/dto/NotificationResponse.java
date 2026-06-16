@@ -16,16 +16,18 @@ public record NotificationResponse(
         LocalDateTime createdAt
 ) {
     public static NotificationResponse from(Notification n) {
+        String senderNickname = n.getSender().getDeletedAt() != null ? "탈퇴한 사용자" : n.getSender().getNickname();
+        String senderProfileImage = n.getSender().getDeletedAt() != null ? null : n.getSender().getProfileImage();
         String message = switch (n.getType()) {
-            case LIKE    -> n.getSender().getNickname() + "님이 독후감에 좋아요를 눌렀어요";
-            case COMMENT -> n.getSender().getNickname() + "님이 댓글을 달았어요";
-            case FOLLOW  -> n.getSender().getNickname() + "님이 팔로우하기 시작했어요";
+            case LIKE    -> senderNickname + "님이 독후감에 좋아요를 눌렀어요";
+            case COMMENT -> senderNickname + "님이 댓글을 달았어요";
+            case FOLLOW  -> senderNickname + "님이 팔로우하기 시작했어요";
         };
         return new NotificationResponse(
                 n.getId(),
                 n.getType(),
-                n.getSender().getNickname(),
-                n.getSender().getProfileImage(),
+                senderNickname,
+                senderProfileImage,
                 n.getTargetId(),
                 message,
                 n.isRead(),

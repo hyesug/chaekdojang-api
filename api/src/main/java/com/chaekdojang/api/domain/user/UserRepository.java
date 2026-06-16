@@ -15,7 +15,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByNickname(String nickname);
 
-    List<User> findByNicknameContainingIgnoreCase(String nickname);
+    List<User> findByNicknameContainingIgnoreCaseAndDeletedAtIsNull(String nickname);
 
     Page<User> findAllByDeletedAtIsNull(Pageable pageable);
 

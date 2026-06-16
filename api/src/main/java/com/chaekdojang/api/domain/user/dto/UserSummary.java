@@ -8,6 +8,9 @@ public record UserSummary(
         String profileImage
 ) {
     public static UserSummary from(User user) {
+        if (user.getDeletedAt() != null) {
+            return new UserSummary(null, "탈퇴한 사용자", null);
+        }
         return new UserSummary(user.getId(), user.getNickname(), user.getProfileImage());
     }
 }

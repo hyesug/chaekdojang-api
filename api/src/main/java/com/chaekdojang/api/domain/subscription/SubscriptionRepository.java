@@ -7,4 +7,5 @@ import java.util.Optional;
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
     Optional<Subscription> findByUserIdAndActiveTrue(Long userId);
     boolean existsByUserIdAndActiveTrue(Long userId);
+    void deleteAllByUserId(Long userId);
 }

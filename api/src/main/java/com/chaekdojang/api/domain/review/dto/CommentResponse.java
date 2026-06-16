@@ -13,6 +13,9 @@ public record CommentResponse(
 ) {
     public record AuthorInfo(Long id, String nickname, String profileImage) {
         public static AuthorInfo from(User user) {
+            if (user.getDeletedAt() != null) {
+                return new AuthorInfo(null, "탈퇴한 사용자", null);
+            }
             return new AuthorInfo(user.getId(), user.getNickname(), user.getProfileImage());
         }
     }

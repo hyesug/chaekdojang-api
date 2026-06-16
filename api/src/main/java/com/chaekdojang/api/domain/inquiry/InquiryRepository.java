@@ -16,4 +16,6 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
     Page<Inquiry> findAllByDeletedAtIsNull(Pageable pageable);
 
     Optional<Inquiry> findByIdAndDeletedAtIsNull(Long id);
+
+    List<Inquiry> findAllByUserIdAndDeletedAtIsNull(Long userId);
 }

@@ -7,6 +7,7 @@ import com.chaekdojang.api.domain.user.dto.*;
 import com.chaekdojang.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,7 @@ public class UserController {
 
     @Operation(summary = "내 프로필 수정", description = "닉네임, 소개, 프로필 이미지를 수정합니다. JWT 필요.")
     @PatchMapping("/me")
-    public ApiResponse<UserProfileResponse> updateMyProfile(@RequestBody UpdateProfileRequest request) {
+    public ApiResponse<UserProfileResponse> updateMyProfile(@RequestBody @Valid UpdateProfileRequest request) {
         return ApiResponse.ok(userService.updateMyProfile(request));
     }
 

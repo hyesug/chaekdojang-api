@@ -1,0 +1,11 @@
+-- Placeholder only. Do not rename this file to V1__init_schema.sql until
+-- the production schema has been exported with pg_dump --schema-only.
+--
+-- Required source:
+--   pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL"
+--
+-- Safety rules:
+--   1. Do not guess schema from JPA entities.
+--   2. Do not include DROP, TRUNCATE, or data-deleting DELETE statements.
+--   3. Review the generated SQL before enabling Flyway.
+

@@ -59,7 +59,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private boolean shouldSave(String method, String uri) {
         if ("OPTIONS".equals(method)) return false;
         if (shouldSkip(uri)) return false;
-        return !"GET".equals(method) || !uri.startsWith("/api/");
+        return true;
     }
 
     private boolean shouldSkip(String uri) {

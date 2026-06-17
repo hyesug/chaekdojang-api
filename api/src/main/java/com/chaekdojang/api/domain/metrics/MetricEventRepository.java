@@ -15,14 +15,14 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
     @Query("""
             SELECT m FROM MetricEvent m
             LEFT JOIN m.user u
-            WHERE (:q IS NULL
+            WHERE (CAST(:q AS String) IS NULL
                    OR LOWER(m.path) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(m.sessionId) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(m.referrer, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(m.ip, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(u.nickname, '')) LIKE LOWER(CONCAT('%', :q, '%')))
-              AND (:eventType IS NULL OR m.eventType = :eventType)
-              AND (:userType IS NULL
+              AND (CAST(:eventType AS String) IS NULL OR m.eventType = :eventType)
+              AND (CAST(:userType AS String) IS NULL
                    OR (:userType = 'member' AND u IS NOT NULL)
                    OR (:userType = 'guest' AND u IS NULL))
             """)

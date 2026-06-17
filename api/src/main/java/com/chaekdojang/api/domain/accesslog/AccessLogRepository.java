@@ -9,8 +9,8 @@ import org.springframework.data.repository.query.Param;
 public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
     @Query("""
             SELECT a FROM AccessLog a
-            WHERE (:q IS NULL OR LOWER(a.uri) LIKE LOWER(CONCAT('%', :q, '%')) OR a.ip LIKE CONCAT('%', :q, '%'))
-              AND (:method IS NULL OR a.method = :method)
+            WHERE (CAST(:q AS String) IS NULL OR LOWER(a.uri) LIKE LOWER(CONCAT('%', :q, '%')) OR a.ip LIKE CONCAT('%', :q, '%'))
+              AND (CAST(:method AS String) IS NULL OR a.method = :method)
               AND (:statusMin IS NULL OR a.status >= :statusMin)
               AND (:statusMax IS NULL OR a.status < :statusMax)
             """)

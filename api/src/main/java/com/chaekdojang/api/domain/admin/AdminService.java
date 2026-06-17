@@ -132,8 +132,8 @@ public class AdminService {
         return accessLogService.search(
                         normalizedQ,
                         normalizedMethod,
-                        statusRange[0] > 0 ? statusRange[0] : null,
-                        statusRange[1] > 0 ? statusRange[1] : null,
+                        statusRange[0] > 0 ? statusRange[0] : -1,
+                        statusRange[1] > 0 ? statusRange[1] : -1,
                         pageable)
                 .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
     }
@@ -160,8 +160,8 @@ public class AdminService {
         return errorLogService.search(
                         normalize(q),
                         normalize(level),
-                        statusRange[0] > 0 ? statusRange[0] : null,
-                        statusRange[1] > 0 ? statusRange[1] : null,
+                        statusRange[0] > 0 ? statusRange[0] : -1,
+                        statusRange[1] > 0 ? statusRange[1] : -1,
                         pageable)
                 .map(ErrorLogResponse::from);
     }
@@ -195,17 +195,17 @@ public class AdminService {
     }
 
     private String normalize(String value) {
-        return value != null && !value.isBlank() ? value.trim() : null;
+        return value != null && !value.isBlank() ? value.trim() : "";
     }
 
     private String normalizeUserType(String userType) {
         String normalized = normalize(userType);
         if ("member".equals(normalized) || "guest".equals(normalized)) return normalized;
-        return null;
+        return "";
     }
 
     private int[] statusRange(String statusGroup) {
-        return switch (normalize(statusGroup) == null ? "" : normalize(statusGroup)) {
+        return switch (normalize(statusGroup)) {
             case "2xx" -> new int[] {200, 300};
             case "3xx" -> new int[] {300, 400};
             case "4xx" -> new int[] {400, 500};

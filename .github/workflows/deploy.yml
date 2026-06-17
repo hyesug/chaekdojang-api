@@ -9,16 +9,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH로 EC2 접속 후 배포
+      - name: Deploy on EC2 over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd ~/chaekdojang-api
-            git pull origin main
+            git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
+            git pull --ff-only origin main
             cd api
+            chmod +x ./gradlew
             ./gradlew build -x test --no-daemon
             sudo systemctl restart chaekdojang
-            echo "배포 완료"
+            git log -1 --oneline
+            echo "deploy complete"

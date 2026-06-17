@@ -4,12 +4,14 @@ import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record LibraryResponse(
         Long id,
         BookInfo book,
         LibraryStatus status,
+        LocalDate completedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -25,6 +27,7 @@ public record LibraryResponse(
                 library.getId(),
                 BookInfo.from(library.getBook()),
                 library.getStatus(),
+                library.getCompletedAt(),
                 library.getCreatedAt(),
                 library.getUpdatedAt()
         );

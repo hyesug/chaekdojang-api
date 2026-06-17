@@ -37,7 +37,7 @@ public class LibraryService {
         Book book = bookRepository.findById(request.bookId())
                 .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
         Library library = Library.builder()
-                .user(user).book(book).status(request.status())
+                .user(user).book(book).status(request.status()).completedAt(request.completedAt())
                 .build();
         return LibraryResponse.from(libraryRepository.save(library));
     }
@@ -55,7 +55,7 @@ public class LibraryService {
         Long userId = SecurityUtils.getCurrentUserId();
         Library library = libraryRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.LIBRARY_NOT_FOUND));
-        library.updateStatus(request.status());
+        library.updateStatus(request.status(), request.completedAt());
         return LibraryResponse.from(library);
     }
 

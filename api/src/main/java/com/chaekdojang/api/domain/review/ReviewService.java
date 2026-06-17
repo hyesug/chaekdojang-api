@@ -65,7 +65,7 @@ public class ReviewService {
         if (finalBook != null) {
             libraryRepository.findByUserIdAndBookId(userId, finalBook.getId())
                     .ifPresentOrElse(
-                            lib -> lib.updateStatus(LibraryStatus.FINISHED),
+                            lib -> lib.updateStatus(LibraryStatus.FINISHED, null),
                             () -> libraryRepository.save(
                                     Library.builder().user(author).book(finalBook).status(LibraryStatus.FINISHED).build()
                             )

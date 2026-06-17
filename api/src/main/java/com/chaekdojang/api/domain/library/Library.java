@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static lombok.AccessLevel.PROTECTED;
@@ -44,14 +45,27 @@ public class Library {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column
+    private LocalDate completedAt;
+
     @Builder
-    private Library(User user, Book book, LibraryStatus status) {
+    private Library(User user, Book book, LibraryStatus status, LocalDate completedAt) {
         this.user = user;
         this.book = book;
         this.status = status;
+        if (status == LibraryStatus.FINISHED) {
+            this.completedAt = completedAt != null ? completedAt : LocalDate.now();
+        }
     }
 
-    public void updateStatus(LibraryStatus status) {
+    public void updateStatus(LibraryStatus status, LocalDate completedAt) {
         this.status = status;
+        if (status == LibraryStatus.FINISHED) {
+            this.completedAt = completedAt != null
+                    ? completedAt
+                    : (this.completedAt != null ? this.completedAt : LocalDate.now());
+        } else {
+            this.completedAt = null;
+        }
     }
 }

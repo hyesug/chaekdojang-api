@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.admin.dto.AccessLogResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReviewResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminUserResponse;
 import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
+import com.chaekdojang.api.domain.admin.dto.ErrorLogResponse;
 import com.chaekdojang.api.domain.admin.dto.MetricEventResponse;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
 import com.chaekdojang.api.domain.user.UserRole;
@@ -101,6 +102,16 @@ public class AdminController {
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
                 adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), q, eventType, userType, pageable)));
+    }
+
+    @GetMapping("/error-logs")
+    public ResponseEntity<ApiResponse<Page<ErrorLogResponse>>> getErrorLogs(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String statusGroup,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getErrorLogs(SecurityUtils.getCurrentUserId(), q, level, statusGroup, pageable)));
     }
 
     @PostMapping("/inquiries/{id}/comments")

@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.admin;
 import com.chaekdojang.api.domain.accesslog.AccessLog;
 import com.chaekdojang.api.domain.accesslog.AccessLogService;
 import com.chaekdojang.api.domain.admin.dto.*;
+import com.chaekdojang.api.domain.errorlog.ErrorLogService;
 import com.chaekdojang.api.domain.inquiry.Inquiry;
 import com.chaekdojang.api.domain.inquiry.InquiryComment;
 import com.chaekdojang.api.domain.inquiry.InquiryCommentRepository;
@@ -37,6 +38,7 @@ public class AdminService {
     private final InquiryRepository inquiryRepository;
     private final InquiryCommentRepository inquiryCommentRepository;
     private final AccessLogService accessLogService;
+    private final ErrorLogService errorLogService;
     private final MetricEventRepository metricEventRepository;
 
     // ── 권한 검증 ──────────────────────────────────────────
@@ -145,6 +147,23 @@ public class AdminService {
         assertAdmin(adminId);
         return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), pageable)
                 .map(MetricEventResponse::from);
+    }
+
+    public Page<ErrorLogResponse> getErrorLogs(
+            Long adminId,
+            String q,
+            String level,
+            String statusGroup,
+            Pageable pageable) {
+        assertAdmin(adminId);
+        int[] statusRange = statusRange(statusGroup);
+        return errorLogService.search(
+                        normalize(q),
+                        normalize(level),
+                        statusRange[0] > 0 ? statusRange[0] : null,
+                        statusRange[1] > 0 ? statusRange[1] : null,
+                        pageable)
+                .map(ErrorLogResponse::from);
     }
 
     @Transactional

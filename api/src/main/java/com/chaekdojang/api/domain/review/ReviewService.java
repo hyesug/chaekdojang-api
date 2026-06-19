@@ -180,13 +180,20 @@ public class ReviewService {
     // 리뷰 ID 목록 → {reviewId: likeCount} 맵 (쿼리 1번)
     private Map<Long, Long> buildLikeCountMap(List<Long> ids) {
         return reviewLikeRepository.countGroupByReviewIds(ids).stream()
-                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+                .collect(Collectors.toMap(row -> toLong(row[0]), row -> toLong(row[1])));
     }
 
     // 리뷰 ID 목록 → {reviewId: commentCount} 맵 (쿼리 1번)
     private Map<Long, Long> buildCommentCountMap(List<Long> ids) {
         return commentRepository.countGroupByReviewIds(ids).stream()
-                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+                .collect(Collectors.toMap(row -> toLong(row[0]), row -> toLong(row[1])));
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(String.valueOf(value));
     }
 
     private Review findActiveReview(Long id) {

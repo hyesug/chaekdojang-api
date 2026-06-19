@@ -6,7 +6,7 @@ RUN apk add --no-cache tzdata \
     && echo "Asia/Seoul" > /etc/timezone \
     && apk del tzdata
 
-COPY build/libs/*.jar app.jar
+COPY build/libs/*-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 

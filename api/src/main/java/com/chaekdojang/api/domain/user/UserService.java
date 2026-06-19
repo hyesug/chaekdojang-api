@@ -65,6 +65,7 @@ public class UserService {
                 .forEach(inquiry -> inquiry.softDelete());
 
         user.anonymizeForDeletion("deleted-user-" + userId);
+        userRepository.saveAndFlush(user);
     }
 
     @Transactional

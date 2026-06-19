@@ -88,12 +88,15 @@ http://localhost:8080/swagger-ui/index.html
 운영 EC2에서는 RDS PostgreSQL을 사용하고, Docker compose로 API와 Redis만 실행합니다.
 
 ```bash
+cd api
+./gradlew clean bootJar
+cd ..
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 운영 `.env.production`은 EC2에만 두고 Git에 커밋하지 않습니다.
 
-현재 compose는 API 이미지를 EC2에서 직접 빌드합니다. Docker Hub 배포 파이프라인을 붙이면 `image` 기반 배포로 바꿀 수 있습니다.
+현재 compose는 EC2에서 빌드한 jar를 런타임 이미지에 담습니다. Docker Hub 배포 파이프라인을 붙이면 `image` 기반 배포로 바꿀 수 있습니다.
 
 ## 운영 전환/롤백 메모
 

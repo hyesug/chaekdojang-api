@@ -32,17 +32,18 @@ public class OAuthRegistrationService {
                 authProviderRepository.findByProviderAndProviderUserId(provider, info.providerId());
         if (existingAuth.isPresent()) {
             User linked = existingAuth.get().getUser();
-            // 탈퇴(soft-delete)된 계정이면 재활성화 후 닉네임 설정 페이지로 보냄
+            // 탈퇴 계정은 되살리지 않고 새 가입으로 처리한다.
             if (linked.getDeletedAt() != null) {
-                linked.reactivate();
-                return new RegistrationResult(linked, true);
+                authProviderRepository.delete(existingAuth.get());
+                authProviderRepository.flush();
+            } else {
+                // 재로그인 시에도 SUPER_ADMIN 이메일이면 권한 부여 (최초 1회)
+                if (superAdminEmail != null && !superAdminEmail.isBlank()
+                        && superAdminEmail.equals(linked.getEmail()) && !linked.isSuperAdmin()) {
+                    linked.setSuperAdmin();
+                }
+                return new RegistrationResult(linked, false);
             }
-            // 재로그인 시에도 SUPER_ADMIN 이메일이면 권한 부여 (최초 1회)
-            if (superAdminEmail != null && !superAdminEmail.isBlank()
-                    && superAdminEmail.equals(linked.getEmail()) && !linked.isSuperAdmin()) {
-                linked.setSuperAdmin();
-            }
-            return new RegistrationResult(linked, false);
         }
 
         // 2. 같은 이메일로 다른 소셜 로그인을 한 계정이 있는지 확인 → 있으면 연결 (탈퇴 계정 제외)
@@ -80,7 +81,7 @@ public class OAuthRegistrationService {
     }
 
     private User createNewUser(OAuthUserInfo info) {
-        String nickname = makeUniqueNickname(info.nickname());
+        String nickname = makeUniqueNickname("독자");
         return userRepository.save(
                 User.create(info.email(), nickname, info.profileImage())
         );

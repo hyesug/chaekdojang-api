@@ -11,6 +11,7 @@
 - PostgreSQL 17
 - Redis
 - Flyway
+- Docker
 - Swagger/OpenAPI
 
 ## 로컬 실행
@@ -20,12 +21,16 @@ cd api
 ./gradlew bootRun
 ```
 
-기본 API 주소는 `http://localhost:8080`입니다.
-
-Docker로 로컬 PostgreSQL과 Redis까지 함께 실행하려면:
+상태 확인:
 
 ```bash
-docker compose up -d --build
+curl http://localhost:8080/actuator/health
+```
+
+Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui/index.html
 ```
 
 ## 주요 환경 변수
@@ -52,29 +57,16 @@ DEV_LOGIN_ENABLED=false
 
 민감한 값은 커밋하지 않습니다. 로컬에서는 `application-local.yaml` 또는 환경 변수로 관리합니다.
 
-## 자주 쓰는 명령
+## 테스트
 
 ```bash
 cd api
 ./gradlew test
-./gradlew build
-```
-
-상태 확인:
-
-```bash
-curl http://localhost:8080/actuator/health
-```
-
-Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui/index.html
 ```
 
 ## Flyway
 
-운영 DB는 Flyway로 baseline 등록이 완료된 상태입니다.
+운영 DB는 Flyway baseline 등록이 완료된 상태입니다.
 
 - migration 위치: `api/src/main/resources/db/migration`
 - 초기 스키마: `V1__init_schema.sql`
@@ -85,27 +77,16 @@ http://localhost:8080/swagger-ui/index.html
 
 ## 운영 Docker 배포
 
-운영 EC2에서는 RDS PostgreSQL을 사용하고, Docker compose로 API와 Redis만 실행합니다.
+운영 EC2에서는 RDS PostgreSQL을 사용하고, Docker compose로 API와 Redis를 실행합니다.
 
 ```bash
-cd api
+cd ~/chaekdojang-api/api
 ./gradlew clean bootJar
 cd ..
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 운영 `.env.production`은 EC2에만 두고 Git에 커밋하지 않습니다.
-
-현재 compose는 EC2에서 빌드한 jar를 런타임 이미지에 담습니다. Docker Hub 배포 파이프라인을 붙이면 `image` 기반 배포로 바꿀 수 있습니다.
-
-## 운영 전환/롤백 메모
-
-Docker 전환 전에는 기존 `chaekdojang.service`가 `java -jar` 방식으로 API를 실행했습니다. Docker 전환 후에도 서비스 파일은 보존할 수 있으므로, 긴급 롤백이 필요하면 Docker compose를 내리고 기존 systemd 서비스를 다시 시작합니다.
-
-```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml down
-sudo systemctl start chaekdojang
-```
 
 ## GitHub Actions 배포
 
@@ -124,4 +105,29 @@ EC2에는 운영 환경 파일이 있어야 합니다.
 ~/chaekdojang-api/.env.production
 ```
 
-이 파일은 Git에 커밋하지 않습니다.
+## 자동 배포 실패 시 동작
+
+배포 workflow는 새 이미지를 만들기 전에 현재 정상 이미지를 `chaekdojang-api:rollback`으로 저장합니다.
+
+새 컨테이너가 `/actuator/health`에서 `UP`을 반환하지 않으면:
+
+1. 새 컨테이너 로그를 출력합니다.
+2. 이전 Docker 이미지를 `chaekdojang-api:local`로 되돌립니다.
+3. 이전 이미지로 API 컨테이너를 다시 띄웁니다.
+4. rollback health check를 다시 확인합니다.
+5. GitHub Actions는 실패로 표시합니다.
+
+즉, Actions가 실패하더라도 가능한 경우 운영 서버는 직전 정상 이미지로 되돌아갑니다. 다만 DB migration 자체가 이미 실행된 뒤 실패한 경우에는 별도 판단이 필요하므로, DB 변경 migration은 작게 나누고 배포 전 신중히 확인합니다.
+
+## 수동 롤백
+
+긴급 수동 롤백이 필요하면 EC2에서 실행합니다.
+
+```bash
+cd ~/chaekdojang-api
+sudo docker tag chaekdojang-api:rollback chaekdojang-api:local
+sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+curl http://localhost:8080/actuator/health
+```
+
+기존 `java -jar` systemd 서비스도 남아 있지만, 현재 운영 기본 방식은 Docker입니다.

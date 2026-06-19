@@ -14,6 +14,19 @@ spring:
     redis:
       host: localhost
       port: 6379
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: test-kakao-client-id
+            client-secret: test-kakao-client-secret
+          naver:
+            client-id: test-naver-client-id
+            client-secret: test-naver-client-secret
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
 
 management:
   health:

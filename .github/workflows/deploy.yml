@@ -1,15 +1,39 @@
-name: Deploy to EC2
+name: Deploy API to EC2
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-production
+  cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Test
+        run: ./gradlew test --no-daemon
+
   deploy:
     runs-on: ubuntu-latest
-
+    needs: test
     steps:
-      - name: Deploy on EC2 over SSH
+      - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -17,12 +41,31 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -euo pipefail
+
             cd ~/chaekdojang-api
             git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
             git pull --ff-only origin main
+
             cd api
             chmod +x ./gradlew
-            ./gradlew build -x test --no-daemon
-            sudo systemctl restart chaekdojang
-            git log -1 --oneline
-            echo "deploy complete"
+            ./gradlew clean bootJar --rerun-tasks --no-daemon
+            jar tf build/libs/api-0.0.1-SNAPSHOT.jar | grep -q 'BOOT-INF/classes/com/chaekdojang/api/ApiApplication.class'
+            cd ..
+
+            sudo systemctl stop chaekdojang || true
+            sudo systemctl reset-failed chaekdojang || true
+            sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+            for i in $(seq 1 60); do
+              code=$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
+              body=$(cat /tmp/chaekdojang-health.txt 2>/dev/null || true)
+              if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
+                sudo docker compose --env-file .env.production -f docker-compose.prod.yml ps
+                git log -1 --oneline
+                exit 0
+              fi
+              sleep 2
+            done
+
+            sudo docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=160 app
+            exit 1

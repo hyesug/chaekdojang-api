@@ -106,3 +106,22 @@ Docker 전환 전에는 기존 `chaekdojang.service`가 `java -jar` 방식으로
 docker compose --env-file .env.production -f docker-compose.prod.yml down
 sudo systemctl start chaekdojang
 ```
+
+## GitHub Actions 배포
+
+`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행하고, 성공하면 EC2에 SSH로 접속해 Docker compose 배포를 진행합니다.
+
+GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`에 아래 Secrets를 등록해야 합니다.
+
+```text
+EC2_HOST=EC2 public IP or domain
+EC2_SSH_KEY=private SSH key content
+```
+
+EC2에는 운영 환경 파일이 있어야 합니다.
+
+```text
+~/chaekdojang-api/.env.production
+```
+
+이 파일은 Git에 커밋하지 않습니다.

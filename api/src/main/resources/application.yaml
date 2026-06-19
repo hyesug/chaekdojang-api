@@ -97,3 +97,8 @@ google:
 logging:
   level:
     ACCESS: INFO
+
+management:
+  health:
+    redis:
+      enabled: false

@@ -19,7 +19,7 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    image: chaekdojang-api:local
+    image: ${APP_IMAGE:-chaekdojang-api:local}
     container_name: chaekdojang-app
     restart: unless-stopped
     ports:

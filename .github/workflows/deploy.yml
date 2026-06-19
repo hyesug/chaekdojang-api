@@ -9,6 +9,10 @@ concurrency:
   group: deploy-api-production
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -29,9 +33,55 @@ jobs:
       - name: Test
         run: ./gradlew test --no-daemon
 
-  deploy:
+  build:
     runs-on: ubuntu-latest
     needs: test
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build jar
+        run: ./gradlew clean bootJar --no-daemon
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      APP_IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+      GHCR_USERNAME: ${{ github.actor }}
+      GHCR_TOKEN: ${{ github.token }}
     steps:
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -39,6 +89,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: APP_IMAGE,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
 
@@ -52,17 +103,14 @@ jobs:
               sudo docker tag chaekdojang-api:local chaekdojang-api:rollback
             fi
 
-            cd api
-            chmod +x ./gradlew
-            ./gradlew clean bootJar --rerun-tasks --no-daemon
-            jar tf build/libs/api-0.0.1-SNAPSHOT.jar | grep -q 'BOOT-INF/classes/com/chaekdojang/api/ApiApplication.class'
-            cd ..
+            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             sudo systemctl stop chaekdojang || true
             sudo systemctl reset-failed chaekdojang || true
-            sudo docker compose --env-file .env.production -f docker-compose.prod.yml build app
+            sudo docker pull "$APP_IMAGE"
+            sudo docker tag "$APP_IMAGE" chaekdojang-api:local
             sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d redis
-            sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+            sudo env APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
 
             for i in $(seq 1 60); do
               code=$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
@@ -70,7 +118,7 @@ jobs:
               if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
                 chmod +x scripts/smoke-prod.sh
                 ./scripts/smoke-prod.sh
-                sudo docker compose --env-file .env.production -f docker-compose.prod.yml ps
+                sudo env APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml ps
                 sudo docker builder prune -af --filter "until=24h" || true
                 sudo docker image prune -f || true
                 git log -1 --oneline
@@ -83,14 +131,14 @@ jobs:
 
             if sudo docker image inspect chaekdojang-api:rollback >/dev/null 2>&1; then
               sudo docker tag chaekdojang-api:rollback chaekdojang-api:local
-              sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+              sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
 
               for i in $(seq 1 60); do
                 code=$(curl -s -o /tmp/chaekdojang-rollback-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
                 body=$(cat /tmp/chaekdojang-rollback-health.txt 2>/dev/null || true)
                 if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
                   echo "deploy failed; rolled back to previous Docker image"
-                  sudo docker compose --env-file .env.production -f docker-compose.prod.yml ps
+                  sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml ps
                   exit 1
                 fi
                 sleep 2

@@ -66,7 +66,7 @@ DEV_LOGIN_ENABLED=false
 
 ## 운영 구조
 
-운영 EC2에서는 Docker compose로 API와 Redis를 실행합니다. PostgreSQL은 AWS RDS를 사용합니다.
+운영 EC2에서는 Docker compose로 API와 Redis를 실행합니다. PostgreSQL은 AWS RDS를 사용합니다. API 이미지는 GitHub Actions가 GHCR에 빌드해서 올리고, EC2는 이미지를 pull해서 실행합니다.
 
 ```text
 EC2
@@ -103,9 +103,11 @@ cd ..
 sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
+운영 자동 배포는 EC2에서 직접 빌드하지 않습니다. GitHub Actions가 `ghcr.io/hyesug/chaekdojang-api:<commit-sha>` 이미지를 만들고, EC2에서는 해당 이미지를 pull한 뒤 `APP_IMAGE`로 지정해 실행합니다.
+
 ## GitHub Actions 배포
 
-`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행하고, 성공하면 EC2에 SSH로 접속해 Docker compose 배포를 진행합니다.
+`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행합니다. 성공하면 jar와 Docker 이미지를 GitHub Actions runner에서 빌드해 GHCR에 push하고, EC2에 SSH로 접속해 이미지를 pull한 뒤 Docker compose 배포를 진행합니다.
 
 GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`에 아래 Secrets를 등록해야 합니다.
 
@@ -113,6 +115,8 @@ GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`에 아래 S
 EC2_HOST=EC2 public IP or domain
 EC2_SSH_KEY=private SSH key content
 ```
+
+GHCR push와 pull은 workflow의 `GITHUB_TOKEN`으로 처리합니다. 별도 GHCR 토큰은 필요 없습니다.
 
 ## 운영 Smoke Test
 

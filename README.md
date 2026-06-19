@@ -33,6 +33,13 @@ Swagger UI:
 http://localhost:8080/swagger-ui/index.html
 ```
 
+## 테스트
+
+```bash
+cd api
+./gradlew test
+```
+
 ## 주요 환경 변수
 
 ```text
@@ -57,11 +64,23 @@ DEV_LOGIN_ENABLED=false
 
 민감한 값은 커밋하지 않습니다. 로컬에서는 `application-local.yaml` 또는 환경 변수로 관리합니다.
 
-## 테스트
+## 운영 구조
 
-```bash
-cd api
-./gradlew test
+운영 EC2에서는 Docker compose로 API와 Redis를 실행합니다. PostgreSQL은 AWS RDS를 사용합니다.
+
+```text
+EC2
+├─ Nginx
+├─ Docker
+│  ├─ chaekdojang-app
+│  └─ chaekdojang-redis
+└─ RDS PostgreSQL은 외부 AWS RDS
+```
+
+운영 `.env.production`은 EC2에만 두고 Git에 커밋하지 않습니다.
+
+```text
+~/chaekdojang-api/.env.production
 ```
 
 ## Flyway
@@ -75,9 +94,7 @@ cd api
 
 앞으로 DB 구조를 바꿀 때는 엔티티 변경과 함께 `V2__...sql`, `V3__...sql` 파일을 추가해야 합니다. 운영에서는 Hibernate가 테이블을 자동 변경하지 않습니다.
 
-## 운영 Docker 배포
-
-운영 EC2에서는 RDS PostgreSQL을 사용하고, Docker compose로 API와 Redis를 실행합니다.
+## 수동 Docker 배포
 
 ```bash
 cd ~/chaekdojang-api/api
@@ -85,8 +102,6 @@ cd ~/chaekdojang-api/api
 cd ..
 sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
-
-운영 `.env.production`은 EC2에만 두고 Git에 커밋하지 않습니다.
 
 ## GitHub Actions 배포
 
@@ -99,11 +114,21 @@ EC2_HOST=EC2 public IP or domain
 EC2_SSH_KEY=private SSH key content
 ```
 
-EC2에는 운영 환경 파일이 있어야 합니다.
+## 운영 Smoke Test
 
-```text
-~/chaekdojang-api/.env.production
+배포 완료 기준은 단순히 Docker 컨테이너가 떠 있는 것이 아니라, 사용자가 실제로 접근하는 공개 경로가 정상인 것입니다.
+
+```bash
+./scripts/smoke-prod.sh
 ```
+
+이 스크립트는 아래를 확인합니다.
+
+- `https://api.chaekdojang.com/actuator/health`가 `UP`인지
+- `https://www.chaekdojang.com/api/reviews?page=0&size=5&sort=recent`가 독후감 데이터를 1개 이상 반환하는지
+- `https://www.chaekdojang.com` 홈이 200인지
+
+GitHub Actions 배포도 이 smoke test를 실행합니다. 프론트 rewrite나 Nginx HTTPS 설정이 깨지면 배포 성공으로 처리하지 않습니다.
 
 ## 자동 배포 실패 시 동작
 
@@ -117,7 +142,7 @@ EC2에는 운영 환경 파일이 있어야 합니다.
 4. rollback health check를 다시 확인합니다.
 5. GitHub Actions는 실패로 표시합니다.
 
-즉, Actions가 실패하더라도 가능한 경우 운영 서버는 직전 정상 이미지로 되돌아갑니다. 다만 DB migration 자체가 이미 실행된 뒤 실패한 경우에는 별도 판단이 필요하므로, DB 변경 migration은 작게 나누고 배포 전 신중히 확인합니다.
+DB migration 자체가 이미 실행된 뒤 실패한 경우에는 별도 판단이 필요합니다. DB 변경 migration은 작게 나누고 배포 전 신중히 확인합니다.
 
 ## 수동 롤백
 

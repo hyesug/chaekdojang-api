@@ -68,6 +68,8 @@ jobs:
               code=$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
               body=$(cat /tmp/chaekdojang-health.txt 2>/dev/null || true)
               if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
+                chmod +x scripts/smoke-prod.sh
+                ./scripts/smoke-prod.sh
                 sudo docker compose --env-file .env.production -f docker-compose.prod.yml ps
                 sudo docker builder prune -af --filter "until=24h" || true
                 sudo docker image prune -f || true

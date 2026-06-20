@@ -105,7 +105,8 @@ jobs:
           export GHCR_USERNAME="$GHCR_USERNAME"
           export GHCR_TOKEN="$GHCR_TOKEN"
 
-          cd ~/chaekdojang-api
+          cd /home/ubuntu/chaekdojang-api
+          git config --global --add safe.directory /home/ubuntu/chaekdojang-api
           git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
           git pull --ff-only origin main
           mkdir -p deploy_history

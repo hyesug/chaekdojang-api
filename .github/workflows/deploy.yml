@@ -181,7 +181,7 @@ jobs:
           jq -Rs '{
             DocumentName: "AWS-RunShellScript",
             InstanceIds: [env.EC2_INSTANCE_ID],
-            Comment: "Deploy chaekdojang-api " + env.DEPLOY_COMMIT,
+            Comment: ("Deploy chaekdojang-api " + env.DEPLOY_COMMIT),
             Parameters: { commands: split("\n") }
           }' deploy-commands.sh > send-command.json
 

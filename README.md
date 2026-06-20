@@ -134,6 +134,31 @@ GHCR push와 pull은 workflow의 `GITHUB_TOKEN`으로 처리합니다. 별도 GH
 
 GitHub Actions 배포도 이 smoke test를 실행합니다. 프론트 rewrite나 Nginx HTTPS 설정이 깨지면 배포 성공으로 처리하지 않습니다.
 
+## 운영 DB 백업
+
+배포 workflow는 새 API 컨테이너를 올리기 전에 RDS PostgreSQL 백업을 먼저 생성합니다.
+
+```bash
+./scripts/backup-prod-db.sh
+```
+
+기본 백업 위치는 아래와 같습니다.
+
+```text
+/home/ubuntu/db_backups
+```
+
+백업 파일은 `pg_dump --format=custom` 형식이며 기본 14일 동안 보관합니다. 수동 복구가 필요하면 먼저 새 RDS나 별도 DB에 복원해서 확인한 뒤 운영 DB에 적용합니다.
+
+## 운영 상태 점검
+
+EC2에서 아래 명령으로 컨테이너, 디스크, health, 최근 백업, 최근 로그를 한 번에 확인할 수 있습니다.
+
+```bash
+cd ~/chaekdojang-api
+./scripts/ops-status.sh
+```
+
 ## 자동 배포 실패 시 동작
 
 배포 workflow는 새 이미지를 만들기 전에 현재 정상 이미지를 `chaekdojang-api:rollback`으로 저장합니다.

@@ -98,6 +98,8 @@ jobs:
             git pull --ff-only origin main
 
             test -f .env.production
+            chmod +x scripts/backup-prod-db.sh
+            ./scripts/backup-prod-db.sh
 
             if sudo docker image inspect chaekdojang-api:local >/dev/null 2>&1; then
               sudo docker tag chaekdojang-api:local chaekdojang-api:rollback

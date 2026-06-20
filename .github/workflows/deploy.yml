@@ -97,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat > deploy-commands.sh <<EOF
+          cat > deploy-script.sh <<EOF
           set -euo pipefail
 
           export APP_IMAGE="$APP_IMAGE"
@@ -178,12 +178,19 @@ jobs:
           exit 1
           EOF
 
-          jq -Rs '{
+          encoded_script=$(base64 -w0 deploy-script.sh)
+
+          jq -n --arg encoded_script "$encoded_script" '{
             DocumentName: "AWS-RunShellScript",
             InstanceIds: [env.EC2_INSTANCE_ID],
             Comment: ("Deploy chaekdojang-api " + env.DEPLOY_COMMIT),
-            Parameters: { commands: split("\n") }
-          }' deploy-commands.sh > send-command.json
+            Parameters: {
+              commands: [
+                ("printf %s " + ($encoded_script | @sh) + " | base64 -d > /tmp/chaekdojang-deploy.sh"),
+                "bash /tmp/chaekdojang-deploy.sh"
+              ]
+            }
+          }' > send-command.json
 
           command_id=$(aws ssm send-command \
             --cli-input-json file://send-command.json \

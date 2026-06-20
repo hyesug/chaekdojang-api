@@ -2,6 +2,8 @@ package com.chaekdojang.api.domain.admin;
 
 import com.chaekdojang.api.domain.accesslog.AccessLog;
 import com.chaekdojang.api.domain.accesslog.AccessLogService;
+import com.chaekdojang.api.domain.admin.audit.AdminAuditLogRepository;
+import com.chaekdojang.api.domain.admin.audit.AdminAuditLogService;
 import com.chaekdojang.api.domain.admin.dto.*;
 import com.chaekdojang.api.domain.errorlog.ErrorLogService;
 import com.chaekdojang.api.domain.inquiry.Inquiry;
@@ -40,6 +42,8 @@ public class AdminService {
     private final AccessLogService accessLogService;
     private final ErrorLogService errorLogService;
     private final MetricEventRepository metricEventRepository;
+    private final AdminAuditLogRepository adminAuditLogRepository;
+    private final AdminAuditLogService adminAuditLogService;
 
     // ── 권한 검증 ──────────────────────────────────────────
     private User assertAdmin(Long userId) {
@@ -64,12 +68,20 @@ public class AdminService {
 
     @Transactional
     public void setRole(Long adminId, Long targetUserId, UserRole role) {
-        assertSuperAdmin(adminId);
+        User admin = assertSuperAdmin(adminId);
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         if (target.isSuperAdmin()) throw new CustomException(ErrorCode.FORBIDDEN); // 슈퍼 관리자는 변경 불가
+        UserRole previousRole = target.getRole();
         if (role == UserRole.ADMIN) target.promoteToAdmin();
         else target.demoteToUser();
+        adminAuditLogService.record(
+                admin,
+                "USER_ROLE_CHANGED",
+                "USER",
+                target.getId(),
+                "Changed user role from " + previousRole + " to " + target.getRole()
+        );
     }
 
     // ── 독후감 관리 ─────────────────────────────────────────
@@ -83,10 +95,17 @@ public class AdminService {
 
     @Transactional
     public void setHidden(Long adminId, Long reviewId, boolean hidden) {
-        assertAdmin(adminId);
+        User admin = assertAdmin(adminId);
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         if (hidden) review.hide(); else review.unhide();
+        adminAuditLogService.record(
+                admin,
+                hidden ? "REVIEW_HIDDEN" : "REVIEW_UNHIDDEN",
+                "REVIEW",
+                review.getId(),
+                "Set review hidden=" + hidden
+        );
     }
 
     public List<BookReviewStatResponse> getBookStats(Long adminId) {
@@ -166,12 +185,30 @@ public class AdminService {
                 .map(ErrorLogResponse::from);
     }
 
+    public Page<AdminAuditLogResponse> getAuditLogs(
+            Long adminId,
+            String q,
+            String action,
+            String targetType,
+            Pageable pageable) {
+        assertAdmin(adminId);
+        return adminAuditLogRepository.search(normalize(q), normalize(action), normalize(targetType), pageable)
+                .map(AdminAuditLogResponse::from);
+    }
+
     @Transactional
     public InquiryResponse addComment(Long adminId, Long inquiryId, String content) {
         User admin = assertAdmin(adminId);
         Inquiry inquiry = inquiryRepository.findByIdAndDeletedAtIsNull(inquiryId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         inquiryCommentRepository.save(InquiryComment.create(inquiry, admin, content));
+        adminAuditLogService.record(
+                admin,
+                "INQUIRY_COMMENT_CREATED",
+                "INQUIRY",
+                inquiry.getId(),
+                "Added admin comment to inquiry"
+        );
         // 변경감지를 위해 다시 조회
         return InquiryResponse.from(inquiryRepository.findByIdAndDeletedAtIsNull(inquiryId).get());
     }

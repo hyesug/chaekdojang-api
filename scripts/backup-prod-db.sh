@@ -4,6 +4,7 @@ set -euo pipefail
 ENV_FILE="${ENV_FILE:-.env.production}"
 BACKUP_DIR="${BACKUP_DIR:-/home/ubuntu/db_backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
+BACKUP_S3_PREFIX="${BACKUP_S3_PREFIX:-db-backups}"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "FAIL db-backup: env file not found: $ENV_FILE" >&2
@@ -59,5 +60,16 @@ PGPASSWORD="$SPRING_DATASOURCE_PASSWORD" pg_dump \
 
 chmod 600 "$backup_file"
 find "$BACKUP_DIR" -name 'chaekdojang_*.dump' -type f -mtime +"$RETENTION_DAYS" -delete
+
+if [ -n "${BACKUP_S3_BUCKET:-}" ]; then
+  if ! command -v aws >/dev/null 2>&1; then
+    echo "FAIL db-backup: aws cli is required when BACKUP_S3_BUCKET is set" >&2
+    exit 1
+  fi
+
+  s3_uri="s3://${BACKUP_S3_BUCKET%/}/${BACKUP_S3_PREFIX%/}/$(basename "$backup_file")"
+  aws s3 cp "$backup_file" "$s3_uri" --only-show-errors
+  echo "OK db-backup-s3: $s3_uri"
+fi
 
 echo "OK db-backup: $backup_file"

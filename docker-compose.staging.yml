@@ -1,13 +1,13 @@
-# Production docker compose for EC2.
-# PostgreSQL runs on AWS RDS, so this file only runs Redis and the API app.
+# Staging docker compose for EC2.
+# Use a separate RDS database and a separate FRONTEND_URL/BACKEND_URL from production.
 #
 # Usage:
-#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#   docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 
 services:
-  redis:
+  redis-staging:
     image: redis:7-alpine
-    container_name: chaekdojang-redis
+    container_name: chaekdojang-redis-staging
     restart: unless-stopped
     logging:
       driver: json-file
@@ -20,17 +20,17 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  app-staging:
     build:
       context: ./api
       dockerfile: Dockerfile
-    image: ${APP_IMAGE:-chaekdojang-api:local}
-    container_name: chaekdojang-app
+    image: ${APP_IMAGE:-chaekdojang-api:staging}
+    container_name: chaekdojang-app-staging
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8080"
     env_file:
-      - .env.production
+      - .env.staging
     environment:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_JPA_SHOW_SQL: "false"
@@ -40,7 +40,7 @@ services:
       SPRING_FLYWAY_BASELINE_VERSION: "1"
       LOGGING_LEVEL_ORG_HIBERNATE_SQL: WARN
       LOGGING_LEVEL_ORG_HIBERNATE_BIND: WARN
-      REDIS_HOST: redis
+      REDIS_HOST: redis-staging
       REDIS_PORT: 6379
       SERVER_TOMCAT_THREADS_MAX: 100
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
@@ -58,5 +58,5 @@ services:
       retries: 8
       start_period: 45s
     depends_on:
-      redis:
+      redis-staging:
         condition: service_healthy

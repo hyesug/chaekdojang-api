@@ -1,6 +1,7 @@
 package com.chaekdojang.api.global.filter;
 
 import com.chaekdojang.api.domain.accesslog.AccessLogService;
+import com.chaekdojang.api.global.util.ClientIpUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,7 +44,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } finally {
             long elapsed = System.currentTimeMillis() - start;
-            String ip = maskIp(getClientIp(request));
+            String ip = maskIp(ClientIpUtils.getClientIp(request));
             String method = request.getMethod();
             String uri = request.getRequestURI();
             int status = response.getStatus();
@@ -67,14 +68,6 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         return SKIP_PREFIXES.stream().anyMatch(uri::startsWith)
                 || SKIP_SUFFIXES.stream().anyMatch(lower::endsWith)
                 || uri.contains("/opengraph-image");
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 
     private String maskIp(String ip) {

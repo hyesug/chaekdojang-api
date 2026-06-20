@@ -36,6 +36,9 @@ public class SecurityConfig {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
+    @Value("${app.cors.allowed-origins:}")
+    private String corsAllowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -95,7 +98,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000", frontendUrl));
+        List<String> origins = new java.util.ArrayList<>(List.of("http://localhost:3000", frontendUrl));
+        if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
+            origins.addAll(java.util.Arrays.stream(corsAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isBlank())
+                    .toList());
+        }
+        config.setAllowedOrigins(origins.stream().distinct().toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

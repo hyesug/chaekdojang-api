@@ -11,6 +11,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
   packages: write
 
 jobs:
@@ -83,85 +84,127 @@ jobs:
       DEPLOY_COMMIT: ${{ github.sha }}
       GHCR_USERNAME: ${{ github.actor }}
       GHCR_TOKEN: ${{ github.token }}
+      AWS_REGION: ap-northeast-2
+      EC2_INSTANCE_ID: i-0362f42382b67f52b
     steps:
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: APP_IMAGE,DEPLOY_COMMIT,GHCR_USERNAME,GHCR_TOKEN
-          script: |
-            set -euo pipefail
+          role-to-assume: arn:aws:iam::863518416212:role/chaekdojang-github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
 
-            cd ~/chaekdojang-api
-            git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
-            git pull --ff-only origin main
-            mkdir -p deploy_history
+      - name: Deploy on EC2 through SSM
+        run: |
+          set -euo pipefail
 
-            test -f .env.production
-            chmod +x scripts/backup-prod-db.sh
-            ./scripts/backup-prod-db.sh
+          cat > deploy-commands.sh <<EOF
+          set -euo pipefail
 
-            if sudo docker image inspect chaekdojang-api:local >/dev/null 2>&1; then
-              previous_image="$(sudo docker inspect chaekdojang-api:local --format '{{ index .RepoTags 0 }}' 2>/dev/null || true)"
-              sudo docker tag chaekdojang-api:local chaekdojang-api:rollback
-            else
-              previous_image=""
+          export APP_IMAGE="$APP_IMAGE"
+          export DEPLOY_COMMIT="$DEPLOY_COMMIT"
+          export GHCR_USERNAME="$GHCR_USERNAME"
+          export GHCR_TOKEN="$GHCR_TOKEN"
+
+          cd ~/chaekdojang-api
+          git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
+          git pull --ff-only origin main
+          mkdir -p deploy_history
+
+          test -f .env.production
+          chmod +x scripts/backup-prod-db.sh
+          ./scripts/backup-prod-db.sh
+
+          if sudo docker image inspect chaekdojang-api:local >/dev/null 2>&1; then
+            previous_image="\$(sudo docker inspect chaekdojang-api:local --format '{{ index .RepoTags 0 }}' 2>/dev/null || true)"
+            sudo docker tag chaekdojang-api:local chaekdojang-api:rollback
+          else
+            previous_image=""
+          fi
+
+          echo "\$GHCR_TOKEN" | sudo docker login ghcr.io -u "\$GHCR_USERNAME" --password-stdin
+
+          sudo systemctl stop chaekdojang || true
+          sudo systemctl reset-failed chaekdojang || true
+          sudo docker pull "\$APP_IMAGE"
+          sudo docker tag "\$APP_IMAGE" chaekdojang-api:local
+          sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d redis
+          sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
+
+          for i in \$(seq 1 60); do
+            code=\$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
+            body=\$(cat /tmp/chaekdojang-health.txt 2>/dev/null || true)
+            if [ "\$code" = "200" ] && echo "\$body" | grep -q 'UP'; then
+              chmod +x scripts/smoke-prod.sh
+              ./scripts/smoke-prod.sh
+              {
+                echo "deployed_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                echo "commit=\$DEPLOY_COMMIT"
+                echo "image=\$APP_IMAGE"
+                echo "previous_image=\$previous_image"
+              } | tee deploy_history/latest.env
+              sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml ps
+              sudo docker builder prune -af --filter "until=24h" || true
+              sudo docker image prune -f || true
+              git log -1 --oneline
+              exit 0
             fi
+            sleep 2
+          done
 
-            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+          sudo docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=160 app
 
-            sudo systemctl stop chaekdojang || true
-            sudo systemctl reset-failed chaekdojang || true
-            sudo docker pull "$APP_IMAGE"
-            sudo docker tag "$APP_IMAGE" chaekdojang-api:local
-            sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d redis
-            sudo env APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
+          if sudo docker image inspect chaekdojang-api:rollback >/dev/null 2>&1; then
+            sudo docker tag chaekdojang-api:rollback chaekdojang-api:local
+            sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
 
-            for i in $(seq 1 60); do
-              code=$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
-              body=$(cat /tmp/chaekdojang-health.txt 2>/dev/null || true)
-              if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
-                chmod +x scripts/smoke-prod.sh
-                ./scripts/smoke-prod.sh
+            for i in \$(seq 1 60); do
+              code=\$(curl -s -o /tmp/chaekdojang-rollback-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
+              body=\$(cat /tmp/chaekdojang-rollback-health.txt 2>/dev/null || true)
+              if [ "\$code" = "200" ] && echo "\$body" | grep -q 'UP'; then
+                echo "deploy failed; rolled back to previous Docker image"
                 {
-                  echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                  echo "commit=$DEPLOY_COMMIT"
-                  echo "image=$APP_IMAGE"
-                  echo "previous_image=$previous_image"
-                } | tee deploy_history/latest.env
-                sudo env APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml ps
-                sudo docker builder prune -af --filter "until=24h" || true
-                sudo docker image prune -f || true
-                git log -1 --oneline
-                exit 0
+                  echo "rolled_back_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  echo "failed_image=\$APP_IMAGE"
+                  echo "rollback_image=chaekdojang-api:local"
+                  echo "previous_image=\$previous_image"
+                } | tee deploy_history/latest_rollback.env
+                sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml ps
+                exit 1
               fi
               sleep 2
             done
+          fi
 
-            sudo docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=160 app
+          exit 1
+          EOF
 
-            if sudo docker image inspect chaekdojang-api:rollback >/dev/null 2>&1; then
-              sudo docker tag chaekdojang-api:rollback chaekdojang-api:local
-              sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
+          jq -Rs '{
+            DocumentName: "AWS-RunShellScript",
+            InstanceIds: [env.EC2_INSTANCE_ID],
+            Comment: "Deploy chaekdojang-api " + env.DEPLOY_COMMIT,
+            Parameters: { commands: split("\n") }
+          }' deploy-commands.sh > send-command.json
 
-              for i in $(seq 1 60); do
-                code=$(curl -s -o /tmp/chaekdojang-rollback-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
-                body=$(cat /tmp/chaekdojang-rollback-health.txt 2>/dev/null || true)
-                if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
-                  echo "deploy failed; rolled back to previous Docker image"
-                  {
-                    echo "rolled_back_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                    echo "failed_image=$APP_IMAGE"
-                    echo "rollback_image=chaekdojang-api:local"
-                    echo "previous_image=$previous_image"
-                  } | tee deploy_history/latest_rollback.env
-                  sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml ps
-                  exit 1
-                fi
-                sleep 2
-              done
-            fi
+          command_id=$(aws ssm send-command \
+            --cli-input-json file://send-command.json \
+            --query "Command.CommandId" \
+            --output text)
 
+          echo "SSM command: $command_id"
+          set +e
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID"
+          wait_status=$?
+          set -e
+
+          invocation=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID")
+          echo "$invocation" | jq -r '.StandardOutputContent'
+          error_output=$(echo "$invocation" | jq -r '.StandardErrorContent')
+          if [ -n "$error_output" ]; then
+            echo "$error_output" >&2
+          fi
+
+          status=$(echo "$invocation" | jq -r '.Status')
+          if [ "$wait_status" -ne 0 ] || [ "$status" != "Success" ]; then
+            echo "SSM deploy failed with status=$status" >&2
             exit 1
+          fi

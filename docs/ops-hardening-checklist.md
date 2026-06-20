@@ -33,6 +33,7 @@ Current EC2 status:
 
 - Daily backup cron installed at `03:17 KST`.
 - A test backup was uploaded to S3 successfully.
+- A restore drill was completed successfully from the latest S3 dump into a temporary database, then the temporary database was deleted.
 
 ## AWS Cost Alert
 
@@ -54,7 +55,8 @@ AWS work:
 Current AWS status:
 
 - Monthly budget `chaekdojang-monthly-cost` was created at `20 USD`.
-- Email subscription confirmation is still required in the inbox.
+- Email subscription is confirmed.
+- SNS email test was delivered successfully.
 
 ## Security Group Final Check
 
@@ -122,9 +124,12 @@ Code is ready:
 
 AWS/Vercel work:
 
-- Create a separate staging database or at least a separate database name.
-- Create `staging-api.chaekdojang.com` and route it to EC2/Nginx.
-- Add an Nginx server block that proxies staging API traffic to `127.0.0.1:8081`.
+- Separate staging database is created: `chaekdojang_staging`.
+- Separate staging DB user is created: `chaekdojang_staging`.
+- Staging API container runs on EC2 at `127.0.0.1:8081`.
+- Nginx is prepared to proxy `staging-api.chaekdojang.com` to `127.0.0.1:8081`.
+- Create `staging-api.chaekdojang.com` in Cloudflare and point it to the EC2 public IP.
+- After DNS is active, issue a Let's Encrypt certificate for `staging-api.chaekdojang.com`.
 - Create a Vercel staging project or preview environment.
 - Set frontend env:
   - `BACKEND_URL=https://staging-api.chaekdojang.com`
@@ -177,6 +182,24 @@ Current production status:
 - The upload bucket remains private; CloudFront reads through Origin Access Control.
 - EC2 role has `s3:PutObject` for `profile-images/*`.
 - Bucket CORS is configured for production, staging, and local frontend origins.
+- ACM certificate for `cdn.chaekdojang.com` is requested and waiting for Cloudflare DNS validation.
+
+Cloudflare DNS records still needed:
+
+```text
+Type: CNAME
+Name: _4a4bd83610a57a27db386dc6d773e896.cdn
+Target: _951479b24d12989345c58defd1a62b3d.jkddzztszm.acm-validations.aws
+
+Type: CNAME
+Name: cdn
+Target: d2due94r4aw772.cloudfront.net
+
+Type: A
+Name: staging-api
+Target: 52.79.196.7
+Proxy status: DNS only until Let's Encrypt certificate issuance is complete
+```
 
 Bucket CORS:
 
@@ -196,3 +219,22 @@ Bucket CORS:
   }
 ]
 ```
+
+## Monitoring Alarms
+
+Current production status:
+
+- SNS topic for Seoul region operational alerts: `chaekdojang-ops-alerts`
+- Public API Route 53 health check: `06519a62-f24b-4284-8c3a-d1f033125a6f`
+- EC2 alarms:
+  - `chaekdojang-ec2-cpu-high`
+  - `chaekdojang-ec2-status-check-failed`
+  - `chaekdojang-ec2-memory-high`
+  - `chaekdojang-ec2-disk-root-high`
+- RDS alarms:
+  - `chaekdojang-rds-cpu-high`
+  - `chaekdojang-rds-free-storage-low`
+  - `chaekdojang-rds-connections-high`
+- Edge/API alarms:
+  - `chaekdojang-api-public-health-down`
+  - `chaekdojang-cloudfront-5xx-high`

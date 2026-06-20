@@ -100,6 +100,7 @@ jobs:
           cat > deploy-script.sh <<EOF
           set -euo pipefail
 
+          export HOME=/root
           export APP_IMAGE="$APP_IMAGE"
           export DEPLOY_COMMIT="$DEPLOY_COMMIT"
           export GHCR_USERNAME="$GHCR_USERNAME"

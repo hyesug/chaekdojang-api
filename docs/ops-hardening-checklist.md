@@ -87,6 +87,11 @@ Code is ready:
 - `V2__admin_audit_logs_and_operational_indexes.sql` creates `admin_audit_logs` and its indexes through Flyway.
 - `scripts/apply-operational-indexes.sql` contains indexes for existing production tables. Run it with the owner of those tables, because the application DB user may not own legacy tables.
 
+Current production status:
+
+- Flyway V2 is applied successfully.
+- `scripts/apply-operational-indexes.sql` was applied with the legacy table owner role.
+
 Deploy check:
 
 ```sql
@@ -159,26 +164,33 @@ Backend env example:
 STORAGE_TYPE=s3
 S3_UPLOAD_BUCKET=chaekdojang-prod-uploads-863518416212
 AWS_REGION=ap-northeast-2
-S3_PUBLIC_BASE_URL=https://cdn.chaekdojang.com
+S3_PUBLIC_BASE_URL=https://d2due94r4aw772.cloudfront.net
 S3_PROFILE_IMAGE_PREFIX=profile-images
 S3_PRESIGNED_URL_EXPIRATION_MINUTES=10
 ```
 
-AWS work:
+Current production status:
 
 - Created private upload bucket: `chaekdojang-prod-uploads-863518416212`.
-- Attach an EC2 role with `s3:PutObject` for `profile-images/*`.
-- Decide how files become publicly readable:
-  - recommended: CloudFront in front of the bucket,
-  - simpler but less controlled: public-read object policy.
-- Add bucket CORS if using direct browser uploads:
+- CloudFront distribution: `EM129YKDL37WV`
+- Public base URL: `https://d2due94r4aw772.cloudfront.net`
+- The upload bucket remains private; CloudFront reads through Origin Access Control.
+- EC2 role has `s3:PutObject` for `profile-images/*`.
+- Bucket CORS is configured for production, staging, and local frontend origins.
+
+Bucket CORS:
 
 ```json
 [
   {
     "AllowedHeaders": ["*"],
-    "AllowedMethods": ["PUT"],
-    "AllowedOrigins": ["https://www.chaekdojang.com", "https://staging.chaekdojang.com"],
+    "AllowedMethods": ["PUT", "POST", "GET"],
+    "AllowedOrigins": [
+      "https://www.chaekdojang.com",
+      "https://chaekdojang.com",
+      "https://staging.chaekdojang.com",
+      "http://localhost:3000"
+    ],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000
   }

@@ -84,7 +84,8 @@ Current AWS status:
 
 Code is ready:
 
-- `V2__admin_audit_logs_and_operational_indexes.sql` adds indexes for feed, reviews by author/book, comments, follows, notifications, library views, access logs, error logs, and admin audit logs.
+- `V2__admin_audit_logs_and_operational_indexes.sql` creates `admin_audit_logs` and its indexes through Flyway.
+- `scripts/apply-operational-indexes.sql` contains indexes for existing production tables. Run it with the owner of those tables, because the application DB user may not own legacy tables.
 
 Deploy check:
 

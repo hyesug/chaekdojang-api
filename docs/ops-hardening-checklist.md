@@ -169,7 +169,7 @@ Backend env example:
 STORAGE_TYPE=s3
 S3_UPLOAD_BUCKET=chaekdojang-prod-uploads-863518416212
 AWS_REGION=ap-northeast-2
-S3_PUBLIC_BASE_URL=https://d2due94r4aw772.cloudfront.net
+S3_PUBLIC_BASE_URL=https://cdn.chaekdojang.com
 S3_PROFILE_IMAGE_PREFIX=profile-images
 S3_PRESIGNED_URL_EXPIRATION_MINUTES=10
 ```
@@ -178,11 +178,11 @@ Current production status:
 
 - Created private upload bucket: `chaekdojang-prod-uploads-863518416212`.
 - CloudFront distribution: `EM129YKDL37WV`
-- Public base URL: `https://d2due94r4aw772.cloudfront.net`
+- Public base URL: `https://cdn.chaekdojang.com`
 - The upload bucket remains private; CloudFront reads through Origin Access Control.
 - EC2 role has `s3:PutObject` for `profile-images/*`.
 - Bucket CORS is configured for production, staging, and local frontend origins.
-- ACM certificate for `cdn.chaekdojang.com` is requested and waiting for Cloudflare DNS validation.
+- ACM certificate for `cdn.chaekdojang.com` is issued and attached to CloudFront.
 
 Cloudflare DNS records still needed:
 
@@ -198,7 +198,7 @@ Target: d2due94r4aw772.cloudfront.net
 Type: A
 Name: staging-api
 Target: 52.79.196.7
-Proxy status: DNS only until Let's Encrypt certificate issuance is complete
+Proxy status: DNS only
 ```
 
 Bucket CORS:

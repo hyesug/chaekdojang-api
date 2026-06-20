@@ -80,6 +80,7 @@ jobs:
     needs: build
     env:
       APP_IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+      DEPLOY_COMMIT: ${{ github.sha }}
       GHCR_USERNAME: ${{ github.actor }}
       GHCR_TOKEN: ${{ github.token }}
     steps:
@@ -89,20 +90,24 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: APP_IMAGE,GHCR_USERNAME,GHCR_TOKEN
+          envs: APP_IMAGE,DEPLOY_COMMIT,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
 
             cd ~/chaekdojang-api
             git remote set-url origin https://github.com/hyesug/chaekdojang-api.git
             git pull --ff-only origin main
+            mkdir -p deploy_history
 
             test -f .env.production
             chmod +x scripts/backup-prod-db.sh
             ./scripts/backup-prod-db.sh
 
             if sudo docker image inspect chaekdojang-api:local >/dev/null 2>&1; then
+              previous_image="$(sudo docker inspect chaekdojang-api:local --format '{{ index .RepoTags 0 }}' 2>/dev/null || true)"
               sudo docker tag chaekdojang-api:local chaekdojang-api:rollback
+            else
+              previous_image=""
             fi
 
             echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
@@ -120,6 +125,12 @@ jobs:
               if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
                 chmod +x scripts/smoke-prod.sh
                 ./scripts/smoke-prod.sh
+                {
+                  echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  echo "commit=$DEPLOY_COMMIT"
+                  echo "image=$APP_IMAGE"
+                  echo "previous_image=$previous_image"
+                } | tee deploy_history/latest.env
                 sudo env APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml ps
                 sudo docker builder prune -af --filter "until=24h" || true
                 sudo docker image prune -f || true
@@ -140,6 +151,12 @@ jobs:
                 body=$(cat /tmp/chaekdojang-rollback-health.txt 2>/dev/null || true)
                 if [ "$code" = "200" ] && echo "$body" | grep -q 'UP'; then
                   echo "deploy failed; rolled back to previous Docker image"
+                  {
+                    echo "rolled_back_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                    echo "failed_image=$APP_IMAGE"
+                    echo "rollback_image=chaekdojang-api:local"
+                    echo "previous_image=$previous_image"
+                  } | tee deploy_history/latest_rollback.env
                   sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml ps
                   exit 1
                 fi

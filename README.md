@@ -159,6 +159,23 @@ cd ~/chaekdojang-api
 ./scripts/ops-status.sh
 ```
 
+## CloudWatch Logs
+
+CloudWatch Agent 설정 파일과 설치 스크립트를 준비해두었습니다.
+
+```bash
+cd ~/chaekdojang-api
+./scripts/install-cloudwatch-agent.sh
+```
+
+이 스크립트는 Nginx access/error 로그와 EC2 디스크/메모리 지표를 CloudWatch로 보냅니다. 실행 전에 EC2 인스턴스에 CloudWatch Agent 권한이 있는 IAM Role을 연결해야 합니다.
+
+필요 IAM 권한:
+
+```text
+CloudWatchAgentServerPolicy
+```
+
 ## 자동 배포 실패 시 동작
 
 배포 workflow는 새 이미지를 만들기 전에 현재 정상 이미지를 `chaekdojang-api:rollback`으로 저장합니다.

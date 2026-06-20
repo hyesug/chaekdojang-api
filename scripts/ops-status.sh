@@ -28,5 +28,10 @@ echo "== recent backups =="
 ls -lh /home/ubuntu/db_backups 2>/dev/null | tail -n 10 || true
 
 echo
+echo "== deploy history =="
+cat deploy_history/latest.env 2>/dev/null || true
+cat deploy_history/latest_rollback.env 2>/dev/null || true
+
+echo
 echo "== recent app logs =="
 sudo docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=80 app || true

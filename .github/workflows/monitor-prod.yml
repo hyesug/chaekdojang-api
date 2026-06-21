@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   smoke:
@@ -22,22 +23,66 @@ jobs:
 
   disk:
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-northeast-2
+      EC2_INSTANCE_ID: i-0362f42382b67f52b
     steps:
-      - name: Check EC2 disk usage
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euo pipefail
+          role-to-assume: arn:aws:iam::863518416212:role/chaekdojang-github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
 
-            usage=$(df -P / | awk 'NR==2 { gsub("%", "", $5); print $5 }')
-            df -h /
+      - name: Check EC2 disk usage
+        run: |
+          set -euo pipefail
 
-            if [ "$usage" -ge 90 ]; then
-              echo "Root disk usage is ${usage}%, threshold is 90%."
-              exit 1
+          jq -n '{
+            DocumentName: "AWS-RunShellScript",
+            InstanceIds: [env.EC2_INSTANCE_ID],
+            Comment: "Monitor production disk usage",
+            Parameters: {
+              commands: [
+                "set -eu",
+                "usage=$(df -P / | tail -n 1 | tr -s \" \" | cut -d \" \" -f 5 | tr -d \"%\")",
+                "test -n \"$usage\"",
+                "df -h /",
+                "if [ \"$usage\" -ge 90 ]; then echo \"Root disk usage is ${usage}%, threshold is 90%.\"; exit 1; fi",
+                "echo \"Root disk usage is ${usage}%.\""
+              ]
+            }
+          }' > send-command.json
+
+          command_id=$(aws ssm send-command \
+            --cli-input-json file://send-command.json \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command: $command_id"
+
+          for i in $(seq 1 30); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query "Status" \
+              --output text)
+
+            if [ "$status" != "Pending" ] && [ "$status" != "InProgress" ] && [ "$status" != "Delayed" ]; then
+              break
             fi
 
-            echo "Root disk usage is ${usage}%."
+            sleep 5
+          done
+
+          invocation=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID")
+          echo "$invocation" | jq -r '.StandardOutputContent'
+          error_output=$(echo "$invocation" | jq -r '.StandardErrorContent')
+          if [ -n "$error_output" ]; then
+            echo "$error_output" >&2
+          fi
+
+          status=$(echo "$invocation" | jq -r '.Status')
+          if [ "$status" != "Success" ]; then
+            echo "SSM disk check failed with status=$status" >&2
+            exit 1
+          fi

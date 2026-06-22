@@ -126,9 +126,12 @@ AWS/Vercel work:
 
 - Separate staging database is created: `chaekdojang_staging`.
 - Separate staging DB user is created: `chaekdojang_staging`.
+- Staging API EC2 is separated from production: `i-0b22c9c04390abada`.
+- Staging API Elastic IP: `3.34.214.8`.
 - Staging API container runs on EC2 at `127.0.0.1:8081`.
-- Nginx is prepared to proxy `staging-api.chaekdojang.com` to `127.0.0.1:8081`.
-- Create `staging-api.chaekdojang.com` in Cloudflare and point it to the EC2 public IP.
+- Nginx proxies `staging-api.chaekdojang.com` to `127.0.0.1:8081`.
+- GitHub Actions builds the Docker image and deploys staging through SSM; EC2 does not build application code.
+- Create `staging-api.chaekdojang.com` in Cloudflare and point it to `3.34.214.8`.
 - After DNS is active, issue a Let's Encrypt certificate for `staging-api.chaekdojang.com`.
 - Create a Vercel staging project or preview environment.
 - Set frontend env:
@@ -197,7 +200,7 @@ Target: d2due94r4aw772.cloudfront.net
 
 Type: A
 Name: staging-api
-Target: 52.79.196.7
+Target: 3.34.214.8
 Proxy status: DNS only
 ```
 

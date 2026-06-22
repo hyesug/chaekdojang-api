@@ -112,14 +112,14 @@ EC2
 cd ~/chaekdojang-api/api
 ./gradlew clean bootJar
 cd ..
-sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+APP_IMAGE=ghcr.io/hyesug/chaekdojang-api:<tag> sudo -E docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build
 ```
 
 운영 자동 배포는 EC2에서 직접 빌드하지 않습니다. GitHub Actions가 `ghcr.io/hyesug/chaekdojang-api:<commit-sha>` 이미지를 만들고, EC2에서는 해당 이미지를 pull한 뒤 `APP_IMAGE`로 지정해 실행합니다.
 
 ## GitHub Actions 배포
 
-`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행합니다. 성공하면 jar와 Docker 이미지를 GitHub Actions runner에서 빌드해 GHCR에 push하고, EC2에 SSH로 접속해 이미지를 pull한 뒤 Docker compose 배포를 진행합니다.
+`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행합니다. 성공하면 jar와 Docker 이미지를 GitHub Actions runner에서 빌드해 GHCR에 push하고, SSM으로 EC2에 명령을 보내 이미지를 pull한 뒤 Docker compose 배포를 진행합니다. `staging` 브랜치도 같은 방식으로 분리된 스테이징 EC2에 배포합니다.
 
 GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`에 아래 Secrets를 등록해야 합니다.
 

@@ -2,7 +2,7 @@
 # PostgreSQL runs on AWS RDS, so this file only runs Redis and the API app.
 #
 # Usage:
-#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#   APP_IMAGE=ghcr.io/hyesug/chaekdojang-api:<tag> docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 
 services:
   redis:
@@ -21,9 +21,6 @@ services:
       retries: 5
 
   app:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
     image: ${APP_IMAGE:-chaekdojang-api:local}
     container_name: chaekdojang-app
     restart: unless-stopped

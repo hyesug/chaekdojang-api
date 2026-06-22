@@ -22,6 +22,7 @@ Thumbs.db
 **/application-local.yaml
 .env
 .env.production
+.env.staging
 deploy_history/
 
 # Claude Code local settings

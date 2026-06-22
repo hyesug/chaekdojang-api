@@ -2,7 +2,7 @@
 # Use a separate RDS database and a separate FRONTEND_URL/BACKEND_URL from production.
 #
 # Usage:
-#   docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
+#   APP_IMAGE=ghcr.io/hyesug/chaekdojang-api:<tag> docker compose --env-file .env.staging -f docker-compose.staging.yml up -d
 
 services:
   redis-staging:
@@ -21,9 +21,6 @@ services:
       retries: 5
 
   app-staging:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
     image: ${APP_IMAGE:-chaekdojang-api:staging}
     container_name: chaekdojang-app-staging
     restart: unless-stopped

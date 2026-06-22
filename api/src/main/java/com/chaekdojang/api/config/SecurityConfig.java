@@ -57,6 +57,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/reviews/feed",
+                        "/api/reviews/feed/taste",
                         "/api/users/me",
                         "/api/users/*/follow/status"
                 ).authenticated()

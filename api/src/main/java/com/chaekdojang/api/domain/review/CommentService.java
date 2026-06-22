@@ -29,7 +29,7 @@ public class CommentService {
     @Transactional
     public CommentResponse create(Long reviewId, CommentCreateRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
+        Review review = reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -44,6 +44,8 @@ public class CommentService {
     }
 
     public List<CommentResponse> getAll(Long reviewId) {
+        reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(reviewId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         return commentRepository.findAllByReviewIdAndDeletedAtIsNullOrderByCreatedAtAsc(reviewId)
                 .stream()
                 .map(CommentResponse::from)

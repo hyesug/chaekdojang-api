@@ -51,6 +51,7 @@ class ReviewServiceTest {
     void setUpSecurityContext() {
         Authentication auth = mock(Authentication.class);
         // getOne 등 일부 메서드는 SecurityUtils를 호출하지 않으므로 lenient 처리
+        lenient().when(auth.isAuthenticated()).thenReturn(true);
         lenient().when(auth.getPrincipal()).thenReturn(USER_ID);
         SecurityContext ctx = mock(SecurityContext.class);
         lenient().when(ctx.getAuthentication()).thenReturn(auth);
@@ -98,7 +99,7 @@ class ReviewServiceTest {
     @DisplayName("독후감 단건 조회 성공 — likeCount·commentCount 포함")
     void getOne_success() {
         Review review = stubReviewForResponse(REVIEW_ID, stubUser(USER_ID));
-        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.of(review));
+        when(reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(REVIEW_ID)).thenReturn(Optional.of(review));
         when(reviewLikeRepository.countByReviewId(REVIEW_ID)).thenReturn(3L);
         when(commentRepository.countByReviewIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(1L);
 
@@ -111,7 +112,7 @@ class ReviewServiceTest {
     @Test
     @DisplayName("독후감 단건 조회 — 삭제된 독후감 → REVIEW_NOT_FOUND")
     void getOne_deletedOrMissing_throws() {
-        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.empty());
+        when(reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(REVIEW_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reviewService.getOne(REVIEW_ID))
                 .isInstanceOf(CustomException.class)

@@ -28,7 +28,7 @@ public class ReviewBookmarkService {
         if (bookmarkRepository.existsByReviewIdAndUserId(reviewId, userId)) {
             throw new CustomException(ErrorCode.BOOKMARK_ALREADY_EXISTS);
         }
-        Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
+        Review review = reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -53,6 +53,7 @@ public class ReviewBookmarkService {
         Long userId = SecurityUtils.getCurrentUserId();
         return bookmarkRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
+                .filter(b -> !b.getReview().isHidden() && b.getReview().getDeletedAt() == null)
                 .map(b -> ReviewResponse.from(
                         b.getReview(),
                         likeRepository.countByReviewId(b.getReview().getId()),

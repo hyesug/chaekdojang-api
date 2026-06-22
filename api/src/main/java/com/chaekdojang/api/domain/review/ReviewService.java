@@ -89,8 +89,7 @@ public class ReviewService {
     }
 
     public ReviewResponse getOne(Long id) {
-        Review review = findActiveReview(id);
-        if (review.isHidden()) throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
+        Review review = findVisibleReview(id);
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));
@@ -198,6 +197,11 @@ public class ReviewService {
 
     private Review findActiveReview(Long id) {
         return reviewRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+    }
+
+    private Review findVisibleReview(Long id) {
+        return reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
     }
 

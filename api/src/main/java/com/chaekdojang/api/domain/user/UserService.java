@@ -108,7 +108,7 @@ public class UserService {
 
     private UserProfileResponse buildProfile(Long userId) {
         User user = findUser(userId);
-        long reviewCount = reviewRepository.countByAuthorIdAndDeletedAtIsNull(userId);
+        long reviewCount = reviewRepository.countByAuthorIdAndDeletedAtIsNullAndHiddenFalse(userId);
         long followerCount = followRepository.countByFollowingId(userId);
         long followingCount = followRepository.countByFollowerId(userId);
         UserProfileResponse.LibrarySummary librarySummary = new UserProfileResponse.LibrarySummary(

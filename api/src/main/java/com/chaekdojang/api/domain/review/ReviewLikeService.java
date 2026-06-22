@@ -27,7 +27,7 @@ public class ReviewLikeService {
         if (reviewLikeRepository.existsByReviewIdAndUserId(reviewId, userId)) {
             throw new CustomException(ErrorCode.LIKE_ALREADY_EXISTS);
         }
-        Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
+        Review review = reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -45,6 +45,8 @@ public class ReviewLikeService {
     }
 
     public long countLikes(Long reviewId) {
+        reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(reviewId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         return reviewLikeRepository.countByReviewId(reviewId);
     }
 

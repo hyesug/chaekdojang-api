@@ -18,9 +18,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Optional<Review> findByIdAndDeletedAtIsNull(Long id);
 
+    Optional<Review> findByIdAndDeletedAtIsNullAndHiddenFalse(Long id);
+
     List<Review> findAllByAuthorIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long authorId);
 
-    long countByAuthorIdAndDeletedAtIsNull(Long authorId);
+    long countByAuthorIdAndDeletedAtIsNullAndHiddenFalse(Long authorId);
 
     long countByBookIdAndDeletedAtIsNullAndHiddenFalse(Long bookId);
 
@@ -57,6 +59,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             WHERE r1.author.id = :myId
               AND r2.author.id NOT IN :excludeIds
               AND r1.deletedAt IS NULL AND r2.deletedAt IS NULL
+              AND r1.hidden = false AND r2.hidden = false
             GROUP BY r2.author.id
             """)
     List<Object[]> findRatingSimilarity(@Param("myId") Long myId, @Param("excludeIds") List<Long> excludeIds);
@@ -93,7 +96,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("SELECT new com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse(" +
            "b.id, b.title, b.author, COUNT(r)) " +
            "FROM Review r JOIN r.book b " +
-           "WHERE r.deletedAt IS NULL " +
+           "WHERE r.deletedAt IS NULL AND r.hidden = false " +
            "GROUP BY b.id, b.title, b.author " +
            "ORDER BY COUNT(r) DESC")
     List<BookReviewStatResponse> findBookReviewStats();

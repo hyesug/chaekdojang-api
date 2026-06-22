@@ -1,5 +1,16 @@
 # chaekdojang-api
 
+## 2026-06 staging/visibility update
+
+- Staging API runs on a separate EC2 instance and is deployed from the `staging` branch by GitHub Actions.
+- GitHub Actions builds and pushes Docker images to GHCR. EC2 only pulls the selected image and restarts Docker Compose.
+- Production and staging DB access are separated by security-group rules.
+- Review visibility is backed by `reviews.hidden`.
+- Public feeds, book review collections, public user pages, sitemap, and SEO pages expose only `hidden=false` reviews.
+- Authors can now change their own review visibility through `PATCH /api/reviews/{id}/hidden`.
+- Admins can still moderate review visibility through `PATCH /api/admin/reviews/{id}/hidden`.
+- `GET /api/users/me/reviews` returns the signed-in user's own public and private reviews so the author can manage them.
+
 책도장 백엔드 API입니다. 독서 SNS의 독후감, 팔로우, 좋아요, 댓글, 책 검색, 내 서재, OAuth 로그인 기능을 제공합니다.
 
 ## 기술 스택

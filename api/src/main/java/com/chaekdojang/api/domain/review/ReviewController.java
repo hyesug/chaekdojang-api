@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.review;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
+import com.chaekdojang.api.domain.review.dto.ReviewVisibilityRequest;
 import com.chaekdojang.api.domain.user.UserService;
 import com.chaekdojang.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,13 @@ public class ReviewController {
             @PathVariable Long id,
             @RequestBody @Valid ReviewUpdateRequest request) {
         return ApiResponse.ok(reviewService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/hidden")
+    public ApiResponse<ReviewResponse> updateVisibility(
+            @PathVariable Long id,
+            @RequestBody @Valid ReviewVisibilityRequest request) {
+        return ApiResponse.ok(reviewService.updateVisibility(id, request));
     }
 
     @Operation(summary = "독후감 삭제", description = "본인이 작성한 독후감을 삭제합니다. JWT 필요.")

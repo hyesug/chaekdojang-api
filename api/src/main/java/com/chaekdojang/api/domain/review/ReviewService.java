@@ -8,6 +8,7 @@ import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
+import com.chaekdojang.api.domain.review.dto.ReviewVisibilityRequest;
 import com.chaekdojang.api.domain.user.FollowRepository;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
@@ -101,6 +102,17 @@ public class ReviewService {
         Review review = findActiveReview(id);
         if (!review.isAuthor(userId)) throw new CustomException(ErrorCode.FORBIDDEN);
         review.update(request.content(), request.rating());
+        return ReviewResponse.from(review,
+                reviewLikeRepository.countByReviewId(id),
+                commentRepository.countByReviewIdAndDeletedAtIsNull(id));
+    }
+
+    @Transactional
+    public ReviewResponse updateVisibility(Long id, ReviewVisibilityRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        Review review = findActiveReview(id);
+        if (!review.isAuthor(userId)) throw new CustomException(ErrorCode.FORBIDDEN);
+        if (Boolean.TRUE.equals(request.hidden())) review.hide(); else review.unhide();
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));

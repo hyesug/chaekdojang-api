@@ -67,7 +67,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 내 독후감 페이징 + 키워드 검색 (내용 또는 책 제목)
     // CAST(:q AS string) — null 시 PostgreSQL이 bytea로 추론하는 문제 방지
     @Query("SELECT r FROM Review r LEFT JOIN r.book b " +
-           "WHERE r.author.id = :userId AND r.deletedAt IS NULL AND r.hidden = false " +
+           "WHERE r.author.id = :userId AND r.deletedAt IS NULL " +
            "AND (CAST(:q AS string) IS NULL " +
            "     OR LOWER(r.content) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%')) " +
            "     OR LOWER(b.title) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))) " +

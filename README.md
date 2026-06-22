@@ -5,11 +5,14 @@
 - Staging API runs on a separate EC2 instance and is deployed from the `staging` branch by GitHub Actions.
 - GitHub Actions builds and pushes Docker images to GHCR. EC2 only pulls the selected image and restarts Docker Compose.
 - Production and staging DB access are separated by security-group rules.
+- Production and staging use separate PostgreSQL databases on RDS: `chaekdojang` and `chaekdojang_staging`.
+- Staging test data may be refreshed from production by stopping the staging API, backing up staging, dropping/recreating the staging `public` schema, restoring a production dump, and restarting the staging API.
 - Review visibility is backed by `reviews.hidden`.
 - Public feeds, book review collections, public user pages, sitemap, and SEO pages expose only `hidden=false` reviews.
 - Authors can now change their own review visibility through `PATCH /api/reviews/{id}/hidden`.
 - Admins can still moderate review visibility through `PATCH /api/admin/reviews/{id}/hidden`.
 - `GET /api/users/me/reviews` returns the signed-in user's own public and private reviews so the author can manage them.
+- Calendar-related frontend behavior depends on `GET /api/users/me/reviews` including the `hidden` field, so private/deleted reviews can be excluded from calendar display.
 
 책도장 백엔드 API입니다. 독서 SNS의 독후감, 팔로우, 좋아요, 댓글, 책 검색, 내 서재, OAuth 로그인 기능을 제공합니다.
 
@@ -105,6 +108,26 @@ EC2
 ```text
 ~/chaekdojang-api/.env.production
 ```
+
+## 스테이징 운영
+
+스테이징 API는 `https://staging-api.chaekdojang.com`에서 확인합니다. 스테이징 프론트는 `https://staging.chaekdojang.com`입니다.
+
+스테이징 서버는 운영과 분리된 EC2에서 실행하고, DB는 같은 RDS 인스턴스 안의 별도 데이터베이스 `chaekdojang_staging`을 사용합니다. 운영 데이터로 스테이징을 맞춰 테스트해야 할 때는 운영 DB를 직접 수정하지 않고 스테이징 DB만 덮어씁니다.
+
+권장 순서:
+
+```text
+1. staging API 컨테이너 중지
+2. 현재 staging DB 덤프 백업
+3. production DB 덤프 생성
+4. staging DB public 스키마 DROP/CREATE
+5. production 덤프를 staging DB에 restore
+6. staging API 재시작
+7. readiness와 주요 API smoke 확인
+```
+
+스테이징 DB를 운영 데이터로 초기화한 뒤에는 운영 계정/글 기준으로 테스트할 수 있습니다. 단, 소셜 로그인은 운영/스테이징 OAuth redirect URI와 소셜 provider 식별자에 따라 새 가입처럼 보일 수 있습니다.
 
 ## Flyway
 

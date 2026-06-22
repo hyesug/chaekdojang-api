@@ -90,7 +90,11 @@ public class ReviewService {
     }
 
     public ReviewResponse getOne(Long id) {
-        Review review = findVisibleReview(id);
+        Review review = findActiveReview(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrNull();
+        if (review.isHidden() && !review.isAuthor(currentUserId)) {
+            throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
+        }
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));

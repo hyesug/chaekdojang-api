@@ -9,6 +9,26 @@ public class SecurityUtils {
 
     private SecurityUtils() {}
 
+    public static Long getCurrentUserIdOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+
+        Object principal = auth.getPrincipal();
+        if (principal instanceof Long userId) {
+            return userId;
+        }
+        if (principal instanceof String value) {
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     public static Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {

@@ -1,18 +1,18 @@
 # chaekdojang-api
 
-## 2026-06 staging/visibility update
+## 2026-06 스테이징/공개 범위 업데이트
 
-- Staging API runs on a separate EC2 instance and is deployed from the `staging` branch by GitHub Actions.
-- GitHub Actions builds and pushes Docker images to GHCR. EC2 only pulls the selected image and restarts Docker Compose.
-- Production and staging DB access are separated by security-group rules.
-- Production and staging use separate PostgreSQL databases on RDS: `chaekdojang` and `chaekdojang_staging`.
-- Staging test data may be refreshed from production by stopping the staging API, backing up staging, dropping/recreating the staging `public` schema, restoring a production dump, and restarting the staging API.
-- Review visibility is backed by `reviews.hidden`.
-- Public feeds, book review collections, public user pages, sitemap, and SEO pages expose only `hidden=false` reviews.
-- Authors can now change their own review visibility through `PATCH /api/reviews/{id}/hidden`.
-- Admins can still moderate review visibility through `PATCH /api/admin/reviews/{id}/hidden`.
-- `GET /api/users/me/reviews` returns the signed-in user's own public and private reviews so the author can manage them.
-- Calendar-related frontend behavior depends on `GET /api/users/me/reviews` including the `hidden` field, so private/deleted reviews can be excluded from calendar display.
+- 스테이징 API는 운영과 분리된 EC2 인스턴스에서 실행하며, GitHub Actions가 `staging` 브랜치를 배포합니다.
+- GitHub Actions가 Docker 이미지를 빌드해 GHCR에 올립니다. EC2는 선택된 이미지만 pull한 뒤 Docker Compose를 재시작합니다.
+- 운영 DB와 스테이징 DB 접근은 보안 그룹 규칙으로 분리합니다.
+- 운영과 스테이징은 RDS 안에서 각각 `chaekdojang`, `chaekdojang_staging` PostgreSQL 데이터베이스를 사용합니다.
+- 스테이징 테스트 데이터는 운영 데이터로 갱신할 수 있습니다. 이때 스테이징 API를 중지하고, 스테이징 DB를 백업한 뒤, 스테이징 `public` 스키마를 삭제/재생성하고, 운영 덤프를 복원한 다음 스테이징 API를 다시 시작합니다.
+- 독후감 공개 여부는 `reviews.hidden` 값으로 관리합니다.
+- 공개 피드, 책별 독후감 모음, 공개 사용자 페이지, 사이트맵, SEO 페이지에는 `hidden=false` 독후감만 노출합니다.
+- 작성자는 `PATCH /api/reviews/{id}/hidden`으로 본인 독후감의 공개 여부를 변경할 수 있습니다.
+- 관리자는 기존처럼 `PATCH /api/admin/reviews/{id}/hidden`으로 독후감 공개 여부를 관리할 수 있습니다.
+- `GET /api/users/me/reviews`는 로그인한 사용자가 본인 독후감을 관리할 수 있도록 공개/비공개 독후감을 모두 반환합니다.
+- 캘린더 관련 프론트 동작은 `GET /api/users/me/reviews` 응답의 `hidden` 필드에 의존합니다. 이를 통해 비공개/삭제 독후감을 캘린더에서 제외합니다.
 
 책도장 백엔드 API입니다. 독서 SNS의 독후감, 팔로우, 좋아요, 댓글, 책 검색, 내 서재, OAuth 로그인 기능을 제공합니다.
 
@@ -41,7 +41,7 @@ cd api
 curl http://localhost:8080/actuator/health
 ```
 
-Swagger UI:
+Swagger UI 주소:
 
 ```text
 http://localhost:8080/swagger-ui/index.html
@@ -92,7 +92,7 @@ SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=10
 
 ## 운영 구조
 
-운영 EC2에서는 Docker compose로 API와 Redis를 실행합니다. PostgreSQL은 AWS RDS를 사용합니다. API 이미지는 GitHub Actions가 GHCR에 빌드해서 올리고, EC2는 이미지를 pull해서 실행합니다.
+운영 EC2에서는 Docker Compose로 API와 Redis를 실행합니다. PostgreSQL은 AWS RDS를 사용합니다. API 이미지는 GitHub Actions가 GHCR에 빌드해서 올리고, EC2는 이미지를 내려받아 실행합니다.
 
 ```text
 EC2
@@ -118,22 +118,22 @@ EC2
 권장 순서:
 
 ```text
-1. staging API 컨테이너 중지
-2. 현재 staging DB 덤프 백업
-3. production DB 덤프 생성
-4. staging DB public 스키마 DROP/CREATE
-5. production 덤프를 staging DB에 restore
-6. staging API 재시작
-7. readiness와 주요 API smoke 확인
+1. 스테이징 API 컨테이너 중지
+2. 현재 스테이징 DB 덤프 백업
+3. 운영 DB 덤프 생성
+4. 스테이징 DB public 스키마 DROP/CREATE
+5. 운영 덤프를 스테이징 DB에 복원
+6. 스테이징 API 재시작
+7. 준비 상태와 주요 API 스모크 테스트 확인
 ```
 
-스테이징 DB를 운영 데이터로 초기화한 뒤에는 운영 계정/글 기준으로 테스트할 수 있습니다. 단, 소셜 로그인은 운영/스테이징 OAuth redirect URI와 소셜 provider 식별자에 따라 새 가입처럼 보일 수 있습니다.
+스테이징 DB를 운영 데이터로 초기화한 뒤에는 운영 계정/글 기준으로 테스트할 수 있습니다. 단, 소셜 로그인은 운영/스테이징 OAuth 리다이렉트 URI와 소셜 제공자 식별자에 따라 새 가입처럼 보일 수 있습니다.
 
 ## Flyway
 
-운영 DB는 Flyway baseline 등록이 완료된 상태입니다.
+운영 DB는 Flyway 베이스라인 등록이 완료된 상태입니다.
 
-- migration 위치: `api/src/main/resources/db/migration`
+- 마이그레이션 위치: `api/src/main/resources/db/migration`
 - 초기 스키마: `V1__init_schema.sql`
 - 운영 Flyway: `SPRING_FLYWAY_ENABLED=true`
 - 운영 Hibernate: `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`
@@ -149,22 +149,22 @@ cd ..
 APP_IMAGE=ghcr.io/hyesug/chaekdojang-api:<tag> sudo -E docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build
 ```
 
-운영 자동 배포는 EC2에서 직접 빌드하지 않습니다. GitHub Actions가 `ghcr.io/hyesug/chaekdojang-api:<commit-sha>` 이미지를 만들고, EC2에서는 해당 이미지를 pull한 뒤 `APP_IMAGE`로 지정해 실행합니다.
+운영 자동 배포는 EC2에서 직접 빌드하지 않습니다. GitHub Actions가 `ghcr.io/hyesug/chaekdojang-api:<commit-sha>` 이미지를 만들고, EC2에서는 해당 이미지를 내려받은 뒤 `APP_IMAGE`로 지정해 실행합니다.
 
 ## GitHub Actions 배포
 
-`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행합니다. 성공하면 jar와 Docker 이미지를 GitHub Actions runner에서 빌드해 GHCR에 push하고, SSM으로 EC2에 명령을 보내 이미지를 pull한 뒤 Docker compose 배포를 진행합니다. `staging` 브랜치도 같은 방식으로 분리된 스테이징 EC2에 배포합니다.
+`main` 브랜치에 push하면 GitHub Actions가 테스트를 먼저 실행합니다. 성공하면 jar와 Docker 이미지를 GitHub Actions 실행 환경에서 빌드해 GHCR에 올리고, SSM으로 EC2에 명령을 보내 이미지를 내려받은 뒤 Docker Compose 배포를 진행합니다. `staging` 브랜치도 같은 방식으로 분리된 스테이징 EC2에 배포합니다.
 
 GitHub 저장소의 `Settings` > `Secrets and variables` > `Actions`에 아래 Secrets를 등록해야 합니다.
 
 ```text
-EC2_HOST=EC2 public IP or domain
-EC2_SSH_KEY=private SSH key content
+EC2_HOST=EC2 공개 IP 또는 도메인
+EC2_SSH_KEY=비공개 SSH 키 내용
 ```
 
-GHCR push와 pull은 workflow의 `GITHUB_TOKEN`으로 처리합니다. 별도 GHCR 토큰은 필요 없습니다.
+GHCR 업로드와 다운로드는 워크플로의 `GITHUB_TOKEN`으로 처리합니다. 별도 GHCR 토큰은 필요 없습니다.
 
-## 운영 Smoke Test
+## 운영 스모크 테스트
 
 배포 완료 기준은 단순히 Docker 컨테이너가 떠 있는 것이 아니라, 사용자가 실제로 접근하는 공개 경로가 정상인 것입니다.
 
@@ -178,11 +178,11 @@ GHCR push와 pull은 workflow의 `GITHUB_TOKEN`으로 처리합니다. 별도 GH
 - `https://www.chaekdojang.com/api/reviews?page=0&size=5&sort=recent`가 독후감 데이터를 1개 이상 반환하는지
 - `https://www.chaekdojang.com` 홈이 200인지
 
-GitHub Actions 배포도 이 smoke test를 실행합니다. 프론트 rewrite나 Nginx HTTPS 설정이 깨지면 배포 성공으로 처리하지 않습니다.
+GitHub Actions 배포도 이 스모크 테스트를 실행합니다. 프론트 rewrite 설정이나 Nginx HTTPS 설정이 깨지면 배포 성공으로 처리하지 않습니다.
 
 ## 운영 DB 백업
 
-배포 workflow는 새 API 컨테이너를 올리기 전에 RDS PostgreSQL 백업을 먼저 생성합니다.
+배포 워크플로는 새 API 컨테이너를 올리기 전에 RDS PostgreSQL 백업을 먼저 생성합니다.
 
 ```bash
 ./scripts/backup-prod-db.sh
@@ -198,14 +198,14 @@ GitHub Actions 배포도 이 smoke test를 실행합니다. 프론트 rewrite나
 
 ## 운영 상태 점검
 
-EC2에서 아래 명령으로 컨테이너, 디스크, health, 최근 백업, 최근 로그를 한 번에 확인할 수 있습니다.
+EC2에서 아래 명령으로 컨테이너, 디스크, 상태, 최근 백업, 최근 로그를 한 번에 확인할 수 있습니다.
 
 ```bash
 cd ~/chaekdojang-api
 ./scripts/ops-status.sh
 ```
 
-## CloudWatch Logs
+## CloudWatch 로그
 
 CloudWatch Agent 설정 파일과 설치 스크립트를 준비해두었습니다.
 
@@ -214,7 +214,7 @@ cd ~/chaekdojang-api
 ./scripts/install-cloudwatch-agent.sh
 ```
 
-이 스크립트는 Nginx access/error 로그와 EC2 디스크/메모리 지표를 CloudWatch로 보냅니다. 실행 전에 EC2 인스턴스에 CloudWatch Agent 권한이 있는 IAM Role을 연결해야 합니다.
+이 스크립트는 Nginx 접근/오류 로그와 EC2 디스크/메모리 지표를 CloudWatch로 보냅니다. 실행 전에 EC2 인스턴스에 CloudWatch Agent 권한이 있는 IAM Role을 연결해야 합니다.
 
 필요 IAM 권한:
 
@@ -224,17 +224,17 @@ CloudWatchAgentServerPolicy
 
 ## 자동 배포 실패 시 동작
 
-배포 workflow는 새 이미지를 만들기 전에 현재 정상 이미지를 `chaekdojang-api:rollback`으로 저장합니다.
+배포 워크플로는 새 이미지를 만들기 전에 현재 정상 이미지를 `chaekdojang-api:rollback`으로 저장합니다.
 
 새 컨테이너가 `/actuator/health`에서 `UP`을 반환하지 않으면:
 
 1. 새 컨테이너 로그를 출력합니다.
 2. 이전 Docker 이미지를 `chaekdojang-api:local`로 되돌립니다.
 3. 이전 이미지로 API 컨테이너를 다시 띄웁니다.
-4. rollback health check를 다시 확인합니다.
+4. 롤백 후 상태 확인을 다시 실행합니다.
 5. GitHub Actions는 실패로 표시합니다.
 
-DB migration 자체가 이미 실행된 뒤 실패한 경우에는 별도 판단이 필요합니다. DB 변경 migration은 작게 나누고 배포 전 신중히 확인합니다.
+DB 마이그레이션 자체가 이미 실행된 뒤 실패한 경우에는 별도 판단이 필요합니다. DB 변경 마이그레이션은 작게 나누고 배포 전 신중히 확인합니다.
 
 ## 수동 롤백
 

@@ -99,7 +99,7 @@ class ReviewServiceTest {
     @DisplayName("독후감 단건 조회 성공 — likeCount·commentCount 포함")
     void getOne_success() {
         Review review = stubReviewForResponse(REVIEW_ID, stubUser(USER_ID));
-        when(reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(REVIEW_ID)).thenReturn(Optional.of(review));
+        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.of(review));
         when(reviewLikeRepository.countByReviewId(REVIEW_ID)).thenReturn(3L);
         when(commentRepository.countByReviewIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(1L);
 
@@ -112,7 +112,33 @@ class ReviewServiceTest {
     @Test
     @DisplayName("독후감 단건 조회 — 삭제된 독후감 → REVIEW_NOT_FOUND")
     void getOne_deletedOrMissing_throws() {
-        when(reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(REVIEW_ID)).thenReturn(Optional.empty());
+        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> reviewService.getOne(REVIEW_ID))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("독후감 단건 조회 — 비공개 독후감은 작성자만 조회 가능")
+    void getOne_hidden_allowsAuthorOnly() {
+        Review review = stubReviewForResponse(REVIEW_ID, stubUser(USER_ID));
+        when(review.isHidden()).thenReturn(true);
+        when(review.isAuthor(USER_ID)).thenReturn(true);
+        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.of(review));
+
+        ReviewResponse result = reviewService.getOne(REVIEW_ID);
+
+        assertThat(result.id()).isEqualTo(REVIEW_ID);
+    }
+
+    @Test
+    @DisplayName("독후감 단건 조회 — 다른 사용자의 비공개 독후감 → REVIEW_NOT_FOUND")
+    void getOne_hiddenOther_throws() {
+        Review review = stubReviewForResponse(REVIEW_ID, stubUser(OTHER_ID));
+        when(review.isHidden()).thenReturn(true);
+        when(review.isAuthor(USER_ID)).thenReturn(false);
+        when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.of(review));
 
         assertThatThrownBy(() -> reviewService.getOne(REVIEW_ID))
                 .isInstanceOf(CustomException.class)

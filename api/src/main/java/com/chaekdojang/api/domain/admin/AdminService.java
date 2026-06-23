@@ -141,7 +141,9 @@ public class AdminService {
         Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
                 .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
                 .stream()
-                .filter(event -> event.getUser() != null && event.getUser().getDeletedAt() == null)
+                .filter(event -> event.getUser() != null
+                        && event.getUser().getDeletedAt() == null
+                        && !event.getUser().isAdmin())
                 .collect(Collectors.toMap(
                         event -> maskIp(event.getIp()),
                         this::toUserMatch,

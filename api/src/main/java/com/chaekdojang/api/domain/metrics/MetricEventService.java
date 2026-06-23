@@ -19,6 +19,9 @@ public class MetricEventService {
     @Transactional
     public void record(MetricEventRequest request, String ip, Long userId) {
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        if (user != null && user.isAdmin()) {
+            return;
+        }
 
         metricEventRepository.save(MetricEvent.builder()
                 .user(user)

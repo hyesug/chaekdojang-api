@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.book;
 
 import com.chaekdojang.api.domain.book.dto.BookResponse;
+import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
 import com.chaekdojang.api.domain.review.ReviewService;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.global.response.ApiResponse;
@@ -45,6 +46,18 @@ public class BookController {
     @GetMapping("/{id}")
     public ApiResponse<BookResponse> getOne(@PathVariable Long id) {
         return ApiResponse.ok(bookService.findById(id));
+    }
+
+    @Operation(summary = "SEO 공개 책 상세", description = "slug 또는 book id로 로그인 없이 접근 가능한 공개 책 상세 정보를 반환합니다.")
+    @GetMapping("/public/{slug}")
+    public ApiResponse<PublicBookDetailResponse> getPublicBook(@PathVariable String slug) {
+        return ApiResponse.ok(bookService.findPublicBySlug(slug));
+    }
+
+    @Operation(summary = "SEO sitemap 책 목록", description = "sitemap 생성에 사용할 공개 책 목록을 반환합니다.")
+    @GetMapping("/public")
+    public ApiResponse<List<BookResponse>> getPublicBooksForSitemap() {
+        return ApiResponse.ok(bookService.findPublicBooksForSitemap());
     }
 
     @Operation(summary = "책별 독후감 목록", description = "특정 책에 대해 작성된 독후감 목록을 반환합니다. 인증 불필요.")

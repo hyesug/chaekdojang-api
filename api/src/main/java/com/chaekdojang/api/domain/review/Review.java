@@ -55,6 +55,9 @@ public class Review {
     @Column(nullable = false)
     private boolean hidden = false;
 
+    @Column
+    private long viewCount = 0;
+
     @Builder
     private Review(Book book, User author, String content, int rating) {
         this.book = book;
@@ -78,4 +81,5 @@ public class Review {
 
     public void hide() { this.hidden = true; }
     public void unhide() { this.hidden = false; }
+    public void increaseViewCount() { this.viewCount++; }
 }

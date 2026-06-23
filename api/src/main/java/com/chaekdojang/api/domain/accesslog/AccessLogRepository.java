@@ -10,6 +10,7 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
     @Query("""
             SELECT a FROM AccessLog a
             WHERE (:q = '' OR LOWER(a.uri) LIKE LOWER(CONCAT('%', :q, '%')) OR a.ip LIKE CONCAT('%', :q, '%'))
+              AND a.uri NOT LIKE '/api/admin%'
               AND (:method = '' OR a.method = :method)
               AND (:statusMin < 0 OR a.status >= :statusMin)
               AND (:statusMax < 0 OR a.status < :statusMax)

@@ -21,6 +21,7 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
                    OR LOWER(COALESCE(m.referrer, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(m.ip, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(u.nickname, '')) LIKE LOWER(CONCAT('%', :q, '%')))
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
               AND (:eventType = '' OR m.eventType = :eventType)
               AND (:userType = ''
                    OR (:userType = 'member' AND u IS NOT NULL)

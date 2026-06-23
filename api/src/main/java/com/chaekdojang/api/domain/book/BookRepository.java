@@ -11,6 +11,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     Optional<Book> findByIsbn13(String isbn13);
 
+    Optional<Book> findFirstBySlugAndDeletedAtIsNullAndIsPublicTrueOrderByIdAsc(String slug);
+
+    Optional<Book> findFirstByDeletedAtIsNullAndIsPublicTrueAndTitleContainingIgnoreCaseOrderByIdAsc(String title);
+
+    List<Book> findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc();
+
     List<Book> findAllByCategoryContainingIgnoreCase(String category);
 
     @Query("""

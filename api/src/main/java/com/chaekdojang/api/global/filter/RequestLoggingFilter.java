@@ -24,7 +24,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private static final Set<String> SKIP_PREFIXES = Set.of(
             "/oauth2/", "/login/oauth2/", "/actuator/", "/swagger", "/v3/api-docs",
             "/_next/", "/static/", "/assets/", "/images/", "/favicon", "/robots.txt",
-            "/sitemap.xml", "/health", "/api/metrics/events"
+            "/sitemap.xml", "/health", "/api/metrics/events", "/api/admin", "/api/admin/"
     );
 
     private static final Set<String> SKIP_SUFFIXES = Set.of(

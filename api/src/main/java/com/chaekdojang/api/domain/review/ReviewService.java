@@ -22,6 +22,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -79,7 +80,11 @@ public class ReviewService {
     // 페이지네이션 기본: page=0, size=10 / sort: recent(최신순) | rating(별점순) | popular(인기순)
     public Page<ReviewResponse> getAll(int page, int size, String sort) {
         if ("popular".equals(sort)) {
-            return toResponsePage(reviewRepository.findAllByPopularity(PageRequest.of(page, size)));
+            LocalDateTime now = LocalDateTime.now();
+            return toResponsePage(reviewRepository.findAllByPopularity(
+                    now.minusDays(7),
+                    now.minusDays(30),
+                    PageRequest.of(page, size)));
         }
         Sort order = "rating".equals(sort)
                 ? Sort.by("rating").descending().and(Sort.by("createdAt").descending())
@@ -87,6 +92,12 @@ public class ReviewService {
         Page<Review> reviewPage = reviewRepository.findAllByDeletedAtIsNullAndHiddenFalse(
                 PageRequest.of(page, size, order));
         return toResponsePage(reviewPage);
+    }
+
+    @Transactional
+    public void recordView(Long id) {
+        Review review = findVisibleReview(id);
+        review.increaseViewCount();
     }
 
     public ReviewResponse getOne(Long id) {
@@ -157,8 +168,23 @@ public class ReviewService {
     }
 
     public List<ReviewResponse> getByBook(Long bookId) {
-        return toResponseList(
-                reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(bookId));
+        return getByBook(bookId, "recent");
+    }
+
+    public List<ReviewResponse> getByBook(Long bookId, String sort) {
+        List<Review> reviews;
+        if ("popular".equals(sort)) {
+            LocalDateTime now = LocalDateTime.now();
+            reviews = reviewRepository.findAllByBookIdOrderByPopularity(
+                    bookId,
+                    now.minusDays(7),
+                    now.minusDays(30));
+        } else if ("rating".equals(sort)) {
+            reviews = reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByRatingDescCreatedAtDesc(bookId);
+        } else {
+            reviews = reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(bookId);
+        }
+        return toResponseList(reviews);
     }
 
     public List<ReviewResponse> getByBookWork(String title, String author) {

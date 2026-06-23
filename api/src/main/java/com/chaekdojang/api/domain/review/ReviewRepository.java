@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
@@ -26,6 +27,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     long countByBookIdAndDeletedAtIsNullAndHiddenFalse(Long bookId);
 
+    @Query("SELECT COUNT(DISTINCT r.author.id) FROM Review r WHERE r.book.id = :bookId AND r.deletedAt IS NULL AND r.hidden = false")
+    long countReadersByBookId(@Param("bookId") Long bookId);
+
     List<Review> findAllByAuthorIdInAndDeletedAtIsNullOrderByCreatedAtDesc(List<Long> authorIds);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long bookId);
@@ -37,6 +41,31 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByAuthorIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long authorId);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);
+
+    List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByRatingDescCreatedAtDesc(Long bookId);
+
+    List<Review> findTop5ByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);
+
+    @Query("""
+            SELECT r FROM Review r
+            WHERE r.book.id = :bookId
+              AND r.deletedAt IS NULL
+              AND r.hidden = false
+            ORDER BY (
+                r.viewCount * 1
+                + (SELECT COUNT(c) FROM Comment c WHERE c.review = r AND c.deletedAt IS NULL) * 5
+                + (SELECT COUNT(rl) FROM ReviewLike rl WHERE rl.review = r) * 3
+                + CASE
+                    WHEN r.createdAt >= :weekAgo THEN 10
+                    WHEN r.createdAt >= :monthAgo THEN 5
+                    ELSE 0
+                  END
+            ) DESC, r.createdAt DESC
+            """)
+    List<Review> findAllByBookIdOrderByPopularity(
+            @Param("bookId") Long bookId,
+            @Param("weekAgo") LocalDateTime weekAgo,
+            @Param("monthAgo") LocalDateTime monthAgo);
 
     @Query("SELECT r FROM Review r JOIN r.book b " +
            "WHERE r.deletedAt IS NULL AND r.hidden = false " +
@@ -88,10 +117,25 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             @Param("title") String title,
             Pageable pageable);
 
-    @Query(value = "SELECT r FROM Review r WHERE r.deletedAt IS NULL AND r.hidden = false " +
-                   "ORDER BY (SELECT COUNT(rl) FROM ReviewLike rl WHERE rl.review = r) DESC, r.createdAt DESC",
+    @Query(value = """
+            SELECT r FROM Review r
+            WHERE r.deletedAt IS NULL AND r.hidden = false
+            ORDER BY (
+                r.viewCount * 1
+                + (SELECT COUNT(c) FROM Comment c WHERE c.review = r AND c.deletedAt IS NULL) * 5
+                + (SELECT COUNT(rl) FROM ReviewLike rl WHERE rl.review = r) * 3
+                + CASE
+                    WHEN r.createdAt >= :weekAgo THEN 10
+                    WHEN r.createdAt >= :monthAgo THEN 5
+                    ELSE 0
+                  END
+            ) DESC, r.createdAt DESC
+            """,
            countQuery = "SELECT COUNT(r) FROM Review r WHERE r.deletedAt IS NULL AND r.hidden = false")
-    Page<Review> findAllByPopularity(Pageable pageable);
+    Page<Review> findAllByPopularity(
+            @Param("weekAgo") LocalDateTime weekAgo,
+            @Param("monthAgo") LocalDateTime monthAgo,
+            Pageable pageable);
 
     @Query("SELECT new com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse(" +
            "b.id, b.title, b.author, COUNT(r)) " +

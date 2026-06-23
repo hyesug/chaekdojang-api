@@ -33,7 +33,8 @@ public class AccessLogService {
             String method,
             Integer statusMin,
             Integer statusMax,
+            java.util.List<String> excludedIps,
             org.springframework.data.domain.Pageable pageable) {
-        return accessLogRepository.search(q, method, statusMin, statusMax, pageable);
+        return accessLogRepository.search(q, method, statusMin, statusMax, excludedIps, pageable);
     }
 }

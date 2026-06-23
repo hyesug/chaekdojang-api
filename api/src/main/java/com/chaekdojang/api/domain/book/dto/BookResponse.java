@@ -9,6 +9,7 @@ public record BookResponse(
         String author,
         String publisher,
         String thumbnail,
+        String slug,
         String source,
         String category,
         long reviewCount
@@ -25,6 +26,7 @@ public record BookResponse(
                 book.getAuthor(),
                 book.getPublisher(),
                 book.getThumbnail(),
+                book.getSlug(),
                 book.getSource().name(),
                 book.getCategory(),
                 reviewCount

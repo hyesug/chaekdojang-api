@@ -20,6 +20,7 @@ import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.domain.user.UserRole;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
+import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +45,7 @@ public class AdminService {
     private final MetricEventRepository metricEventRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
+    private final AdminTrafficFilter adminTrafficFilter;
 
     // ── 권한 검증 ──────────────────────────────────────────
     private User assertAdmin(Long userId) {
@@ -138,10 +140,14 @@ public class AdminService {
         String normalizedQ = normalize(q);
         String normalizedMethod = normalize(method);
         int[] statusRange = statusRange(statusGroup);
+        List<String> excludedIps = excludedAdminIps();
         Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
                 .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
                 .stream()
-                .filter(event -> event.getUser() != null && event.getUser().getDeletedAt() == null)
+                .filter(event -> event.getUser() != null
+                        && event.getUser().getDeletedAt() == null
+                        && !event.getUser().isAdmin())
+                .filter(event -> !excludedIps.contains(event.getIp()))
                 .collect(Collectors.toMap(
                         event -> maskIp(event.getIp()),
                         this::toUserMatch,
@@ -153,6 +159,7 @@ public class AdminService {
                         normalizedMethod,
                         statusRange[0] > 0 ? statusRange[0] : -1,
                         statusRange[1] > 0 ? statusRange[1] : -1,
+                        excludedIps,
                         pageable)
                 .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
     }
@@ -164,7 +171,14 @@ public class AdminService {
             String userType,
             Pageable pageable) {
         assertAdmin(adminId);
-        return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), pageable)
+        List<String> excludedIps = excludedAdminIps();
+        return metricEventRepository.search(
+                        normalize(q),
+                        normalize(eventType),
+                        normalizeUserType(userType),
+                        excludedIps,
+                        adminTrafficFilter.primaryExcludedIpPrefix(excludedIps),
+                        pageable)
                 .map(MetricEventResponse::from);
     }
 
@@ -216,6 +230,15 @@ public class AdminService {
     private AccessLogResponse.UserMatch toUserMatch(MetricEvent event) {
         User user = event.getUser();
         return new AccessLogResponse.UserMatch(user.getId(), user.getNickname());
+    }
+
+    private List<String> excludedAdminIps() {
+        List<String> ips = metricEventRepository.findAdminIps()
+                .stream()
+                .filter(ip -> ip != null && !ip.isBlank())
+                .distinct()
+                .toList();
+        return adminTrafficFilter.queryExcludedIps(ips);
     }
 
     private String maskIp(String ip) {

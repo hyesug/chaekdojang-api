@@ -63,7 +63,8 @@ public class SecurityConfig {
                 ).authenticated()
                 .requestMatchers(org.springframework.http.HttpMethod.POST,
                         "/api/metrics/events",
-                        "/api/dev/login"
+                        "/api/dev/login",
+                        "/api/reviews/*/view"
                 ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                         "/api/reviews", "/api/reviews/**",

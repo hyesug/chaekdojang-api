@@ -13,6 +13,14 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
     List<MetricEvent> findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc();
 
     @Query("""
+            SELECT DISTINCT m.ip FROM MetricEvent m
+            JOIN m.user u
+            WHERE m.ip IS NOT NULL
+              AND u.role <> com.chaekdojang.api.domain.user.UserRole.USER
+            """)
+    List<String> findAdminIps();
+
+    @Query("""
             SELECT m FROM MetricEvent m
             LEFT JOIN m.user u
             WHERE (:q = ''
@@ -21,6 +29,9 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
                    OR LOWER(COALESCE(m.referrer, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(m.ip, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(u.nickname, '')) LIKE LOWER(CONCAT('%', :q, '%')))
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
+              AND m.ip NOT IN :excludedIps
+              AND (:excludedIpPrefix = '' OR m.ip IS NULL OR m.ip NOT LIKE CONCAT(:excludedIpPrefix, '%'))
               AND (:eventType = '' OR m.eventType = :eventType)
               AND (:userType = ''
                    OR (:userType = 'member' AND u IS NOT NULL)
@@ -30,6 +41,8 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             @Param("q") String q,
             @Param("eventType") String eventType,
             @Param("userType") String userType,
+            @Param("excludedIps") List<String> excludedIps,
+            @Param("excludedIpPrefix") String excludedIpPrefix,
             Pageable pageable
     );
 

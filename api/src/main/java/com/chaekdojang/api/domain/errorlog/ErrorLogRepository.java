@@ -14,6 +14,7 @@ public interface ErrorLogRepository extends JpaRepository<ErrorLog, Long> {
                    OR LOWER(e.exceptionType) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(e.message) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR e.ip LIKE CONCAT('%', :q, '%'))
+              AND e.uri NOT LIKE '/api/admin%'
               AND (:level = '' OR e.level = :level)
               AND (:statusMin < 0 OR e.status >= :statusMin)
               AND (:statusMax < 0 OR e.status < :statusMax)

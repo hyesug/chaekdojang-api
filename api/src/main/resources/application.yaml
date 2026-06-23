@@ -107,6 +107,8 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   notification:
     admin-email: ${NOTIFICATION_ADMIN_EMAIL:}
+  admin:
+    excluded-ips: ${ADMIN_EXCLUDED_IPS:}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     api-limit-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}

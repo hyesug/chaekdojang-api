@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.metrics;
 import com.chaekdojang.api.domain.metrics.dto.MetricEventRequest;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
+import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -14,11 +15,15 @@ public class MetricEventService {
 
     private final MetricEventRepository metricEventRepository;
     private final UserRepository userRepository;
+    private final AdminTrafficFilter adminTrafficFilter;
 
     @Async
     @Transactional
     public void record(MetricEventRequest request, String ip, Long userId) {
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        if ((user != null && user.isAdmin()) || adminTrafficFilter.isExcludedIp(ip)) {
+            return;
+        }
 
         metricEventRepository.save(MetricEvent.builder()
                 .user(user)

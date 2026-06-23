@@ -51,16 +51,21 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
             log.info("[{}] {} | {} | {} | {}ms", method, uri, ip, status, elapsed);
 
-            if (shouldSave(method, uri)) {
+            if (shouldSave(request, method, uri)) {
                 accessLogService.save(ip, method, uri, status, elapsed);
             }
         }
     }
 
-    private boolean shouldSave(String method, String uri) {
+    private boolean shouldSave(HttpServletRequest request, String method, String uri) {
         if ("OPTIONS".equals(method)) return false;
+        if (isInternalFrontendRequest(request)) return false;
         if (shouldSkip(uri)) return false;
         return true;
+    }
+
+    private boolean isInternalFrontendRequest(HttpServletRequest request) {
+        return "web-ssr".equals(request.getHeader("X-Chaekdojang-Internal-Request"));
     }
 
     private boolean shouldSkip(String uri) {

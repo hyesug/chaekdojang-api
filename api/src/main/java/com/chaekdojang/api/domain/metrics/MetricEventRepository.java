@@ -31,6 +31,7 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
                    OR LOWER(COALESCE(u.nickname, '')) LIKE LOWER(CONCAT('%', :q, '%')))
               AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
               AND m.ip NOT IN :excludedIps
+              AND (:excludedIpPrefix = '' OR m.ip IS NULL OR m.ip NOT LIKE CONCAT(:excludedIpPrefix, '%'))
               AND (:eventType = '' OR m.eventType = :eventType)
               AND (:userType = ''
                    OR (:userType = 'member' AND u IS NOT NULL)
@@ -41,6 +42,7 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             @Param("eventType") String eventType,
             @Param("userType") String userType,
             @Param("excludedIps") List<String> excludedIps,
+            @Param("excludedIpPrefix") String excludedIpPrefix,
             Pageable pageable
     );
 

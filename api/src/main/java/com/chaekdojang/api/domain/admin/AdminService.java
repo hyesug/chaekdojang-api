@@ -20,6 +20,7 @@ import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.domain.user.UserRole;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
+import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,6 +45,7 @@ public class AdminService {
     private final MetricEventRepository metricEventRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
+    private final AdminTrafficFilter adminTrafficFilter;
 
     // ── 권한 검증 ──────────────────────────────────────────
     private User assertAdmin(Long userId) {
@@ -169,7 +171,14 @@ public class AdminService {
             String userType,
             Pageable pageable) {
         assertAdmin(adminId);
-        return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), excludedAdminIps(), pageable)
+        List<String> excludedIps = excludedAdminIps();
+        return metricEventRepository.search(
+                        normalize(q),
+                        normalize(eventType),
+                        normalizeUserType(userType),
+                        excludedIps,
+                        adminTrafficFilter.primaryExcludedIpPrefix(excludedIps),
+                        pageable)
                 .map(MetricEventResponse::from);
     }
 
@@ -229,7 +238,7 @@ public class AdminService {
                 .filter(ip -> ip != null && !ip.isBlank())
                 .distinct()
                 .toList();
-        return ips.isEmpty() ? List.of("__no_admin_ip__") : ips;
+        return adminTrafficFilter.queryExcludedIps(ips);
     }
 
     private String maskIp(String ip) {

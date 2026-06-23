@@ -42,7 +42,30 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);
 
+    List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByRatingDescCreatedAtDesc(Long bookId);
+
     List<Review> findTop5ByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);
+
+    @Query("""
+            SELECT r FROM Review r
+            WHERE r.book.id = :bookId
+              AND r.deletedAt IS NULL
+              AND r.hidden = false
+            ORDER BY (
+                r.viewCount * 1
+                + (SELECT COUNT(c) FROM Comment c WHERE c.review = r AND c.deletedAt IS NULL) * 5
+                + (SELECT COUNT(rl) FROM ReviewLike rl WHERE rl.review = r) * 3
+                + CASE
+                    WHEN r.createdAt >= :weekAgo THEN 10
+                    WHEN r.createdAt >= :monthAgo THEN 5
+                    ELSE 0
+                  END
+            ) DESC, r.createdAt DESC
+            """)
+    List<Review> findAllByBookIdOrderByPopularity(
+            @Param("bookId") Long bookId,
+            @Param("weekAgo") LocalDateTime weekAgo,
+            @Param("monthAgo") LocalDateTime monthAgo);
 
     @Query("SELECT r FROM Review r JOIN r.book b " +
            "WHERE r.deletedAt IS NULL AND r.hidden = false " +

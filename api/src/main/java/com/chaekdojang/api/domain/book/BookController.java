@@ -42,12 +42,6 @@ public class BookController {
         return ApiResponse.ok(bookService.findByCategory(name));
     }
 
-    @Operation(summary = "도서 단건 조회", description = "도서 ID로 특정 책 정보를 반환합니다. 인증 불필요.")
-    @GetMapping("/{id}")
-    public ApiResponse<BookResponse> getOne(@PathVariable Long id) {
-        return ApiResponse.ok(bookService.findById(id));
-    }
-
     @Operation(summary = "SEO 공개 책 상세", description = "slug 또는 book id로 로그인 없이 접근 가능한 공개 책 상세 정보를 반환합니다.")
     @GetMapping("/public/{slug}")
     public ApiResponse<PublicBookDetailResponse> getPublicBook(@PathVariable String slug) {
@@ -60,12 +54,19 @@ public class BookController {
         return ApiResponse.ok(bookService.findPublicBooksForSitemap());
     }
 
+    @Operation(summary = "도서 단건 조회", description = "도서 ID로 특정 책 정보를 반환합니다. 인증 불필요.")
+    @GetMapping("/{id:\\d+}")
+    public ApiResponse<BookResponse> getOne(@PathVariable Long id) {
+        return ApiResponse.ok(bookService.findById(id));
+    }
+
     @Operation(summary = "책별 독후감 목록", description = "특정 책에 대해 작성된 독후감 목록을 반환합니다. 인증 불필요.")
-    @GetMapping("/{id}/reviews")
+    @GetMapping("/{id:\\d+}/reviews")
     public ApiResponse<List<ReviewResponse>> getReviewsByBook(
             @Parameter(description = "책 ID", required = true)
-            @PathVariable Long id) {
-        return ApiResponse.ok(reviewService.getByBook(id));
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "recent") String sort) {
+        return ApiResponse.ok(reviewService.getByBook(id, sort));
     }
 
     @Operation(summary = "작품별 독후감 목록", description = "제목과 저자가 같은 작품의 여러 판본 독후감을 함께 반환합니다. 인증 불필요.")

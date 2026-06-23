@@ -138,12 +138,14 @@ public class AdminService {
         String normalizedQ = normalize(q);
         String normalizedMethod = normalize(method);
         int[] statusRange = statusRange(statusGroup);
+        List<String> excludedIps = excludedAdminIps();
         Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
                 .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
                 .stream()
                 .filter(event -> event.getUser() != null
                         && event.getUser().getDeletedAt() == null
                         && !event.getUser().isAdmin())
+                .filter(event -> !excludedIps.contains(event.getIp()))
                 .collect(Collectors.toMap(
                         event -> maskIp(event.getIp()),
                         this::toUserMatch,
@@ -155,6 +157,7 @@ public class AdminService {
                         normalizedMethod,
                         statusRange[0] > 0 ? statusRange[0] : -1,
                         statusRange[1] > 0 ? statusRange[1] : -1,
+                        excludedIps,
                         pageable)
                 .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
     }
@@ -166,7 +169,7 @@ public class AdminService {
             String userType,
             Pageable pageable) {
         assertAdmin(adminId);
-        return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), pageable)
+        return metricEventRepository.search(normalize(q), normalize(eventType), normalizeUserType(userType), excludedAdminIps(), pageable)
                 .map(MetricEventResponse::from);
     }
 
@@ -218,6 +221,15 @@ public class AdminService {
     private AccessLogResponse.UserMatch toUserMatch(MetricEvent event) {
         User user = event.getUser();
         return new AccessLogResponse.UserMatch(user.getId(), user.getNickname());
+    }
+
+    private List<String> excludedAdminIps() {
+        List<String> ips = metricEventRepository.findAdminIps()
+                .stream()
+                .filter(ip -> ip != null && !ip.isBlank())
+                .distinct()
+                .toList();
+        return ips.isEmpty() ? List.of("__no_admin_ip__") : ips;
     }
 
     private String maskIp(String ip) {

@@ -31,9 +31,7 @@ public class SuspiciousPathBlockFilter extends OncePerRequestFilter {
             "/.svn",
             "/phpmyadmin",
             "/vendor",
-            "/server-status",
-            "/swagger-ui",
-            "/v3/api-docs"
+            "/server-status"
     );
 
     private static final List<String> BLOCKED_CONTAINS = List.of(

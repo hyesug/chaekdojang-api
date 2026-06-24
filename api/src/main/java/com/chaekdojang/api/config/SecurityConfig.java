@@ -4,6 +4,8 @@ import com.chaekdojang.api.global.security.JwtAuthenticationFilter;
 import com.chaekdojang.api.global.security.OAuthSuccessHandler;
 import com.chaekdojang.api.global.security.OAuthUserService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +21,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +39,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
+    @Value("${app.swagger-public-enabled:false}")
+    private boolean swaggerPublicEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -46,39 +49,59 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             // OAuth2 state 검증에 세션이 필요하므로 IF_REQUIRED 사용
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                .requestMatchers("/ws/**").permitAll()
-                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers(
-                        "/swagger-ui.html", "/swagger-ui/**",
-                        "/v3/api-docs", "/v3/api-docs/**"
-                ).permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET,
-                        "/api/reviews/feed",
-                        "/api/reviews/feed/taste",
-                        "/api/users/me",
-                        "/api/users/*/follow/status"
-                ).authenticated()
-                .requestMatchers(org.springframework.http.HttpMethod.POST,
-                        "/api/metrics/events",
-                        "/api/dev/login",
-                        "/api/reviews/*/view"
-                ).permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET,
-                        "/api/reviews", "/api/reviews/**",
-                        "/api/books/**",
-                        "/api/users/*/followers", "/api/users/*/followings",
-                        "/api/users/*/reviews",
-                        "/api/users/nickname/*",
-                        "/api/users/*"
-                ).permitAll()
-                // 문의: POST·GET 모두 비회원 허용 (권한 체크는 서비스 레이어에서)
-                .requestMatchers("/api/inquiries/**").permitAll()
-                // 관리자 API: 인증 필요 (권한 체크는 서비스 레이어에서)
-                .requestMatchers("/api/admin/**").authenticated()
-                .anyRequest().authenticated()
+            .authorizeHttpRequests(auth -> {
+                auth
+                    .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                    .requestMatchers("/ws/**").permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                    .requestMatchers("/actuator/**").denyAll()
+                    .requestMatchers("/uploads/**").permitAll();
+
+                if (swaggerPublicEnabled) {
+                    auth.requestMatchers(
+                            "/swagger-ui.html", "/swagger-ui/**",
+                            "/v3/api-docs", "/v3/api-docs/**"
+                    ).permitAll();
+                } else {
+                    auth.requestMatchers(
+                            "/swagger-ui.html", "/swagger-ui/**",
+                            "/v3/api-docs", "/v3/api-docs/**"
+                    ).denyAll();
+                }
+
+                auth
+                    .requestMatchers(org.springframework.http.HttpMethod.GET,
+                            "/api/reviews/feed",
+                            "/api/reviews/feed/taste",
+                            "/api/users/me",
+                            "/api/users/*/follow/status"
+                    ).authenticated()
+                    .requestMatchers(org.springframework.http.HttpMethod.POST,
+                            "/api/metrics/events",
+                            "/api/dev/login",
+                            "/api/reviews/*/view"
+                    ).permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET,
+                            "/api/reviews", "/api/reviews/**",
+                            "/api/books/**",
+                            "/api/users/*/followers", "/api/users/*/followings",
+                            "/api/users/*/reviews",
+                            "/api/users/nickname/*",
+                            "/api/users/*"
+                    ).permitAll()
+                    // 문의: POST·GET 모두 비회원 허용 (권한 체크는 서비스 레이어에서)
+                    .requestMatchers("/api/inquiries/**").permitAll()
+                    // 관리자 API: 인증 필요 (권한 체크는 서비스 레이어에서)
+                    .requestMatchers("/api/admin/**").authenticated()
+                    .anyRequest().authenticated();
+            })
+            .headers(headers -> headers
+                    .contentTypeOptions(contentTypeOptions -> {})
+                    .frameOptions(frameOptions -> frameOptions.deny())
+                    .httpStrictTransportSecurity(hsts -> hsts
+                            .includeSubDomains(true)
+                            .maxAgeInSeconds(31536000)
+                    )
             )
             .oauth2Login(oauth -> oauth
                 .userInfoEndpoint(ui -> ui.userService(oAuthUserService))
@@ -109,8 +132,9 @@ public class SecurityConfig {
         }
         config.setAllowedOrigins(origins.stream().distinct().toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

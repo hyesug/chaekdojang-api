@@ -46,9 +46,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();
-        if (!isExpectedClientNoise(request, errorCode)) {
-            errorLogService.save(request, errorCode.getStatus().value(), e);
-        }
+        errorLogService.save(request, errorCode.getStatus().value(), e);
         return ResponseEntity
                 .status(errorCode.getStatus())
                 .body(ApiResponse.fail(errorCode.getMessage()));
@@ -87,19 +85,5 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("서버 오류가 발생했습니다."));
-    }
-
-    private boolean isExpectedClientNoise(HttpServletRequest request, ErrorCode errorCode) {
-        String method = request.getMethod();
-        String uri = request.getRequestURI();
-        int status = errorCode.getStatus().value();
-
-        if ("POST".equals(method) && "/api/auth/refresh".equals(uri) && (status == 401 || status == 403)) {
-            return true;
-        }
-        if ("GET".equals(method) && uri.startsWith("/api/books/public/") && status == 404) {
-            return true;
-        }
-        return false;
     }
 }

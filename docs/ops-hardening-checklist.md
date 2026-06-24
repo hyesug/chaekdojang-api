@@ -114,6 +114,59 @@ LIMIT 20;
 
 `pg_stat_statements` must be enabled on RDS before using the second query.
 
+## Production Migration Preflight
+
+Before pushing backend changes to `main`, check whether any file under
+`api/src/main/resources/db/migration/` was added or changed. If yes, do not rely
+on staging alone. Staging can pass while production fails because production
+tables may have different owners or grants.
+
+Required checks:
+
+- Identify every existing production table touched by the new migration.
+- For `ALTER TABLE`, `CREATE INDEX`, `DROP`, `RENAME`, or constraint changes,
+  verify the table owner before deploying.
+- Confirm the application/Flyway DB user can execute the migration in
+  production.
+- Take the normal production DB backup before deployment.
+- Keep rollback instructions ready, but do not depend on rollback to hide a
+  migration permission failure because startup can still cause API downtime.
+
+Owner check:
+
+```sql
+SELECT tablename, tableowner
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY tablename;
+```
+
+Targeted owner check:
+
+```sql
+SELECT tablename, tableowner
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('purchase_links', 'reviews', 'books');
+```
+
+Flyway status check:
+
+```sql
+SELECT version, description, success
+FROM flyway_schema_history
+ORDER BY installed_rank DESC
+LIMIT 10;
+```
+
+Incident note from 2026-06-24:
+
+- `V4__purchase_link_click_count.sql` added `purchase_links.click_count`.
+- Staging passed, but production startup failed because `purchase_links` was
+  owned by a different DB role than the Flyway application user.
+- Fix was to restore service, align `purchase_links` owner with the Flyway user,
+  then redeploy and verify Flyway V4/V5.
+
 ## Staging Environment
 
 Code is ready:

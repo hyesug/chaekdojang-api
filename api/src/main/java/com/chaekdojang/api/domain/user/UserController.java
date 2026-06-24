@@ -48,6 +48,18 @@ public class UserController {
         return ApiResponse.ok(userService.getRecommendations());
     }
 
+    @Operation(summary = "온보딩 추천 독자", description = "가입 직후 팔로우할 만한 독자를 추천합니다. JWT 필요.")
+    @GetMapping("/me/onboarding/recommendations")
+    public ApiResponse<List<UserRecommendationResponse>> getOnboardingRecommendations() {
+        return ApiResponse.ok(userService.getOnboardingRecommendations());
+    }
+
+    @Operation(summary = "온보딩 완료", description = "관심 장르를 저장하고 온보딩을 완료합니다. JWT 필요.")
+    @PostMapping("/me/onboarding")
+    public ApiResponse<UserProfileResponse> completeOnboarding(@RequestBody @Valid OnboardingRequest request) {
+        return ApiResponse.ok(userService.completeOnboarding(request));
+    }
+
     @Operation(summary = "독서 통계", description = "월별 독서량 및 선호 장르를 반환합니다. JWT 필요.")
     @GetMapping("/me/stats")
     public ApiResponse<ReadingStatsResponse> getReadingStats() {

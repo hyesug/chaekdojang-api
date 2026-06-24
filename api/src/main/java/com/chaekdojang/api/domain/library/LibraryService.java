@@ -47,7 +47,7 @@ public class LibraryService {
         List<Library> result = (status != null)
                 ? libraryRepository.findAllByUserIdAndStatusOrderByUpdatedAtDesc(userId, status)
                 : libraryRepository.findAllByUserIdOrderByUpdatedAtDesc(userId);
-        return result.stream().map(LibraryResponse::from).toList();
+        return result.stream().limit(200).map(LibraryResponse::from).toList();
     }
 
     @Transactional

@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -175,6 +176,44 @@ public class UserService {
                         .orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    @Transactional
+    public UserProfileResponse completeOnboarding(OnboardingRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        User user = findUser(userId);
+        user.completeOnboarding(normalizeGenres(request.genres()));
+        return buildProfile(userId);
+    }
+
+    public List<UserRecommendationResponse> getOnboardingRecommendations() {
+        Long myId = SecurityUtils.getCurrentUserId();
+        List<UserRecommendationResponse> recommendations = new ArrayList<>(getRecommendations());
+        if (recommendations.size() >= 5) return recommendations;
+
+        List<Long> existingIds = recommendations.stream().map(UserRecommendationResponse::id).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        existingIds.add(myId);
+        userRepository.findTop20ByDeletedAtIsNullOrderByCreatedAtDesc()
+                .stream()
+                .filter(user -> !existingIds.contains(user.getId()))
+                .filter(user -> !user.isAdmin())
+                .limit(5 - recommendations.size())
+                .map(user -> UserRecommendationResponse.from(user, 0))
+                .forEach(recommendations::add);
+        return recommendations;
+    }
+
+    private String normalizeGenres(List<String> genres) {
+        if (genres == null || genres.isEmpty()) return "";
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .map(value -> value.length() > 30 ? value.substring(0, 30) : value)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .limit(10)
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     public ReadingStatsResponse getReadingStats() {

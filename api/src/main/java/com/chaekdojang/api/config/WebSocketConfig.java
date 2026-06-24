@@ -1,6 +1,7 @@
 package com.chaekdojang.api.config;
 
 import com.chaekdojang.api.global.security.JwtProvider;
+import com.chaekdojang.api.global.security.AuthCookieService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -14,11 +15,17 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
+import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 import java.util.List;
+import java.security.Principal;
+import java.util.Map;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -26,6 +33,7 @@ import java.util.List;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtProvider jwtProvider;
+    private final AuthCookieService authCookieService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -42,6 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(frontendUrl, "http://localhost:3000")
+                .setHandshakeHandler(cookieHandshakeHandler())
                 .withSockJS();
     }
 
@@ -71,5 +80,29 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 return message;
             }
         });
+    }
+
+    private DefaultHandshakeHandler cookieHandshakeHandler() {
+        return new DefaultHandshakeHandler() {
+            @Override
+            protected Principal determineUser(
+                    ServerHttpRequest request,
+                    WebSocketHandler wsHandler,
+                    Map<String, Object> attributes
+            ) {
+                if (request instanceof ServletServerHttpRequest servletRequest) {
+                    return authCookieService.readAccessToken(servletRequest.getServletRequest())
+                            .filter(jwtProvider::validate)
+                            .map(jwtProvider::extractUserId)
+                            .map(userId -> new UsernamePasswordAuthenticationToken(
+                                    userId.toString(),
+                                    null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                            ))
+                            .orElse(null);
+                }
+                return null;
+            }
+        };
     }
 }

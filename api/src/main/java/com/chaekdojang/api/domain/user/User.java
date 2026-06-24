@@ -53,6 +53,12 @@ public class User {
     @Column
     private LocalDateTime deletedAt;
 
+    @Column(nullable = false)
+    private boolean onboardingCompleted = false;
+
+    @Column(columnDefinition = "TEXT")
+    private String preferredGenres;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
     private UserRole role = UserRole.USER;
@@ -82,12 +88,19 @@ public class User {
         if (profileImage != null) this.profileImage = profileImage.isBlank() ? null : profileImage;
     }
 
+    public void completeOnboarding(String preferredGenres) {
+        this.preferredGenres = preferredGenres;
+        this.onboardingCompleted = true;
+    }
+
     public void anonymizeForDeletion(String deletedNickname) {
         this.email = null;
         this.nickname = deletedNickname;
         this.profileImage = null;
         this.bio = null;
         this.lifeBook = null;
+        this.preferredGenres = null;
+        this.onboardingCompleted = false;
         this.role = UserRole.USER;
         this.deletedAt = LocalDateTime.now();
     }

@@ -129,6 +129,8 @@ app:
       public-base-url: ${S3_PUBLIC_BASE_URL:}
       profile-image-prefix: ${S3_PROFILE_IMAGE_PREFIX:profile-images}
       presigned-url-expiration-minutes: ${S3_PRESIGNED_URL_EXPIRATION_MINUTES:10}
+  chat:
+    retention-days: ${CHAT_RETENTION_DAYS:180}
 
 kakao:
   api-key: ${KAKAO_API_KEY:}

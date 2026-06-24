@@ -54,6 +54,7 @@ public class ReviewBookmarkService {
         return bookmarkRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .filter(b -> !b.getReview().isHidden() && b.getReview().getDeletedAt() == null)
+                .limit(100)
                 .map(b -> ReviewResponse.from(
                         b.getReview(),
                         likeRepository.countByReviewId(b.getReview().getId()),

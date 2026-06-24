@@ -11,7 +11,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +41,7 @@ public class UploadService {
 
     public UploadResult uploadProfileImage(MultipartFile file) throws IOException {
         validateImage(file.getContentType(), file.getSize());
+        verifyImageBytes(file);
 
         String ext = getExtension(file.getOriginalFilename(), file.getContentType());
         String key = buildProfileImageKey(ext);
@@ -109,6 +113,18 @@ public class UploadService {
         }
         if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
             throw new IllegalArgumentException("Only JPG, PNG, WEBP, and GIF images are allowed.");
+        }
+    }
+
+    private void verifyImageBytes(MultipartFile file) throws IOException {
+        try (InputStream inputStream = file.getInputStream()) {
+            BufferedImage image = ImageIO.read(inputStream);
+            if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
+                throw new IllegalArgumentException("Uploaded file is not a valid image.");
+            }
+            if (image.getWidth() > 4096 || image.getHeight() > 4096) {
+                throw new IllegalArgumentException("Image dimensions must be 4096px or less.");
+            }
         }
     }
 

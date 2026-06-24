@@ -18,7 +18,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class OAuthSuccessHandler implements AuthenticationSuccessHandler {
 
-    private final JwtProvider jwtProvider;
+    private final AuthSessionService authSessionService;
+    private final AuthCookieService authCookieService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -28,10 +29,10 @@ public class OAuthSuccessHandler implements AuthenticationSuccessHandler {
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException {
         OAuthUserPrincipal principal = (OAuthUserPrincipal) authentication.getPrincipal();
-        String token = jwtProvider.generate(principal.getUserId());
+        authCookieService.addSession(response, authSessionService.createSession(principal.getUserId()));
         String redirect = principal.isNew()
-                ? frontendUrl + "/auth/callback?token=" + token + "&setup=true"
-                : frontendUrl + "/auth/callback?token=" + token;
+                ? frontendUrl + "/auth/callback?setup=true"
+                : frontendUrl + "/auth/callback";
         response.sendRedirect(redirect);
     }
 }

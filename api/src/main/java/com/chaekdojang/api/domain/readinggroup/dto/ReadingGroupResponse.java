@@ -1,6 +1,8 @@
 package com.chaekdojang.api.domain.readinggroup.dto;
 
-import com.chaekdojang.api.domain.readinggroup.*;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupJoinPolicy;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupVisibility;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,16 +20,9 @@ public record ReadingGroupResponse(
         boolean member,
         boolean manager,
         List<ReadingGroupBookResponse> books,
-        List<ReadingGroupMemberResponse> members,
         LocalDateTime createdAt
 ) {
-    public static ReadingGroupResponse of(
-            ReadingGroup group,
-            boolean member,
-            boolean manager,
-            List<ReadingGroupBookResponse> books,
-            List<ReadingGroupMemberResponse> members
-    ) {
+    public static ReadingGroupResponse of(ReadingGroup group, boolean member, boolean manager, List<ReadingGroupBookResponse> books) {
         return new ReadingGroupResponse(
                 group.getId(),
                 group.getName(),
@@ -41,7 +36,6 @@ public record ReadingGroupResponse(
                 member,
                 manager,
                 books,
-                members,
                 group.getCreatedAt()
         );
     }

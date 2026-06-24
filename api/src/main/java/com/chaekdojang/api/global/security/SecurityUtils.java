@@ -49,4 +49,16 @@ public class SecurityUtils {
         throw new AuthenticationCredentialsNotFoundException("Unsupported principal type: "
                 + (principal == null ? "null" : principal.getClass().getName()));
     }
+
+    public static boolean hasAnyRole(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            return false;
+        }
+        java.util.Set<String> expected = java.util.Arrays.stream(roles)
+                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                .collect(java.util.stream.Collectors.toSet());
+        return auth.getAuthorities().stream()
+                .anyMatch(authority -> expected.contains(authority.getAuthority()));
+    }
 }

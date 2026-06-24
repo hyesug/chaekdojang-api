@@ -103,7 +103,9 @@ public class ReviewService {
     public ReviewResponse getOne(Long id) {
         Review review = findActiveReview(id);
         Long currentUserId = SecurityUtils.getCurrentUserIdOrNull();
-        if (review.isHidden() && !review.isAuthor(currentUserId)) {
+        if (review.isHidden()
+                && !review.isAuthor(currentUserId)
+                && !SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
             throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
         }
         return ReviewResponse.from(review,

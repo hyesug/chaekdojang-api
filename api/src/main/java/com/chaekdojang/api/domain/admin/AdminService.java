@@ -239,8 +239,8 @@ public class AdminService {
         });
         return summaries.values().stream()
                 .map(PageAccumulator::toResponse)
-                .sorted(Comparator.comparing(AdminAnalyticsPageResponse::views).reversed()
-                        .thenComparing(AdminAnalyticsPageResponse::lastAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(Comparator.comparing(AdminAnalyticsPageResponse::lastAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(AdminAnalyticsPageResponse::views, Comparator.reverseOrder()))
                 .limit(100)
                 .toList();
     }

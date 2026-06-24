@@ -169,9 +169,12 @@ public class BookService {
     private Book findPublicBook(String slug) {
         String normalized = slug == null ? "" : slug.trim();
         if (normalized.isBlank()) throw new CustomException(ErrorCode.BOOK_NOT_FOUND);
+        if (normalized.matches("\\d+")) {
+            return findByNumericId(normalized)
+                    .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
+        }
         return bookRepository.findFirstBySlugAndDeletedAtIsNullAndIsPublicTrueOrderByIdAsc(normalized)
                 .or(() -> findKnownBookBySlug(normalized))
-                .or(() -> findByNumericId(normalized))
                 .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
     }
 

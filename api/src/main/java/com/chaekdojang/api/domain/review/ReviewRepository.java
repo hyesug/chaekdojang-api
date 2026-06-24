@@ -27,6 +27,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     long countByBookIdAndDeletedAtIsNullAndHiddenFalse(Long bookId);
 
+    long countByCreatedAtBetweenAndDeletedAtIsNull(LocalDateTime start, LocalDateTime end);
+
     @Query("SELECT COUNT(DISTINCT r.author.id) FROM Review r WHERE r.book.id = :bookId AND r.deletedAt IS NULL AND r.hidden = false")
     long countReadersByBookId(@Param("bookId") Long bookId);
 

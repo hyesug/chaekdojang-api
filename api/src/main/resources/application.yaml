@@ -103,12 +103,15 @@ app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   backend-url: ${BACKEND_URL:http://localhost:8080}
   dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
+  swagger-public-enabled: ${SWAGGER_PUBLIC_ENABLED:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   notification:
     admin-email: ${NOTIFICATION_ADMIN_EMAIL:}
   admin:
     excluded-ips: ${ADMIN_EXCLUDED_IPS:}
+  security:
+    enforce-production-secrets: ${APP_SECURITY_ENFORCE_PRODUCTION_SECRETS:false}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     api-limit-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}
@@ -139,6 +142,12 @@ toss:
 google:
   api-key: ${GOOGLE_API_KEY:}
 
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:false}
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+
 logging:
   level:
     ACCESS: INFO
@@ -146,10 +155,15 @@ logging:
     org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_BIND:WARN}
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: never
   health:
     redis:
       enabled: false

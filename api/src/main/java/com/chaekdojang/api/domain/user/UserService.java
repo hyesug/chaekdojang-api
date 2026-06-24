@@ -196,7 +196,8 @@ public class UserService {
         userRepository.findTop20ByDeletedAtIsNullOrderByCreatedAtDesc()
                 .stream()
                 .filter(user -> !existingIds.contains(user.getId()))
-                .filter(user -> !user.isAdmin())
+                .filter(user -> !user.isAdmin()
+                        || reviewRepository.countByAuthorIdAndDeletedAtIsNullAndHiddenFalse(user.getId()) > 0)
                 .limit(5 - recommendations.size())
                 .map(user -> UserRecommendationResponse.from(user, 0))
                 .forEach(recommendations::add);

@@ -3,33 +3,27 @@ package com.chaekdojang.api.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
 
 @Component
 public class StartupSecurityValidator implements ApplicationRunner {
 
     private static final String DEV_JWT_SECRET = "chaekdojang-dev-secret-key-must-be-32chars-ok!";
 
-    private final Environment environment;
+    private final boolean enforceProductionSecrets;
     private final String jwtSecret;
 
     public StartupSecurityValidator(
-            Environment environment,
+            @Value("${app.security.enforce-production-secrets:false}") boolean enforceProductionSecrets,
             @Value("${jwt.secret:}") String jwtSecret
     ) {
-        this.environment = environment;
+        this.enforceProductionSecrets = enforceProductionSecrets;
         this.jwtSecret = jwtSecret;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        boolean productionLike = Arrays.stream(environment.getActiveProfiles())
-                .noneMatch(profile -> profile.equals("local") || profile.equals("test"));
-
-        if (!productionLike) {
+        if (!enforceProductionSecrets) {
             return;
         }
 

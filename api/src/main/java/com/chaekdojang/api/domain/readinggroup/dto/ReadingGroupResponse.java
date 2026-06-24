@@ -18,9 +18,16 @@ public record ReadingGroupResponse(
         boolean member,
         boolean manager,
         List<ReadingGroupBookResponse> books,
+        List<ReadingGroupMemberResponse> members,
         LocalDateTime createdAt
 ) {
-    public static ReadingGroupResponse of(ReadingGroup group, boolean member, boolean manager, List<ReadingGroupBookResponse> books) {
+    public static ReadingGroupResponse of(
+            ReadingGroup group,
+            boolean member,
+            boolean manager,
+            List<ReadingGroupBookResponse> books,
+            List<ReadingGroupMemberResponse> members
+    ) {
         return new ReadingGroupResponse(
                 group.getId(),
                 group.getName(),
@@ -34,6 +41,7 @@ public record ReadingGroupResponse(
                 member,
                 manager,
                 books,
+                members,
                 group.getCreatedAt()
         );
     }

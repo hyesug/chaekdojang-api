@@ -202,6 +202,7 @@ public class AdminService {
         LocalDateTime startOfTomorrow = startOfToday.plusDays(1);
         List<MetricEvent> todayMetrics = visibleMetricsSince(startOfToday);
         List<ErrorLog> todayErrors = visibleErrorsSince(startOfToday);
+        List<AccessLog> todayAccessLogs = visibleAccessLogsSince(startOfToday);
         long todayVisitors = todayMetrics.stream().map(this::visitorKey).distinct().count();
         long todayPageViews = todayMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
@@ -209,12 +210,7 @@ public class AdminService {
         long todayServerErrors = todayErrors.stream()
                 .filter(error -> error.getStatus() >= 500)
                 .count();
-        long todaySuspiciousRequests = getSecuritySummary(adminId).stream()
-                .filter(item -> item.lastAt() != null
-                        && !item.lastAt().isBefore(startOfToday)
-                        && item.lastAt().isBefore(startOfTomorrow))
-                .mapToLong(AdminSecuritySummaryResponse::count)
-                .sum();
+        long todaySuspiciousRequests = countSecurityOccurrences(todayErrors, todayAccessLogs);
         return new AdminDashboardSummaryResponse(
                 todayVisitors,
                 todayPageViews,
@@ -293,8 +289,8 @@ public class AdminService {
                 });
         return summaries.values().stream()
                 .map(SecurityAccumulator::toResponse)
-                .sorted(Comparator.comparing(AdminSecuritySummaryResponse::count).reversed()
-                        .thenComparing(AdminSecuritySummaryResponse::lastAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(Comparator.comparing(AdminSecuritySummaryResponse::lastAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(AdminSecuritySummaryResponse::count, Comparator.reverseOrder()))
                 .limit(100)
                 .toList();
     }
@@ -467,6 +463,15 @@ public class AdminService {
         if (status >= 500) return "서버 오류";
         if (status >= 400) return "요청 오류";
         return "기타 이상 요청";
+    }
+
+    private long countSecurityOccurrences(List<ErrorLog> errors, List<AccessLog> accessLogs) {
+        long errorCount = errors.size();
+        long accessCount = accessLogs.stream()
+                .filter(log -> log.getStatus() >= 400 || !"기타 이상 요청".equals(suspiciousType(log.getUri(), log.getStatus())))
+                .filter(log -> !"요청 오류".equals(suspiciousType(log.getUri(), log.getStatus())) || log.getStatus() >= 500)
+                .count();
+        return errorCount + accessCount;
     }
 
     private final class PageAccumulator {

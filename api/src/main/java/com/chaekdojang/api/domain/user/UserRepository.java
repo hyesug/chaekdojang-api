@@ -25,4 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByCreatedAtBetweenAndDeletedAtIsNull(LocalDateTime start, LocalDateTime end);
 
     List<User> findAllByRoleInAndDeletedAtIsNull(List<UserRole> roles);
+
+    List<User> findTop20ByDeletedAtIsNullOrderByCreatedAtDesc();
 }

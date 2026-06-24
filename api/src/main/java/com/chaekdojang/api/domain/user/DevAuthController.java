@@ -1,7 +1,9 @@
 package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.global.response.ApiResponse;
-import com.chaekdojang.api.global.security.JwtProvider;
+import com.chaekdojang.api.global.security.AuthCookieService;
+import com.chaekdojang.api.global.security.AuthSessionService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,13 +22,14 @@ public class DevAuthController {
     private static final String DEV_NICKNAME = "로컬독자";
 
     private final UserRepository userRepository;
-    private final JwtProvider jwtProvider;
+    private final AuthSessionService authSessionService;
+    private final AuthCookieService authCookieService;
 
     @Value("${app.dev-login-enabled:false}")
     private boolean devLoginEnabled;
 
     @PostMapping("/login")
-    public ApiResponse<DevLoginResponse> login() {
+    public ApiResponse<DevLoginResponse> login(HttpServletResponse response) {
         if (!devLoginEnabled) {
             throw new ResponseStatusException(NOT_FOUND);
         }
@@ -37,7 +40,9 @@ public class DevAuthController {
             user.setSuperAdmin();
             user = userRepository.save(user);
         }
-        return ApiResponse.ok(new DevLoginResponse(jwtProvider.generate(user.getId()), user.getId(), user.getNickname()));
+        AuthSessionService.AuthTokens tokens = authSessionService.createSession(user.getId());
+        authCookieService.addSession(response, tokens);
+        return ApiResponse.ok(new DevLoginResponse(user.getId(), user.getNickname()));
     }
 
     private String uniqueNickname() {
@@ -45,6 +50,6 @@ public class DevAuthController {
         return DEV_NICKNAME + "_" + System.currentTimeMillis();
     }
 
-    public record DevLoginResponse(String token, Long userId, String nickname) {
+    public record DevLoginResponse(Long userId, String nickname) {
     }
 }

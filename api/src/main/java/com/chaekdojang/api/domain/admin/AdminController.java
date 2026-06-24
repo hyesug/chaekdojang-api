@@ -46,7 +46,7 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         UserRole role = UserRole.valueOf(body.get("role").toUpperCase());
-        adminService.setRole(SecurityUtils.getCurrentUserId(), id, role);
+        adminService.setRole(SecurityUtils.getCurrentUserId(), id, role, body.get("reason"));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -63,8 +63,8 @@ public class AdminController {
     @PatchMapping("/reviews/{id}/hidden")
     public ResponseEntity<ApiResponse<Void>> setHidden(
             @PathVariable Long id,
-            @RequestBody Map<String, Boolean> body) {
-        adminService.setHidden(SecurityUtils.getCurrentUserId(), id, body.get("hidden"));
+            @RequestBody Map<String, Object> body) {
+        adminService.setHidden(SecurityUtils.getCurrentUserId(), id, Boolean.TRUE.equals(body.get("hidden")), String.valueOf(body.getOrDefault("reason", "")));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 

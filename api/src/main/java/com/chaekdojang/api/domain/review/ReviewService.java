@@ -5,6 +5,8 @@ import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
+import com.chaekdojang.api.domain.notification.NotificationService;
+import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
@@ -45,6 +47,7 @@ public class ReviewService {
     private final CommentRepository commentRepository;
     private final FollowRepository followRepository;
     private final LibraryRepository libraryRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public ReviewResponse create(ReviewCreateRequest request) {
@@ -72,9 +75,23 @@ public class ReviewService {
                                     Library.builder().user(author).book(finalBook).status(LibraryStatus.FINISHED).build()
                             )
                     );
+            notifySameBookReaders(author, finalBook, review.getId());
         }
 
         return saved;
+    }
+
+    private void notifySameBookReaders(User author, Book book, Long reviewId) {
+        reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(book.getId())
+                .stream()
+                .map(Review::getAuthor)
+                .filter(reader -> reader != null && reader.getDeletedAt() == null)
+                .filter(reader -> !reader.getId().equals(author.getId()))
+                .collect(Collectors.toMap(User::getId, reader -> reader, (first, ignored) -> first))
+                .values()
+                .stream()
+                .limit(50)
+                .forEach(reader -> notificationService.send(reader, author, NotificationType.SAME_BOOK_REVIEW, reviewId));
     }
 
     // 페이지네이션 기본: page=0, size=10 / sort: recent(최신순) | rating(별점순) | popular(인기순)
@@ -210,10 +227,11 @@ public class ReviewService {
 
     private List<ReviewResponse> toResponseList(List<Review> reviews) {
         if (reviews.isEmpty()) return List.of();
-        List<Long> ids = reviews.stream().map(Review::getId).toList();
+        List<Review> limited = reviews.stream().limit(100).toList();
+        List<Long> ids = limited.stream().map(Review::getId).toList();
         Map<Long, Long> likeMap = buildLikeCountMap(ids);
         Map<Long, Long> commentMap = buildCommentCountMap(ids);
-        return reviews.stream()
+        return limited.stream()
                 .map(r -> ReviewResponse.from(r,
                         likeMap.getOrDefault(r.getId(), 0L),
                         commentMap.getOrDefault(r.getId(), 0L)))

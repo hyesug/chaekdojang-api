@@ -3,8 +3,9 @@ package com.chaekdojang.api.domain.chat.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record ChatMessageRequest(
+public record ChatReportRequest(
         @NotBlank
-        @Size(max = 1000)
-        String content
-) {}
+        @Size(min = 5, max = 500)
+        String reason
+) {
+}

@@ -13,7 +13,9 @@ public record UserProfileResponse(
         long followerCount,
         long followingCount,
         LibrarySummary librarySummary,
-        LifeBook lifeBook
+        LifeBook lifeBook,
+        boolean onboardingCompleted,
+        String preferredGenres
 ) {
     public record LibrarySummary(long readingCount, long finishedCount, long wishlistCount) {
     }
@@ -41,7 +43,9 @@ public record UserProfileResponse(
                 followerCount,
                 followingCount,
                 librarySummary,
-                lifeBook
+                lifeBook,
+                user.isOnboardingCompleted(),
+                user.getPreferredGenres()
         );
     }
 }

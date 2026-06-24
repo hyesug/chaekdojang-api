@@ -20,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -175,6 +177,135 @@ public class UserService {
                         .orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    @Transactional
+    public UserProfileResponse completeOnboarding(OnboardingRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        User user = findUser(userId);
+        user.completeOnboarding(normalizeGenres(request.genres()));
+        return buildProfile(userId);
+    }
+
+    public List<UserRecommendationResponse> getOnboardingRecommendations() {
+        Long myId = SecurityUtils.getCurrentUserId();
+        User me = findUser(myId);
+        List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(myId);
+        List<Long> excludeIds = new ArrayList<>(followingIds);
+        excludeIds.add(myId);
+
+        List<AuthorActivityScore> authorScores = reviewRepository.findTopAuthorStatsByReviewCount(excludeIds)
+                .stream()
+                .limit(100)
+                .map(row -> new AuthorActivityScore(
+                        ((Number) row[0]).longValue(),
+                        ((Number) row[1]).longValue(),
+                        (java.time.LocalDateTime) row[2],
+                        null
+                ))
+                .toList();
+        if (authorScores.isEmpty()) return List.of();
+
+        List<Long> candidateIds = authorScores.stream().map(AuthorActivityScore::userId).toList();
+
+        Map<Long, java.time.LocalDateTime> lastActivityByUserId = metricEventRepository.findLastActivityByUserIds(candidateIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> ((Number) row[0]).longValue(),
+                        row -> (java.time.LocalDateTime) row[1]
+                ));
+
+        Map<Long, Integer> overlapByUserId = new HashMap<>();
+        List<Long> myBookIds = libraryRepository.findBookIdsByUserId(myId);
+        if (!myBookIds.isEmpty()) {
+            libraryRepository.findUsersWithMostBookOverlap(myBookIds, excludeIds)
+                    .forEach(row -> overlapByUserId.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue()));
+        }
+
+        Map<Long, Integer> ratingSimilarityByUserId = new HashMap<>();
+        reviewRepository.findRatingSimilarity(myId, excludeIds)
+                .forEach(row -> ratingSimilarityByUserId.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue()));
+
+        List<Long> lifeBookMatchedIds = me.getLifeBook() == null
+                ? List.of()
+                : userRepository.findAllByLifeBook_IdAndDeletedAtIsNull(me.getLifeBook().getId())
+                .stream()
+                .map(User::getId)
+                .toList();
+
+        return authorScores.stream()
+                .map(score -> score.withLastActivity(lastActivityByUserId.get(score.userId())))
+                .map(score -> new OnboardingCandidate(
+                        score,
+                        onboardingRecommendationScore(
+                                score,
+                                overlapByUserId.getOrDefault(score.userId(), 0),
+                                ratingSimilarityByUserId.getOrDefault(score.userId(), 0),
+                                lifeBookMatchedIds.contains(score.userId())
+                        )
+                ))
+                .sorted(Comparator
+                        .comparingInt(OnboardingCandidate::score).reversed()
+                        .thenComparing(candidate -> candidate.author().reviewCount(), Comparator.reverseOrder())
+                        .thenComparing(candidate -> candidate.author().lastActivity(), Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(candidate -> candidate.author().lastReviewAt(), Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(5)
+                .map(candidate -> userRepository.findById(candidate.author().userId())
+                        .filter(user -> user.getDeletedAt() == null)
+                        .map(user -> UserRecommendationResponse.from(user, candidate.score()))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private int onboardingRecommendationScore(
+            AuthorActivityScore authorScore,
+            int commonBookCount,
+            int ratingSimilarityScore,
+            boolean lifeBookMatched
+    ) {
+        long reviewScore = Math.min(authorScore.reviewCount(), 50) * 10;
+        int activityScore = recentActivityScore(authorScore.lastActivity());
+        int lifeBookScore = lifeBookMatched ? 60 : 0;
+        int commonBookScore = Math.min(commonBookCount, 10) * 15;
+        int ratingScore = Math.min(ratingSimilarityScore, 20) * 8;
+        return Math.toIntExact(reviewScore + activityScore + lifeBookScore + commonBookScore + ratingScore);
+    }
+
+    private int recentActivityScore(java.time.LocalDateTime lastActivity) {
+        if (lastActivity == null) return 0;
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"));
+        if (lastActivity.isAfter(now.minusDays(7))) return 40;
+        if (lastActivity.isAfter(now.minusDays(30))) return 25;
+        if (lastActivity.isAfter(now.minusDays(90))) return 10;
+        return 5;
+    }
+
+    private record AuthorActivityScore(
+            Long userId,
+            long reviewCount,
+            java.time.LocalDateTime lastReviewAt,
+            java.time.LocalDateTime lastActivity
+    ) {
+        private AuthorActivityScore withLastActivity(java.time.LocalDateTime value) {
+            return new AuthorActivityScore(userId, reviewCount, lastReviewAt, value);
+        }
+    }
+
+    private record OnboardingCandidate(AuthorActivityScore author, int score) {
+    }
+
+    private String normalizeGenres(List<String> genres) {
+        if (genres == null || genres.isEmpty()) return "";
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .map(value -> value.length() > 30 ? value.substring(0, 30) : value)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .limit(10)
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     public ReadingStatsResponse getReadingStats() {

@@ -1,5 +1,7 @@
 package com.chaekdojang.api.domain.book;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.BookSearchResult;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
@@ -12,9 +14,11 @@ import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.review.ReviewLikeRepository;
 import com.chaekdojang.api.domain.review.CommentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
@@ -33,6 +37,8 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final CommentRepository commentRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public List<BookResponse> search(String query, String author, String publisher) {
@@ -41,6 +47,10 @@ public class BookService {
         String authorFilter = normalizeSearchText(author);
         String publisherFilter = normalizeSearchText(publisher);
         if (searchQuery.isBlank()) return List.of();
+        String cacheKey = bookSearchCacheKey(titleFilter, authorFilter, publisherFilter);
+        List<BookResponse> cached = readBookSearchCache(cacheKey);
+        if (cached != null) return cached;
+
         List<BookSearchResult> results = new ArrayList<>();
         results.addAll(kakaoBookClient.search(searchQuery));
         results.addAll(googleBookClient.search(searchQuery));
@@ -56,9 +66,11 @@ public class BookService {
             books.putIfAbsent(bookKey(book), book);
         }
 
-        return books.values().stream()
+        List<BookResponse> responses = books.values().stream()
                 .map(this::toResponseWithReviewCount)
                 .toList();
+        writeBookSearchCache(cacheKey, responses);
+        return responses;
     }
 
     public BookResponse findById(Long id) {
@@ -122,6 +134,28 @@ public class BookService {
         if (!writer.isBlank()) builder.append(" ").append(writer);
         if (!publisherName.isBlank()) builder.append(" ").append(publisherName);
         return builder.toString();
+    }
+
+    private String bookSearchCacheKey(String title, String author, String publisher) {
+        return "book-search:v1:" + title + ":" + author + ":" + publisher;
+    }
+
+    private List<BookResponse> readBookSearchCache(String key) {
+        try {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value == null || value.isBlank()) return null;
+            return objectMapper.readValue(value, new TypeReference<List<BookResponse>>() {});
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void writeBookSearchCache(String key, List<BookResponse> responses) {
+        try {
+            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(responses), Duration.ofHours(6));
+        } catch (Exception ignored) {
+            // Redis 캐시 실패가 책 검색 자체를 막지 않도록 무시한다.
+        }
     }
 
     private String normalizeSearchText(String value) {

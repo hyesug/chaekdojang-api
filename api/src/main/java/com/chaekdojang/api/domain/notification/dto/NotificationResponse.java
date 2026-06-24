@@ -22,6 +22,7 @@ public record NotificationResponse(
             case LIKE    -> senderNickname + "님이 독후감에 좋아요를 눌렀어요";
             case COMMENT -> senderNickname + "님이 댓글을 달았어요";
             case FOLLOW  -> senderNickname + "님이 팔로우하기 시작했어요";
+            case SAME_BOOK_REVIEW -> senderNickname + "님이 내가 읽은 책에 새 독후감을 남겼어요";
         };
         return new NotificationResponse(
                 n.getId(),

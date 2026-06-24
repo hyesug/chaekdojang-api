@@ -40,6 +40,7 @@ public class NotificationService {
         Long userId = SecurityUtils.getCurrentUserId();
         return notificationRepository.findAllByReceiverIdOrderByCreatedAtDesc(userId)
                 .stream()
+                .limit(100)
                 .map(NotificationResponse::from)
                 .toList();
     }

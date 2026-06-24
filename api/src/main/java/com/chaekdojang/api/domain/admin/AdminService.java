@@ -83,8 +83,9 @@ public class AdminService {
     }
 
     @Transactional
-    public void setRole(Long adminId, Long targetUserId, UserRole role) {
+    public void setRole(Long adminId, Long targetUserId, UserRole role, String reason) {
         User admin = assertSuperAdmin(adminId);
+        String normalizedReason = requireReason(reason);
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         if (target.isSuperAdmin()) throw new CustomException(ErrorCode.FORBIDDEN); // 슈퍼 관리자는 변경 불가
@@ -96,7 +97,7 @@ public class AdminService {
                 "USER_ROLE_CHANGED",
                 "USER",
                 target.getId(),
-                "Changed user role from " + previousRole + " to " + target.getRole()
+                "Changed user role from " + previousRole + " to " + target.getRole() + " / reason: " + normalizedReason
         );
     }
 
@@ -110,8 +111,9 @@ public class AdminService {
     }
 
     @Transactional
-    public void setHidden(Long adminId, Long reviewId, boolean hidden) {
+    public void setHidden(Long adminId, Long reviewId, boolean hidden, String reason) {
         User admin = assertAdmin(adminId);
+        String normalizedReason = requireReason(reason);
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         if (hidden) review.hide(); else review.unhide();
@@ -120,7 +122,7 @@ public class AdminService {
                 hidden ? "REVIEW_HIDDEN" : "REVIEW_UNHIDDEN",
                 "REVIEW",
                 review.getId(),
-                "Set review hidden=" + hidden
+                "Set review hidden=" + hidden + " / reason: " + normalizedReason
         );
     }
 
@@ -544,6 +546,14 @@ public class AdminService {
 
     private String normalize(String value) {
         return value != null && !value.isBlank() ? value.trim() : "";
+    }
+
+    private String requireReason(String value) {
+        String normalized = normalize(value);
+        if (normalized.length() < 5 || normalized.length() > 500) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        return normalized;
     }
 
     private String normalizeUserType(String userType) {

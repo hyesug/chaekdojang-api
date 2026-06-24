@@ -1,8 +1,12 @@
 package com.chaekdojang.api.domain.admin;
 
 import com.chaekdojang.api.domain.admin.dto.AccessLogResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsActionResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsPageResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminAuditLogResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminDashboardSummaryResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReviewResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminSecuritySummaryResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminUserResponse;
 import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
 import com.chaekdojang.api.domain.admin.dto.ErrorLogResponse;
@@ -103,6 +107,30 @@ public class AdminController {
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
                 adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), q, eventType, userType, pageable)));
+    }
+
+    @GetMapping("/dashboard/summary")
+    public ResponseEntity<ApiResponse<AdminDashboardSummaryResponse>> getDashboardSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getDashboardSummary(SecurityUtils.getCurrentUserId())));
+    }
+
+    @GetMapping("/analytics/pages")
+    public ResponseEntity<ApiResponse<List<AdminAnalyticsPageResponse>>> getAnalyticsPages() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getAnalyticsPages(SecurityUtils.getCurrentUserId())));
+    }
+
+    @GetMapping("/analytics/actions")
+    public ResponseEntity<ApiResponse<List<AdminAnalyticsActionResponse>>> getAnalyticsActions() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getAnalyticsActions(SecurityUtils.getCurrentUserId())));
+    }
+
+    @GetMapping("/security/summary")
+    public ResponseEntity<ApiResponse<List<AdminSecuritySummaryResponse>>> getSecuritySummary() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getSecuritySummary(SecurityUtils.getCurrentUserId())));
     }
 
     @GetMapping("/error-logs")

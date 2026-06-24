@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> {
     List<MetricEvent> findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc();
@@ -46,7 +47,27 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             Pageable pageable
     );
 
+    @Query("""
+            SELECT m FROM MetricEvent m
+            LEFT JOIN FETCH m.user u
+            WHERE m.createdAt >= :since
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
+              AND m.ip NOT IN :excludedIps
+              AND (:excludedIpPrefix = '' OR m.ip IS NULL OR m.ip NOT LIKE CONCAT(:excludedIpPrefix, '%'))
+              AND m.path NOT LIKE '/admin%'
+              AND m.path NOT LIKE '/api/admin%'
+            """)
+    List<MetricEvent> findVisibleSince(
+            @Param("since") LocalDateTime since,
+            @Param("excludedIps") List<String> excludedIps,
+            @Param("excludedIpPrefix") String excludedIpPrefix
+    );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE MetricEvent m SET m.user = null WHERE m.user.id = :userId")
     void anonymizeUser(@Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM MetricEvent m WHERE m.createdAt < :cutoff")
+    int deleteCreatedBefore(@Param("cutoff") LocalDateTime cutoff);
 }

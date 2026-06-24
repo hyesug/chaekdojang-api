@@ -30,13 +30,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
         if (token != null && jwtProvider.validate(token)) {
             Long userId = jwtProvider.extractUserId(token);
-            List<SimpleGrantedAuthority> authorities = userRepository.findById(userId)
+            userRepository.findById(userId)
                     .filter(user -> user.getDeletedAt() == null)
-                    .map(this::authoritiesOf)
-                    .orElseGet(List::of);
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(auth);
+                    .ifPresent(user -> {
+                        UsernamePasswordAuthenticationToken auth =
+                                new UsernamePasswordAuthenticationToken(userId, null, authoritiesOf(user));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    });
         }
         chain.doFilter(request, response);
     }

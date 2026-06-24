@@ -110,6 +110,8 @@ app:
     admin-email: ${NOTIFICATION_ADMIN_EMAIL:}
   admin:
     excluded-ips: ${ADMIN_EXCLUDED_IPS:}
+  security:
+    enforce-production-secrets: ${APP_SECURITY_ENFORCE_PRODUCTION_SECRETS:false}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     api-limit-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}

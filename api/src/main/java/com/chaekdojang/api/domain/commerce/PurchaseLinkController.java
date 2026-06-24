@@ -33,4 +33,11 @@ public class PurchaseLinkController {
             @RequestBody @Valid PurchaseLinkAddRequest request) {
         return ApiResponse.ok(purchaseLinkService.addLink(request));
     }
+
+    @Operation(summary = "구매 링크 클릭수 기록", description = "구매 링크 클릭을 기록합니다. 인증 불필요.")
+    @PostMapping("/purchase-links/{linkId}/clicks")
+    public ApiResponse<Void> recordClick(@PathVariable Long linkId) {
+        purchaseLinkService.recordClick(linkId);
+        return ApiResponse.ok(null);
+    }
 }

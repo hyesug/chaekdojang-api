@@ -50,4 +50,11 @@ public class PurchaseLinkService {
                 .build();
         return PurchaseLinkResponse.from(purchaseLinkRepository.save(link));
     }
+
+    @Transactional
+    public void recordClick(Long linkId) {
+        PurchaseLink link = purchaseLinkRepository.findById(linkId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        link.increaseClickCount();
+    }
 }

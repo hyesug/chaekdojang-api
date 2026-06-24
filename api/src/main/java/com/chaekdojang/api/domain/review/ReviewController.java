@@ -55,6 +55,13 @@ public class ReviewController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "독후감 클릭수 기록", description = "공개 독후감 상세 진입을 클릭수로 기록합니다. 인증 불필요.")
+    @PostMapping("/{id}/clicks")
+    public ApiResponse<Void> recordClick(@PathVariable Long id) {
+        reviewService.recordView(id);
+        return ApiResponse.ok(null);
+    }
+
     @Operation(summary = "독후감 수정", description = "본인이 작성한 독후감의 내용을 수정합니다. JWT 필요.")
     @PutMapping("/{id}")
     public ApiResponse<ReviewResponse> update(

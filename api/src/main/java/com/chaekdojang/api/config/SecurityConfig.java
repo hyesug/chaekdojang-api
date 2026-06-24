@@ -79,11 +79,14 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.POST,
                             "/api/metrics/events",
                             "/api/dev/login",
-                            "/api/reviews/*/view"
+                            "/api/reviews/*/view",
+                            "/api/reviews/*/clicks",
+                            "/api/books/purchase-links/*/clicks"
                     ).permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                             "/api/reviews", "/api/reviews/**",
                             "/api/books/**",
+                            "/api/profiles", "/api/profiles/**",
                             "/api/users/*/followers", "/api/users/*/followings",
                             "/api/users/*/reviews",
                             "/api/users/nickname/*",

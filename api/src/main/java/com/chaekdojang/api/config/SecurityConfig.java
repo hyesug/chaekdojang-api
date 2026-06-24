@@ -91,8 +91,8 @@ public class SecurityConfig {
                     ).permitAll()
                     // 문의: POST·GET 모두 비회원 허용 (권한 체크는 서비스 레이어에서)
                     .requestMatchers("/api/inquiries/**").permitAll()
-                    // 관리자 API: 인증 필요 (권한 체크는 서비스 레이어에서)
-                    .requestMatchers("/api/admin/**").authenticated()
+                    // 관리자 API: Security 레벨에서 1차 차단, 서비스 레이어에서 2차 검증
+                    .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                     .anyRequest().authenticated();
             })
             .headers(headers -> headers

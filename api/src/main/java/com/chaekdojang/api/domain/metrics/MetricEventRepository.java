@@ -14,6 +14,14 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
     List<MetricEvent> findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc();
 
     @Query("""
+            SELECT m.user.id, MAX(m.createdAt)
+            FROM MetricEvent m
+            WHERE m.user.id IN :userIds
+            GROUP BY m.user.id
+            """)
+    List<Object[]> findLastActivityByUserIds(@Param("userIds") List<Long> userIds);
+
+    @Query("""
             SELECT DISTINCT m.ip FROM MetricEvent m
             JOIN m.user u
             WHERE m.ip IS NOT NULL

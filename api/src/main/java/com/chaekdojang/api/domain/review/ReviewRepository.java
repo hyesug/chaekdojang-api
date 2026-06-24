@@ -32,6 +32,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("SELECT COUNT(DISTINCT r.author.id) FROM Review r WHERE r.book.id = :bookId AND r.deletedAt IS NULL AND r.hidden = false")
     long countReadersByBookId(@Param("bookId") Long bookId);
 
+    @Query("""
+            SELECT r.author.id, COUNT(r), MAX(r.createdAt)
+            FROM Review r
+            WHERE r.deletedAt IS NULL
+              AND r.hidden = false
+              AND r.author.deletedAt IS NULL
+              AND r.author.id NOT IN :excludeIds
+            GROUP BY r.author.id
+            ORDER BY COUNT(r) DESC, MAX(r.createdAt) DESC
+            """)
+    List<Object[]> findTopAuthorStatsByReviewCount(@Param("excludeIds") List<Long> excludeIds);
+
     List<Review> findAllByAuthorIdInAndDeletedAtIsNullOrderByCreatedAtDesc(List<Long> authorIds);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long bookId);

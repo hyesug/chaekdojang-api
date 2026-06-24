@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -193,15 +194,59 @@ public class UserService {
 
         List<Long> existingIds = recommendations.stream().map(UserRecommendationResponse::id).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         existingIds.add(myId);
-        userRepository.findTop20ByDeletedAtIsNullOrderByCreatedAtDesc()
+
+        List<AuthorActivityScore> activityScores = reviewRepository.findTopAuthorStatsByReviewCount(existingIds)
                 .stream()
-                .filter(user -> !existingIds.contains(user.getId()))
-                .filter(user -> !user.isAdmin()
-                        || reviewRepository.countByAuthorIdAndDeletedAtIsNullAndHiddenFalse(user.getId()) > 0)
+                .limit(50)
+                .map(row -> new AuthorActivityScore(
+                        ((Number) row[0]).longValue(),
+                        ((Number) row[1]).longValue(),
+                        (java.time.LocalDateTime) row[2],
+                        null
+                ))
+                .toList();
+        if (activityScores.isEmpty()) return recommendations;
+
+        Map<Long, java.time.LocalDateTime> lastActivityByUserId = metricEventRepository.findLastActivityByUserIds(
+                        activityScores.stream().map(AuthorActivityScore::userId).toList()
+                )
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> ((Number) row[0]).longValue(),
+                        row -> (java.time.LocalDateTime) row[1]
+                ));
+
+        activityScores.stream()
+                .map(score -> score.withLastActivity(lastActivityByUserId.get(score.userId())))
+                .sorted(Comparator
+                        .comparingLong(AuthorActivityScore::reviewCount).reversed()
+                        .thenComparing(AuthorActivityScore::lastActivity, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(AuthorActivityScore::lastReviewAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(5 - recommendations.size())
-                .map(user -> UserRecommendationResponse.from(user, 0))
+                .map(score -> userRepository.findById(score.userId())
+                        .filter(user -> user.getDeletedAt() == null)
+                        .map(user -> UserRecommendationResponse.from(user, recommendationScore(score)))
+                        .orElse(null))
+                .filter(Objects::nonNull)
                 .forEach(recommendations::add);
         return recommendations;
+    }
+
+    private int recommendationScore(AuthorActivityScore score) {
+        long cappedReviewScore = Math.min(score.reviewCount(), 50) * 10;
+        int activityBonus = score.lastActivity() != null ? 5 : 0;
+        return Math.toIntExact(cappedReviewScore + activityBonus);
+    }
+
+    private record AuthorActivityScore(
+            Long userId,
+            long reviewCount,
+            java.time.LocalDateTime lastReviewAt,
+            java.time.LocalDateTime lastActivity
+    ) {
+        private AuthorActivityScore withLastActivity(java.time.LocalDateTime value) {
+            return new AuthorActivityScore(userId, reviewCount, lastReviewAt, value);
+        }
     }
 
     private String normalizeGenres(List<String> genres) {

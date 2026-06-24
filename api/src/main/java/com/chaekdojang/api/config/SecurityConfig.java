@@ -92,6 +92,7 @@ public class SecurityConfig {
                             "/api/reviews", "/api/reviews/**",
                             "/api/books/**",
                             "/api/profiles", "/api/profiles/**",
+                            "/api/groups", "/api/groups/**",
                             "/api/users/*/followers", "/api/users/*/followings",
                             "/api/users/*/reviews",
                             "/api/users/nickname/*",

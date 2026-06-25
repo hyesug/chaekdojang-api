@@ -185,6 +185,21 @@ public class ReadingGroupService {
         return ReadingGroupReviewResponse.from(groupReviewRepository.save(ReadingGroupReview.of(group, groupBook, review)));
     }
 
+    @Transactional
+    public void detachReview(String slug, Long groupBookId, Long reviewId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertApprovedMember(group, userId);
+        ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        ReadingGroupReview groupReview = groupReviewRepository.findByGroupBookIdAndReviewId(groupBook.getId(), reviewId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        if (!groupReview.getReview().isAuthor(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+        groupReviewRepository.delete(groupReview);
+    }
+
     public List<ReadingGroupReviewResponse> getGroupBookReviews(String slug, Long groupBookId) {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
         ReadingGroup group = findBySlug(slug);

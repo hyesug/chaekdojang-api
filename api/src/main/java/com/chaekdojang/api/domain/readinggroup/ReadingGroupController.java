@@ -92,4 +92,13 @@ public class ReadingGroupController {
             @RequestBody @Valid ReadingGroupReviewAttachRequest request) {
         return ApiResponse.ok(readingGroupService.attachReview(slug, groupBookId, request));
     }
+
+    @DeleteMapping("/{slug}/books/{groupBookId}/reviews/{reviewId}")
+    public ApiResponse<Void> detachReview(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long reviewId) {
+        readingGroupService.detachReview(slug, groupBookId, reviewId);
+        return ApiResponse.ok(null);
+    }
 }

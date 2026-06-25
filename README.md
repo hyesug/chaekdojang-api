@@ -102,7 +102,7 @@ S3_PUBLIC_BASE_URL=
 
 ## 배포
 
-- `staging` 브랜치 push: 스테이징 API 배포
+- 스테이징 API: GitHub Actions의 `Deploy API to Staging EC2` workflow를 수동 실행
 - `main` 브랜치 push: 운영 API 배포
 - GitHub Actions가 Docker 이미지를 빌드해 GHCR에 올리고, EC2는 이미지를 내려받아 실행합니다.
 

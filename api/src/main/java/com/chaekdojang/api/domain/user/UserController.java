@@ -2,6 +2,8 @@ package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.review.ReviewService;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
+import com.chaekdojang.api.domain.library.LibraryService;
+import com.chaekdojang.api.domain.library.dto.LibraryResponse;
 import org.springframework.data.domain.Page;
 import com.chaekdojang.api.domain.user.dto.*;
 import com.chaekdojang.api.global.response.ApiResponse;
@@ -26,6 +28,7 @@ public class UserController {
 
     private final UserService userService;
     private final ReviewService reviewService;
+    private final LibraryService libraryService;
     private final AuthCookieService authCookieService;
     private final AuthSessionService authSessionService;
 
@@ -107,6 +110,12 @@ public class UserController {
     @GetMapping("/{userId}/reviews")
     public ApiResponse<List<ReviewResponse>> getUserReviews(@PathVariable Long userId) {
         return ApiResponse.ok(reviewService.getByUser(userId));
+    }
+
+    @Operation(summary = "특정 유저 공개 완독 목록", description = "공개 독후감이 있는 완독 도서만 반환합니다. 인증 불필요.")
+    @GetMapping("/{userId}/library")
+    public ApiResponse<List<LibraryResponse>> getUserLibrary(@PathVariable Long userId) {
+        return ApiResponse.ok(libraryService.getPublicFinishedLibrary(userId));
     }
 
     @Operation(summary = "사용자 검색", description = "닉네임으로 사용자를 검색합니다. 인증 불필요.")

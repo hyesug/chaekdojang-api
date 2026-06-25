@@ -209,6 +209,18 @@ public class AdminService {
         long todayPageViews = todayMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
                 .count();
+        long todayBookSearches = todayMetrics.stream()
+                .filter(event -> "book_search".equals(event.getEventType())
+                        || ("page_view".equals(event.getEventType()) && "/search".equals(normalizePath(event.getPath()))))
+                .count();
+        long todayBookDetailViews = todayMetrics.stream()
+                .filter(event -> "page_view".equals(event.getEventType()))
+                .filter(event -> normalizePath(event.getPath()).matches("^/books/[^/]+$"))
+                .count();
+        long todayReviewDetailViews = todayMetrics.stream()
+                .filter(event -> "page_view".equals(event.getEventType()))
+                .filter(event -> normalizePath(event.getPath()).matches("^/reviews/\\d+$"))
+                .count();
         long todayServerErrors = todayErrors.stream()
                 .filter(error -> error.getStatus() >= 500)
                 .count();
@@ -216,6 +228,9 @@ public class AdminService {
         return new AdminDashboardSummaryResponse(
                 todayVisitors,
                 todayPageViews,
+                todayBookSearches,
+                todayBookDetailViews,
+                todayReviewDetailViews,
                 reviewRepository.countByCreatedAtBetweenAndDeletedAtIsNull(startOfToday, startOfTomorrow),
                 userRepository.countByCreatedAtBetweenAndDeletedAtIsNull(startOfToday, startOfTomorrow),
                 todayServerErrors,

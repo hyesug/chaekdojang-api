@@ -130,7 +130,7 @@ AWS/Vercel work:
 - Staging API Elastic IP: `3.34.214.8`.
 - Staging API container runs on EC2 at `127.0.0.1:8081`.
 - Nginx proxies `staging-api.chaekdojang.com` to `127.0.0.1:8081`.
-- GitHub Actions builds the Docker image and deploys staging through SSM; EC2 does not build application code.
+- GitHub Actions builds the Docker image and deploys staging through SSM only when the staging workflow is manually run; EC2 does not build application code.
 - Create `staging-api.chaekdojang.com` in Cloudflare and point it to `3.34.214.8`.
 - After DNS is active, issue a Let's Encrypt certificate for `staging-api.chaekdojang.com`.
 - Create a Vercel staging project or preview environment.

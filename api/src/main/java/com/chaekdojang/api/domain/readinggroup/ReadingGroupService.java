@@ -166,6 +166,22 @@ public class ReadingGroupService {
                 .toList();
     }
 
+    public List<ReadingGroupMyReviewResponse> getMyGroupBookReviews(String slug, Long groupBookId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertApprovedMember(group, userId);
+        ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        return reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(
+                        userId,
+                        groupBook.getBook().getId())
+                .stream()
+                .map(review -> ReadingGroupMyReviewResponse.of(
+                        review,
+                        groupReviewRepository.existsByGroupBookIdAndReviewId(groupBook.getId(), review.getId())))
+                .toList();
+    }
+
     private ReadingGroupResponse toResponse(ReadingGroup group, Long userId) {
         boolean member = isApprovedMember(group.getId(), userId);
         boolean manager = isManager(group.getId(), userId);

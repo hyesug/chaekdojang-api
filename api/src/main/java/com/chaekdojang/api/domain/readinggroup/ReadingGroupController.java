@@ -35,6 +35,30 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.join(slug));
     }
 
+    @GetMapping("/{slug}/members")
+    public ApiResponse<List<ReadingGroupMemberResponse>> getMembers(
+            @PathVariable String slug,
+            @RequestParam(required = false) ReadingGroupMemberStatus status) {
+        if (status == ReadingGroupMemberStatus.PENDING) {
+            return ApiResponse.ok(readingGroupService.getPendingMembers(slug));
+        }
+        return ApiResponse.ok(readingGroupService.getMembers(slug));
+    }
+
+    @PostMapping("/{slug}/members/{memberId}/approve")
+    public ApiResponse<ReadingGroupMemberResponse> approveMember(
+            @PathVariable String slug,
+            @PathVariable Long memberId) {
+        return ApiResponse.ok(readingGroupService.approveMember(slug, memberId));
+    }
+
+    @PostMapping("/{slug}/members/{memberId}/reject")
+    public ApiResponse<ReadingGroupMemberResponse> rejectMember(
+            @PathVariable String slug,
+            @PathVariable Long memberId) {
+        return ApiResponse.ok(readingGroupService.rejectMember(slug, memberId));
+    }
+
     @PostMapping("/{slug}/books")
     public ApiResponse<ReadingGroupResponse> addBook(
             @PathVariable String slug,

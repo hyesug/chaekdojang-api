@@ -9,4 +9,5 @@ public interface ReadingGroupMemberRepository extends JpaRepository<ReadingGroup
     Optional<ReadingGroupMember> findByGroupIdAndUserId(Long groupId, Long userId);
     boolean existsByGroupIdAndUserIdAndStatus(Long groupId, Long userId, ReadingGroupMemberStatus status);
     List<ReadingGroupMember> findAllByGroupIdOrderByCreatedAtAsc(Long groupId);
+    List<ReadingGroupMember> findAllByGroupIdAndStatusOrderByCreatedAtAsc(Long groupId, ReadingGroupMemberStatus status);
 }

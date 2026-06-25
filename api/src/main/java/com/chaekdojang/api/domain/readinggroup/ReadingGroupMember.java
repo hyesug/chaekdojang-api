@@ -68,6 +68,10 @@ public class ReadingGroupMember {
         this.status = ReadingGroupMemberStatus.APPROVED;
     }
 
+    public void reject() {
+        this.status = ReadingGroupMemberStatus.REJECTED;
+    }
+
     public boolean canManage() {
         return status == ReadingGroupMemberStatus.APPROVED
                 && (role == ReadingGroupMemberRole.OWNER || role == ReadingGroupMemberRole.MANAGER);

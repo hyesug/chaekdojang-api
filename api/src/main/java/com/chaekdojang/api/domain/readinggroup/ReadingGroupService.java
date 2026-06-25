@@ -80,6 +80,49 @@ public class ReadingGroupService {
         return toResponse(group, userId);
     }
 
+    public List<ReadingGroupMemberResponse> getMembers(String slug) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        return memberRepository.findAllByGroupIdOrderByCreatedAtAsc(group.getId())
+                .stream()
+                .map(ReadingGroupMemberResponse::from)
+                .toList();
+    }
+
+    public List<ReadingGroupMemberResponse> getPendingMembers(String slug) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        return memberRepository.findAllByGroupIdAndStatusOrderByCreatedAtAsc(group.getId(), ReadingGroupMemberStatus.PENDING)
+                .stream()
+                .map(ReadingGroupMemberResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public ReadingGroupMemberResponse approveMember(String slug, Long memberId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        ReadingGroupMember member = findMemberInGroup(group, memberId);
+        member.approve();
+        return ReadingGroupMemberResponse.from(member);
+    }
+
+    @Transactional
+    public ReadingGroupMemberResponse rejectMember(String slug, Long memberId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        ReadingGroupMember member = findMemberInGroup(group, memberId);
+        if (member.getRole() == ReadingGroupMemberRole.OWNER) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        member.reject();
+        return ReadingGroupMemberResponse.from(member);
+    }
+
     @Transactional
     public ReadingGroupResponse addBook(String slug, ReadingGroupBookAddRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -136,6 +179,15 @@ public class ReadingGroupService {
     private ReadingGroup findBySlug(String slug) {
         return groupRepository.findBySlug(slug)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+    }
+
+    private ReadingGroupMember findMemberInGroup(ReadingGroup group, Long memberId) {
+        ReadingGroupMember member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        if (!member.getGroup().getId().equals(group.getId())) {
+            throw new CustomException(ErrorCode.NOT_FOUND);
+        }
+        return member;
     }
 
     private void assertReadable(ReadingGroup group, Long userId) {

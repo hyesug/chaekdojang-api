@@ -15,6 +15,19 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
 
     List<Library> findAllByUserIdAndStatusOrderByUpdatedAtDesc(Long userId, LibraryStatus status);
 
+    @Query("""
+            SELECT DISTINCT l
+            FROM Library l
+            JOIN FETCH l.book b
+            JOIN Review r ON r.book = b AND r.author.id = l.user.id
+            WHERE l.user.id = :userId
+            AND l.status = 'FINISHED'
+            AND r.deletedAt IS NULL
+            AND r.hidden = false
+            ORDER BY l.updatedAt DESC
+            """)
+    List<Library> findPublicFinishedByUserId(@Param("userId") Long userId);
+
     Optional<Library> findByIdAndUserId(Long id, Long userId);
 
     Optional<Library> findByUserIdAndBookId(Long userId, Long bookId);

@@ -23,6 +23,11 @@ public class NotificationService {
     // 알림 생성 (내부 호출용)
     @Transactional
     public void send(User receiver, User sender, NotificationType type, Long targetId) {
+        send(receiver, sender, type, targetId, null);
+    }
+
+    @Transactional
+    public void send(User receiver, User sender, NotificationType type, Long targetId, String targetSlug) {
         // 자기 자신에게는 알림 보내지 않음
         if (receiver.getId().equals(sender.getId())) return;
         notificationRepository.save(
@@ -31,6 +36,7 @@ public class NotificationService {
                         .sender(sender)
                         .type(type)
                         .targetId(targetId)
+                        .targetSlug(targetSlug)
                         .build()
         );
     }

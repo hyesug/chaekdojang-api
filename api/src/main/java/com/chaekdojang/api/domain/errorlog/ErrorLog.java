@@ -43,12 +43,19 @@ public class ErrorLog {
     @Column
     private Long userId;
 
+    @Column(length = 500)
+    private String userAgent;
+
+    @Column(length = 500)
+    private String referer;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private ErrorLog(String level, String method, String uri, int status,
-                     String exceptionType, String message, String ip, Long userId) {
+                     String exceptionType, String message, String ip, Long userId,
+                     String userAgent, String referer) {
         this.level = level;
         this.method = method;
         this.uri = uri;
@@ -57,6 +64,8 @@ public class ErrorLog {
         this.message = message;
         this.ip = ip;
         this.userId = userId;
+        this.userAgent = userAgent;
+        this.referer = referer;
         this.createdAt = LocalDateTime.now(KST);
     }
 }

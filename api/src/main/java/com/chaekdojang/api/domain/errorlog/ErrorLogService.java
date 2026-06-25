@@ -16,6 +16,9 @@ public class ErrorLogService {
 
     @Transactional
     public void save(HttpServletRequest request, int status, Throwable error) {
+        if (isExpectedAnonymousRefresh(request, status)) {
+            return;
+        }
         save(
                 status >= 500 ? "ERROR" : "WARN",
                 request.getMethod(),
@@ -24,12 +27,21 @@ public class ErrorLogService {
                 error.getClass().getSimpleName(),
                 truncate(error.getMessage(), 1000),
                 maskIp(getClientIp(request)),
-                currentUserIdOrNull()
+                currentUserIdOrNull(),
+                truncate(request.getHeader("User-Agent"), 500),
+                truncate(request.getHeader("Referer"), 500)
         );
     }
 
+    private boolean isExpectedAnonymousRefresh(HttpServletRequest request, int status) {
+        return status == 403
+                && "POST".equals(request.getMethod())
+                && "/api/auth/refresh".equals(request.getRequestURI());
+    }
+
     public void save(String level, String method, String uri, int status,
-                     String exceptionType, String message, String ip, Long userId) {
+                     String exceptionType, String message, String ip, Long userId,
+                     String userAgent, String referer) {
         errorLogRepository.save(ErrorLog.builder()
                 .level(level)
                 .method(method)
@@ -39,6 +51,8 @@ public class ErrorLogService {
                 .message(message)
                 .ip(ip)
                 .userId(userId)
+                .userAgent(userAgent)
+                .referer(referer)
                 .build());
     }
 

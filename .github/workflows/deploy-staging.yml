@@ -1,8 +1,6 @@
 name: Deploy API to Staging EC2
 
 on:
-  push:
-    branches: [staging]
   workflow_dispatch:
 
 concurrency:

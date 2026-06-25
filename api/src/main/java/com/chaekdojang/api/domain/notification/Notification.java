@@ -32,6 +32,9 @@ public class Notification {
     @Column
     private Long targetId; // 좋아요·댓글의 경우 reviewId
 
+    @Column(length = 120)
+    private String targetSlug;
+
     @Column(nullable = false)
     private boolean isRead = false;
 
@@ -40,11 +43,12 @@ public class Notification {
     private LocalDateTime createdAt;
 
     @Builder
-    public Notification(User receiver, User sender, NotificationType type, Long targetId) {
+    public Notification(User receiver, User sender, NotificationType type, Long targetId, String targetSlug) {
         this.receiver = receiver;
         this.sender = sender;
         this.type = type;
         this.targetId = targetId;
+        this.targetSlug = targetSlug;
     }
 
     public void markAsRead() {

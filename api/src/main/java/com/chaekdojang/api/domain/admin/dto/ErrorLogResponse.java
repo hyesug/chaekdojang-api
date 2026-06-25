@@ -14,6 +14,8 @@ public record ErrorLogResponse(
         String message,
         String ip,
         Long userId,
+        String userAgent,
+        String referer,
         LocalDateTime createdAt
 ) {
     public static ErrorLogResponse from(ErrorLog log) {
@@ -27,6 +29,8 @@ public record ErrorLogResponse(
                 log.getMessage(),
                 log.getIp(),
                 log.getUserId(),
+                log.getUserAgent(),
+                log.getReferer(),
                 log.getCreatedAt()
         );
     }

@@ -50,6 +50,17 @@ public class LibraryService {
         return result.stream().limit(200).map(LibraryResponse::from).toList();
     }
 
+    public List<LibraryResponse> getPublicFinishedLibrary(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+        return libraryRepository.findPublicFinishedByUserId(userId)
+                .stream()
+                .limit(200)
+                .map(LibraryResponse::from)
+                .toList();
+    }
+
     @Transactional
     public LibraryResponse updateStatus(Long id, LibraryUpdateRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();

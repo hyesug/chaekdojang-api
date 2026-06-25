@@ -16,6 +16,12 @@ import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
 import com.chaekdojang.api.domain.metrics.MetricEvent;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupBookRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberStatus;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupReviewRepository;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -57,6 +63,10 @@ public class AdminService {
     private final ErrorLogService errorLogService;
     private final ErrorLogRepository errorLogRepository;
     private final MetricEventRepository metricEventRepository;
+    private final ReadingGroupRepository readingGroupRepository;
+    private final ReadingGroupMemberRepository readingGroupMemberRepository;
+    private final ReadingGroupBookRepository readingGroupBookRepository;
+    private final ReadingGroupReviewRepository readingGroupReviewRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
     private final AdminTrafficFilter adminTrafficFilter;
@@ -129,6 +139,66 @@ public class AdminService {
     public List<BookReviewStatResponse> getBookStats(Long adminId) {
         assertAdmin(adminId);
         return reviewRepository.findBookReviewStats();
+    }
+
+    // ── 독서모임 관리 ───────────────────────────────────────
+    public Page<AdminReadingGroupResponse> getReadingGroups(Long adminId, Pageable pageable) {
+        assertAdmin(adminId);
+        return readingGroupRepository.findAll(pageable)
+                .map(group -> AdminReadingGroupResponse.of(
+                        group,
+                        readingGroupMemberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.APPROVED),
+                        readingGroupMemberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.PENDING),
+                        readingGroupBookRepository.countByGroupId(group.getId())
+                ));
+    }
+
+    public AdminReadingGroupDetailResponse getReadingGroupDetail(Long adminId, Long groupId) {
+        assertAdmin(adminId);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        var members = readingGroupMemberRepository.findAllByGroupIdOrderByCreatedAtAsc(groupId);
+        var books = readingGroupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(groupId);
+        var reviews = readingGroupReviewRepository.findAllByGroupIdOrderByCreatedAtDesc(groupId);
+        Map<Long, Long> reviewCountByGroupBookId = reviews.stream()
+                .collect(Collectors.groupingBy(review -> review.getGroupBook().getId(), Collectors.counting()));
+        return AdminReadingGroupDetailResponse.of(group, members, books, reviews, reviewCountByGroupBookId);
+    }
+
+    @Transactional
+    public void setReadingGroupJoinEnabled(Long adminId, Long groupId, boolean enabled, String reason) {
+        User admin = assertAdmin(adminId);
+        String normalizedReason = requireReason(reason);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        group.setJoinEnabled(enabled);
+        adminAuditLogService.record(
+                admin,
+                enabled ? "READING_GROUP_JOIN_OPENED" : "READING_GROUP_JOIN_CLOSED",
+                "READING_GROUP",
+                group.getId(),
+                "Set joinEnabled=" + enabled + " for " + group.getName() + " / reason: " + normalizedReason
+        );
+    }
+
+    @Transactional
+    public void deleteReadingGroup(Long adminId, Long groupId, String reason) {
+        User admin = assertAdmin(adminId);
+        String normalizedReason = requireReason(reason);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        String groupName = group.getName();
+        readingGroupReviewRepository.deleteAllByGroupId(groupId);
+        readingGroupBookRepository.deleteAllByGroupId(groupId);
+        readingGroupMemberRepository.deleteAllByGroupId(groupId);
+        readingGroupRepository.delete(group);
+        adminAuditLogService.record(
+                admin,
+                "READING_GROUP_DELETED",
+                "READING_GROUP",
+                groupId,
+                "Deleted reading group " + groupName + " / reason: " + normalizedReason
+        );
     }
 
     // ── 문의 관리 ──────────────────────────────────────────
@@ -209,6 +279,18 @@ public class AdminService {
         long todayPageViews = todayMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
                 .count();
+        long todayBookSearches = todayMetrics.stream()
+                .filter(event -> "book_search".equals(event.getEventType())
+                        || ("page_view".equals(event.getEventType()) && "/search".equals(normalizePath(event.getPath()))))
+                .count();
+        long todayBookDetailViews = todayMetrics.stream()
+                .filter(event -> "page_view".equals(event.getEventType()))
+                .filter(event -> normalizePath(event.getPath()).matches("^/books/[^/]+$"))
+                .count();
+        long todayReviewDetailViews = todayMetrics.stream()
+                .filter(event -> "page_view".equals(event.getEventType()))
+                .filter(event -> normalizePath(event.getPath()).matches("^/reviews/\\d+$"))
+                .count();
         long todayServerErrors = todayErrors.stream()
                 .filter(error -> error.getStatus() >= 500)
                 .count();
@@ -216,6 +298,9 @@ public class AdminService {
         return new AdminDashboardSummaryResponse(
                 todayVisitors,
                 todayPageViews,
+                todayBookSearches,
+                todayBookDetailViews,
+                todayReviewDetailViews,
                 reviewRepository.countByCreatedAtBetweenAndDeletedAtIsNull(startOfToday, startOfTomorrow),
                 userRepository.countByCreatedAtBetweenAndDeletedAtIsNull(startOfToday, startOfTomorrow),
                 todayServerErrors,

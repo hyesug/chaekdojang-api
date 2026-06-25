@@ -13,6 +13,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.global.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class ReadingGroupService {
 
@@ -98,6 +100,10 @@ public class ReadingGroupService {
                 : ReadingGroupMemberStatus.PENDING;
         ReadingGroupMember existingMember = memberRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
         if (existingMember != null) {
+            if (existingMember.getStatus() == ReadingGroupMemberStatus.APPROVED
+                    || existingMember.getStatus() == ReadingGroupMemberStatus.PENDING) {
+                return toResponse(group, userId);
+            }
             if (existingMember.getStatus() == ReadingGroupMemberStatus.REJECTED) {
                 existingMember.requestAgain(status);
                 notifyOwnerAboutJoin(group, user, status);
@@ -118,7 +124,11 @@ public class ReadingGroupService {
         NotificationType type = status == ReadingGroupMemberStatus.APPROVED
                 ? NotificationType.GROUP_JOINED
                 : NotificationType.GROUP_JOIN_REQUEST;
-        notificationService.send(group.getOwner(), user, type, group.getId(), group.getSlug());
+        try {
+            notificationService.send(group.getOwner(), user, type, group.getId(), group.getSlug());
+        } catch (RuntimeException e) {
+            log.warn("독서모임 가입 알림 생성 실패: groupId={}, userId={}, type={}", group.getId(), user.getId(), type, e);
+        }
     }
 
     @Transactional

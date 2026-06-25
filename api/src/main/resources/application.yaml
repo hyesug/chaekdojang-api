@@ -117,6 +117,7 @@ app:
     api-limit-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}
     upload-limit-per-minute: ${RATE_LIMIT_UPLOAD_PER_MINUTE:20}
     auth-limit-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:30}
+    auth-refresh-limit-per-minute: ${RATE_LIMIT_AUTH_REFRESH_PER_MINUTE:120}
     metrics-limit-per-minute: ${RATE_LIMIT_METRICS_PER_MINUTE:240}
   storage:
     type: ${STORAGE_TYPE:local}

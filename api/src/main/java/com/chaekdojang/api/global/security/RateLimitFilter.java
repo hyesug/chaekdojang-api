@@ -25,6 +25,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final int apiLimitPerMinute;
     private final int uploadLimitPerMinute;
     private final int authLimitPerMinute;
+    private final int authRefreshLimitPerMinute;
     private final int metricsLimitPerMinute;
 
     public RateLimitFilter(
@@ -33,6 +34,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             @Value("${app.rate-limit.api-limit-per-minute:600}") int apiLimitPerMinute,
             @Value("${app.rate-limit.upload-limit-per-minute:20}") int uploadLimitPerMinute,
             @Value("${app.rate-limit.auth-limit-per-minute:30}") int authLimitPerMinute,
+            @Value("${app.rate-limit.auth-refresh-limit-per-minute:120}") int authRefreshLimitPerMinute,
             @Value("${app.rate-limit.metrics-limit-per-minute:240}") int metricsLimitPerMinute
     ) {
         this.redisTemplate = redisTemplate;
@@ -40,6 +42,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.apiLimitPerMinute = apiLimitPerMinute;
         this.uploadLimitPerMinute = uploadLimitPerMinute;
         this.authLimitPerMinute = authLimitPerMinute;
+        this.authRefreshLimitPerMinute = authRefreshLimitPerMinute;
         this.metricsLimitPerMinute = metricsLimitPerMinute;
     }
 
@@ -97,6 +100,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         if (path.startsWith("/api/upload") || path.contains("/profile-image")) {
             return new LimitPolicy("upload", uploadLimitPerMinute);
+        }
+        if (path.equals("/api/auth/session")) {
+            return null;
+        }
+        if (path.equals("/api/auth/refresh")) {
+            return new LimitPolicy("auth-refresh", authRefreshLimitPerMinute);
         }
         if (path.startsWith("/api/auth")
                 || path.startsWith("/oauth2")

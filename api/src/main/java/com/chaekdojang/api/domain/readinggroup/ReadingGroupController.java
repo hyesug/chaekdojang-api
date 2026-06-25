@@ -35,6 +35,11 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.join(slug));
     }
 
+    @PostMapping("/{slug}/leave")
+    public ApiResponse<ReadingGroupResponse> leave(@PathVariable String slug) {
+        return ApiResponse.ok(readingGroupService.leave(slug));
+    }
+
     @GetMapping("/{slug}/members")
     public ApiResponse<List<ReadingGroupMemberResponse>> getMembers(
             @PathVariable String slug,

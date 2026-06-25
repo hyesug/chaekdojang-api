@@ -21,6 +21,7 @@ import com.chaekdojang.api.domain.readinggroup.ReadingGroupBookRepository;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberRepository;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberStatus;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupReviewRepository;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -65,6 +66,7 @@ public class AdminService {
     private final ReadingGroupRepository readingGroupRepository;
     private final ReadingGroupMemberRepository readingGroupMemberRepository;
     private final ReadingGroupBookRepository readingGroupBookRepository;
+    private final ReadingGroupReviewRepository readingGroupReviewRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
     private final AdminTrafficFilter adminTrafficFilter;
@@ -151,6 +153,18 @@ public class AdminService {
                 ));
     }
 
+    public AdminReadingGroupDetailResponse getReadingGroupDetail(Long adminId, Long groupId) {
+        assertAdmin(adminId);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        var members = readingGroupMemberRepository.findAllByGroupIdOrderByCreatedAtAsc(groupId);
+        var books = readingGroupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(groupId);
+        var reviews = readingGroupReviewRepository.findAllByGroupIdOrderByCreatedAtDesc(groupId);
+        Map<Long, Long> reviewCountByGroupBookId = reviews.stream()
+                .collect(Collectors.groupingBy(review -> review.getGroupBook().getId(), Collectors.counting()));
+        return AdminReadingGroupDetailResponse.of(group, members, books, reviews, reviewCountByGroupBookId);
+    }
+
     @Transactional
     public void setReadingGroupJoinEnabled(Long adminId, Long groupId, boolean enabled, String reason) {
         User admin = assertAdmin(adminId);
@@ -174,6 +188,9 @@ public class AdminService {
         ReadingGroup group = readingGroupRepository.findById(groupId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         String groupName = group.getName();
+        readingGroupReviewRepository.deleteAllByGroupId(groupId);
+        readingGroupBookRepository.deleteAllByGroupId(groupId);
+        readingGroupMemberRepository.deleteAllByGroupId(groupId);
         readingGroupRepository.delete(group);
         adminAuditLogService.record(
                 admin,

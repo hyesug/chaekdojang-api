@@ -41,6 +41,8 @@ public class ReadingGroupService {
                             userId,
                             List.of(ReadingGroupMemberStatus.APPROVED, ReadingGroupMemberStatus.PENDING))
                     .forEach(member -> groups.put(member.getGroup().getId(), member.getGroup()));
+            groupRepository.findAllByOwnerIdOrderByCreatedAtDesc(userId)
+                    .forEach(group -> groups.putIfAbsent(group.getId(), group));
         }
         groupRepository.findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility.PUBLIC)
                 .forEach(group -> groups.putIfAbsent(group.getId(), group));
@@ -86,10 +88,27 @@ public class ReadingGroupService {
         memberRepository.findByGroupIdAndUserId(group.getId(), userId).ifPresent(member -> {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         });
+        if (isOwner(group, userId)) {
+            memberRepository.save(ReadingGroupMember.owner(group, user));
+            return toResponse(group, userId);
+        }
         ReadingGroupMemberStatus status = group.getJoinPolicy() == ReadingGroupJoinPolicy.OPEN
                 ? ReadingGroupMemberStatus.APPROVED
                 : ReadingGroupMemberStatus.PENDING;
         memberRepository.save(ReadingGroupMember.join(group, user, status));
+        return toResponse(group, userId);
+    }
+
+    @Transactional
+    public ReadingGroupResponse leave(String slug) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        ReadingGroupMember member = memberRepository.findByGroupIdAndUserId(group.getId(), userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        if (member.getRole() == ReadingGroupMemberRole.OWNER) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        memberRepository.delete(member);
         return toResponse(group, userId);
     }
 
@@ -196,13 +215,28 @@ public class ReadingGroupService {
     }
 
     private ReadingGroupResponse toResponse(ReadingGroup group, Long userId) {
-        boolean member = isApprovedMember(group.getId(), userId);
-        boolean manager = isManager(group.getId(), userId);
+        ReadingGroupMember currentMember = userId == null
+                ? null
+                : memberRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
+        boolean owner = isOwner(group, userId);
+        boolean member = owner || (currentMember != null && currentMember.getStatus() == ReadingGroupMemberStatus.APPROVED);
+        boolean manager = owner || (currentMember != null && currentMember.canManage());
+        long memberCount = memberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.APPROVED);
+        if (!memberRepository.existsByGroupIdAndUserIdAndStatus(group.getId(), group.getOwner().getId(), ReadingGroupMemberStatus.APPROVED)) {
+            memberCount++;
+        }
         List<ReadingGroupBookResponse> books = groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(group.getId())
                 .stream()
                 .map(groupBook -> ReadingGroupBookResponse.of(groupBook, groupReviewRepository.countByGroupBookId(groupBook.getId())))
                 .toList();
-        return ReadingGroupResponse.of(group, member, manager, books);
+        return ReadingGroupResponse.of(
+                group,
+                memberCount,
+                member,
+                manager,
+                owner ? ReadingGroupMemberStatus.APPROVED : currentMember != null ? currentMember.getStatus() : null,
+                books
+        );
     }
 
     private ReadingGroup findBySlug(String slug) {
@@ -221,19 +255,24 @@ public class ReadingGroupService {
 
     private void assertReadable(ReadingGroup group, Long userId) {
         if (group.getVisibility() == ReadingGroupVisibility.PUBLIC) return;
+        if (isOwner(group, userId)) return;
         if (isApprovedMember(group.getId(), userId)) return;
         if (SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
         throw new CustomException(ErrorCode.FORBIDDEN);
     }
 
     private void assertManager(ReadingGroup group, Long userId) {
-        if (isManager(group.getId(), userId) || SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
+        if (isOwner(group, userId) || isManager(group.getId(), userId) || SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
         throw new CustomException(ErrorCode.FORBIDDEN);
     }
 
     private void assertApprovedMember(ReadingGroup group, Long userId) {
-        if (isApprovedMember(group.getId(), userId)) return;
+        if (isOwner(group, userId) || isApprovedMember(group.getId(), userId)) return;
         throw new CustomException(ErrorCode.FORBIDDEN);
+    }
+
+    private boolean isOwner(ReadingGroup group, Long userId) {
+        return userId != null && group.getOwner().getId().equals(userId);
     }
 
     private boolean isApprovedMember(Long groupId, Long userId) {

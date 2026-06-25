@@ -14,4 +14,5 @@ public interface ReadingGroupMemberRepository extends JpaRepository<ReadingGroup
     List<ReadingGroupMember> findAllByUserIdAndStatusInOrderByUpdatedAtDesc(Long userId, Collection<ReadingGroupMemberStatus> statuses);
     long countByGroupId(Long groupId);
     long countByGroupIdAndStatus(Long groupId, ReadingGroupMemberStatus status);
+    void deleteAllByGroupId(Long groupId);
 }

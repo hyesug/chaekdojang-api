@@ -9,4 +9,5 @@ public interface ReadingGroupRepository extends JpaRepository<ReadingGroup, Long
     Optional<ReadingGroup> findBySlug(String slug);
     boolean existsBySlug(String slug);
     List<ReadingGroup> findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility visibility);
+    List<ReadingGroup> findAllByOwnerIdOrderByCreatedAtDesc(Long ownerId);
 }

@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.readinggroup.dto;
 
 import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupJoinPolicy;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberStatus;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupVisibility;
 
 import java.time.LocalDateTime;
@@ -18,12 +19,14 @@ public record ReadingGroupResponse(
         boolean joinEnabled,
         Long ownerId,
         String ownerNickname,
+        long memberCount,
         boolean member,
         boolean manager,
+        ReadingGroupMemberStatus membershipStatus,
         List<ReadingGroupBookResponse> books,
         LocalDateTime createdAt
 ) {
-    public static ReadingGroupResponse of(ReadingGroup group, boolean member, boolean manager, List<ReadingGroupBookResponse> books) {
+    public static ReadingGroupResponse of(ReadingGroup group, long memberCount, boolean member, boolean manager, ReadingGroupMemberStatus membershipStatus, List<ReadingGroupBookResponse> books) {
         return new ReadingGroupResponse(
                 group.getId(),
                 group.getName(),
@@ -35,8 +38,10 @@ public record ReadingGroupResponse(
                 group.isJoinEnabled(),
                 group.getOwner().getId(),
                 group.getOwner().getNickname(),
+                memberCount,
                 member,
                 manager,
+                membershipStatus,
                 books,
                 group.getCreatedAt()
         );

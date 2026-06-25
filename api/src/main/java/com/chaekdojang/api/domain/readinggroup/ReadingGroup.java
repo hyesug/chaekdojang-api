@@ -46,6 +46,9 @@ public class ReadingGroup {
     @Column(nullable = false, length = 20)
     private ReadingGroupJoinPolicy joinPolicy = ReadingGroupJoinPolicy.OPEN;
 
+    @Column(nullable = false)
+    private boolean joinEnabled = true;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -73,5 +76,9 @@ public class ReadingGroup {
         this.imageUrl = imageUrl;
         this.visibility = visibility;
         this.joinPolicy = joinPolicy;
+    }
+
+    public void setJoinEnabled(boolean joinEnabled) {
+        this.joinEnabled = joinEnabled;
     }
 }

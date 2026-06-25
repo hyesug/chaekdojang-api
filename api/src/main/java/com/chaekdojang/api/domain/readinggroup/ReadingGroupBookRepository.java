@@ -9,4 +9,5 @@ public interface ReadingGroupBookRepository extends JpaRepository<ReadingGroupBo
     List<ReadingGroupBook> findAllByGroupIdOrderByCreatedAtDesc(Long groupId);
     Optional<ReadingGroupBook> findByIdAndGroupId(Long id, Long groupId);
     boolean existsByGroupIdAndBookId(Long groupId, Long bookId);
+    long countByGroupId(Long groupId);
 }

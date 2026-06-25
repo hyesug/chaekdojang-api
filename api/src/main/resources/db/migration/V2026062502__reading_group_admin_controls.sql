@@ -1,0 +1,2 @@
+ALTER TABLE reading_groups
+    ADD COLUMN IF NOT EXISTS join_enabled BOOLEAN NOT NULL DEFAULT TRUE;

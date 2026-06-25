@@ -5,6 +5,7 @@ import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsActionResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsPageResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminAuditLogResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminDashboardSummaryResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminReadingGroupResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReviewResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminSecuritySummaryResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminUserResponse;
@@ -72,6 +73,37 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<BookReviewStatResponse>>> getBookStats() {
         return ResponseEntity.ok(ApiResponse.ok(
                 adminService.getBookStats(SecurityUtils.getCurrentUserId())));
+    }
+
+    // ── 독서모임 관리 ───────────────────────────────────────
+    @GetMapping("/groups")
+    public ResponseEntity<ApiResponse<Page<AdminReadingGroupResponse>>> getReadingGroups(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminService.getReadingGroups(SecurityUtils.getCurrentUserId(), pageable)));
+    }
+
+    @PatchMapping("/groups/{id}/join-enabled")
+    public ResponseEntity<ApiResponse<Void>> setReadingGroupJoinEnabled(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        adminService.setReadingGroupJoinEnabled(
+                SecurityUtils.getCurrentUserId(),
+                id,
+                Boolean.TRUE.equals(body.get("enabled")),
+                String.valueOf(body.getOrDefault("reason", "")));
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @DeleteMapping("/groups/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteReadingGroup(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        adminService.deleteReadingGroup(
+                SecurityUtils.getCurrentUserId(),
+                id,
+                body == null ? "" : body.get("reason"));
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     // ── 문의 관리 ──────────────────────────────────────────

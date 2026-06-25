@@ -16,6 +16,11 @@ import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
 import com.chaekdojang.api.domain.metrics.MetricEvent;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupBookRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberRepository;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberStatus;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupRepository;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -57,6 +62,9 @@ public class AdminService {
     private final ErrorLogService errorLogService;
     private final ErrorLogRepository errorLogRepository;
     private final MetricEventRepository metricEventRepository;
+    private final ReadingGroupRepository readingGroupRepository;
+    private final ReadingGroupMemberRepository readingGroupMemberRepository;
+    private final ReadingGroupBookRepository readingGroupBookRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
     private final AdminTrafficFilter adminTrafficFilter;
@@ -129,6 +137,51 @@ public class AdminService {
     public List<BookReviewStatResponse> getBookStats(Long adminId) {
         assertAdmin(adminId);
         return reviewRepository.findBookReviewStats();
+    }
+
+    // ── 독서모임 관리 ───────────────────────────────────────
+    public Page<AdminReadingGroupResponse> getReadingGroups(Long adminId, Pageable pageable) {
+        assertAdmin(adminId);
+        return readingGroupRepository.findAll(pageable)
+                .map(group -> AdminReadingGroupResponse.of(
+                        group,
+                        readingGroupMemberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.APPROVED),
+                        readingGroupMemberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.PENDING),
+                        readingGroupBookRepository.countByGroupId(group.getId())
+                ));
+    }
+
+    @Transactional
+    public void setReadingGroupJoinEnabled(Long adminId, Long groupId, boolean enabled, String reason) {
+        User admin = assertAdmin(adminId);
+        String normalizedReason = requireReason(reason);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        group.setJoinEnabled(enabled);
+        adminAuditLogService.record(
+                admin,
+                enabled ? "READING_GROUP_JOIN_OPENED" : "READING_GROUP_JOIN_CLOSED",
+                "READING_GROUP",
+                group.getId(),
+                "Set joinEnabled=" + enabled + " for " + group.getName() + " / reason: " + normalizedReason
+        );
+    }
+
+    @Transactional
+    public void deleteReadingGroup(Long adminId, Long groupId, String reason) {
+        User admin = assertAdmin(adminId);
+        String normalizedReason = requireReason(reason);
+        ReadingGroup group = readingGroupRepository.findById(groupId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        String groupName = group.getName();
+        readingGroupRepository.delete(group);
+        adminAuditLogService.record(
+                admin,
+                "READING_GROUP_DELETED",
+                "READING_GROUP",
+                groupId,
+                "Deleted reading group " + groupName + " / reason: " + normalizedReason
+        );
     }
 
     // ── 문의 관리 ──────────────────────────────────────────

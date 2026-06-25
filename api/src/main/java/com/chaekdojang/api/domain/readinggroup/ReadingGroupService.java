@@ -15,8 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,8 +35,16 @@ public class ReadingGroupService {
 
     public List<ReadingGroupResponse> getPublicGroups() {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
-        return groupRepository.findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility.PUBLIC)
-                .stream()
+        Map<Long, ReadingGroup> groups = new LinkedHashMap<>();
+        if (userId != null) {
+            memberRepository.findAllByUserIdAndStatusInOrderByUpdatedAtDesc(
+                            userId,
+                            List.of(ReadingGroupMemberStatus.APPROVED, ReadingGroupMemberStatus.PENDING))
+                    .forEach(member -> groups.put(member.getGroup().getId(), member.getGroup()));
+        }
+        groupRepository.findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility.PUBLIC)
+                .forEach(group -> groups.putIfAbsent(group.getId(), group));
+        return groups.values().stream()
                 .map(group -> toResponse(group, userId))
                 .toList();
     }
@@ -70,6 +80,9 @@ public class ReadingGroupService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         ReadingGroup group = findBySlug(slug);
+        if (!group.isJoinEnabled()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
         memberRepository.findByGroupIdAndUserId(group.getId(), userId).ifPresent(member -> {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         });

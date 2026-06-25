@@ -1,43 +1,45 @@
-package com.chaekdojang.api.domain.readinggroup.dto;
+package com.chaekdojang.api.domain.admin.dto;
 
 import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupJoinPolicy;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupVisibility;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-public record ReadingGroupResponse(
+public record AdminReadingGroupResponse(
         Long id,
         String name,
         String slug,
         String description,
-        String imageUrl,
         ReadingGroupVisibility visibility,
         ReadingGroupJoinPolicy joinPolicy,
         boolean joinEnabled,
         Long ownerId,
         String ownerNickname,
-        boolean member,
-        boolean manager,
-        List<ReadingGroupBookResponse> books,
+        long memberCount,
+        long pendingCount,
+        long bookCount,
         LocalDateTime createdAt
 ) {
-    public static ReadingGroupResponse of(ReadingGroup group, boolean member, boolean manager, List<ReadingGroupBookResponse> books) {
-        return new ReadingGroupResponse(
+    public static AdminReadingGroupResponse of(
+            ReadingGroup group,
+            long memberCount,
+            long pendingCount,
+            long bookCount
+    ) {
+        return new AdminReadingGroupResponse(
                 group.getId(),
                 group.getName(),
                 group.getSlug(),
                 group.getDescription(),
-                group.getImageUrl(),
                 group.getVisibility(),
                 group.getJoinPolicy(),
                 group.isJoinEnabled(),
                 group.getOwner().getId(),
                 group.getOwner().getNickname(),
-                member,
-                manager,
-                books,
+                memberCount,
+                pendingCount,
+                bookCount,
                 group.getCreatedAt()
         );
     }

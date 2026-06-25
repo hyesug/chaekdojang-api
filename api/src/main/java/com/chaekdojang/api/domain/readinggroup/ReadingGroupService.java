@@ -131,6 +131,14 @@ public class ReadingGroupService {
         }
     }
 
+    private void notifyMemberAboutApproval(ReadingGroup group, ReadingGroupMember member) {
+        try {
+            notificationService.send(member.getUser(), group.getOwner(), NotificationType.GROUP_JOIN_APPROVED, group.getId(), group.getSlug());
+        } catch (RuntimeException e) {
+            log.warn("독서모임 가입 승인 알림 생성 실패: groupId={}, memberId={}", group.getId(), member.getId(), e);
+        }
+    }
+
     @Transactional
     public ReadingGroupResponse leave(String slug) {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -171,6 +179,7 @@ public class ReadingGroupService {
         assertManager(group, userId);
         ReadingGroupMember member = findMemberInGroup(group, memberId);
         member.approve();
+        notifyMemberAboutApproval(group, member);
         return ReadingGroupMemberResponse.from(member);
     }
 

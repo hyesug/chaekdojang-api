@@ -26,6 +26,7 @@ public record NotificationResponse(
             case SAME_BOOK_REVIEW -> senderNickname + "님이 내가 읽은 책에 새 독후감을 남겼어요";
             case GROUP_JOIN_REQUEST -> senderNickname + "님이 독서모임 가입을 신청했어요";
             case GROUP_JOINED -> senderNickname + "님이 독서모임에 가입했어요";
+            case GROUP_JOIN_APPROVED -> "독서모임 가입이 승인됐어요";
         };
         return new NotificationResponse(
                 n.getId(),

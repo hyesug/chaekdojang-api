@@ -26,7 +26,7 @@ public record ReadingGroupResponse(
         List<ReadingGroupBookResponse> books,
         LocalDateTime createdAt
 ) {
-    public static ReadingGroupResponse of(ReadingGroup group, long memberCount, boolean member, boolean manager, ReadingGroupMemberStatus membershipStatus, List<ReadingGroupBookResponse> books) {
+    public static ReadingGroupResponse of(ReadingGroup group, long memberCount, boolean member, boolean manager, ReadingGroupMemberStatus membershipStatus, List<ReadingGroupBookResponse> books, boolean revealPrivateDetails) {
         return new ReadingGroupResponse(
                 group.getId(),
                 group.getName(),
@@ -36,9 +36,9 @@ public record ReadingGroupResponse(
                 group.getVisibility(),
                 group.getJoinPolicy(),
                 group.isJoinEnabled(),
-                group.getOwner().getId(),
-                group.getOwner().getNickname(),
-                memberCount,
+                revealPrivateDetails ? group.getOwner().getId() : null,
+                revealPrivateDetails ? group.getOwner().getNickname() : null,
+                revealPrivateDetails ? memberCount : 0,
                 member,
                 manager,
                 membershipStatus,

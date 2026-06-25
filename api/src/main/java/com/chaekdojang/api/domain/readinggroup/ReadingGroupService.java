@@ -2,6 +2,8 @@ package com.chaekdojang.api.domain.readinggroup;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.notification.NotificationService;
+import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.readinggroup.dto.*;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
@@ -32,6 +34,7 @@ public class ReadingGroupService {
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
+    private final NotificationService notificationService;
 
     public List<ReadingGroupResponse> getPublicGroups() {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
@@ -97,6 +100,7 @@ public class ReadingGroupService {
         if (existingMember != null) {
             if (existingMember.getStatus() == ReadingGroupMemberStatus.REJECTED) {
                 existingMember.requestAgain(status);
+                notifyOwnerAboutJoin(group, user, status);
                 return toResponse(group, userId);
             }
             throw new CustomException(ErrorCode.INVALID_REQUEST);
@@ -106,7 +110,15 @@ public class ReadingGroupService {
             return toResponse(group, userId);
         }
         memberRepository.save(ReadingGroupMember.join(group, user, status));
+        notifyOwnerAboutJoin(group, user, status);
         return toResponse(group, userId);
+    }
+
+    private void notifyOwnerAboutJoin(ReadingGroup group, User user, ReadingGroupMemberStatus status) {
+        NotificationType type = status == ReadingGroupMemberStatus.APPROVED
+                ? NotificationType.GROUP_JOINED
+                : NotificationType.GROUP_JOIN_REQUEST;
+        notificationService.send(group.getOwner(), user, type, group.getId(), group.getSlug());
     }
 
     @Transactional
@@ -259,11 +271,12 @@ public class ReadingGroupService {
         boolean owner = isOwner(group, userId);
         boolean member = owner || (currentMember != null && currentMember.getStatus() == ReadingGroupMemberStatus.APPROVED);
         boolean manager = owner || (currentMember != null && currentMember.canManage());
+        boolean contentReadable = canReadContent(group, userId);
         long memberCount = memberRepository.countByGroupIdAndStatus(group.getId(), ReadingGroupMemberStatus.APPROVED);
         if (!memberRepository.existsByGroupIdAndUserIdAndStatus(group.getId(), group.getOwner().getId(), ReadingGroupMemberStatus.APPROVED)) {
             memberCount++;
         }
-        List<ReadingGroupBookResponse> books = canReadContent(group, userId)
+        List<ReadingGroupBookResponse> books = contentReadable
                 ? groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(group.getId())
                         .stream()
                         .map(groupBook -> ReadingGroupBookResponse.of(groupBook, groupReviewRepository.countByGroupBookId(groupBook.getId())))
@@ -275,7 +288,8 @@ public class ReadingGroupService {
                 member,
                 manager,
                 owner ? ReadingGroupMemberStatus.APPROVED : currentMember != null ? currentMember.getStatus() : null,
-                books
+                books,
+                contentReadable
         );
     }
 

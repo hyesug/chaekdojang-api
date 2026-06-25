@@ -1,5 +1,5 @@
 package com.chaekdojang.api.domain.readinggroup;
 
 public enum ReadingGroupMemberStatus {
-    PENDING, APPROVED, REJECTED
+    PENDING, APPROVED, REJECTED, BLOCKED
 }

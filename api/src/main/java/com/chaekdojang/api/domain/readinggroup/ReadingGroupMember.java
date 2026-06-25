@@ -68,8 +68,16 @@ public class ReadingGroupMember {
         this.status = ReadingGroupMemberStatus.APPROVED;
     }
 
+    public void requestAgain(ReadingGroupMemberStatus status) {
+        this.status = status;
+    }
+
     public void reject() {
         this.status = ReadingGroupMemberStatus.REJECTED;
+    }
+
+    public void block() {
+        this.status = ReadingGroupMemberStatus.BLOCKED;
     }
 
     public boolean canManage() {

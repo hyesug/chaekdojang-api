@@ -62,14 +62,18 @@ public class ReadingGroupService {
         Long userId = SecurityUtils.getCurrentUserId();
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        ReadingGroupVisibility visibility = request.visibility() == null ? ReadingGroupVisibility.PUBLIC : request.visibility();
+        ReadingGroupJoinPolicy joinPolicy = visibility == ReadingGroupVisibility.PRIVATE
+                ? ReadingGroupJoinPolicy.APPROVAL
+                : request.joinPolicy() == null ? ReadingGroupJoinPolicy.OPEN : request.joinPolicy();
         ReadingGroup group = groupRepository.save(ReadingGroup.builder()
                 .owner(owner)
                 .name(trim(request.name()))
                 .slug(createUniqueSlug(request.name()))
                 .description(blankToNull(request.description()))
                 .imageUrl(blankToNull(request.imageUrl()))
-                .visibility(request.visibility() == null ? ReadingGroupVisibility.PUBLIC : request.visibility())
-                .joinPolicy(request.joinPolicy() == null ? ReadingGroupJoinPolicy.OPEN : request.joinPolicy())
+                .visibility(visibility)
+                .joinPolicy(joinPolicy)
                 .build());
         memberRepository.save(ReadingGroupMember.owner(group, owner));
         return toResponse(group, userId);
@@ -84,16 +88,23 @@ public class ReadingGroupService {
         if (!group.isJoinEnabled()) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-        memberRepository.findByGroupIdAndUserId(group.getId(), userId).ifPresent(member -> {
+        ReadingGroupMemberStatus status = group.getVisibility() == ReadingGroupVisibility.PRIVATE
+                ? ReadingGroupMemberStatus.PENDING
+                : group.getJoinPolicy() == ReadingGroupJoinPolicy.OPEN
+                ? ReadingGroupMemberStatus.APPROVED
+                : ReadingGroupMemberStatus.PENDING;
+        ReadingGroupMember existingMember = memberRepository.findByGroupIdAndUserId(group.getId(), userId).orElse(null);
+        if (existingMember != null) {
+            if (existingMember.getStatus() == ReadingGroupMemberStatus.REJECTED) {
+                existingMember.requestAgain(status);
+                return toResponse(group, userId);
+            }
             throw new CustomException(ErrorCode.INVALID_REQUEST);
-        });
+        }
         if (isOwner(group, userId)) {
             memberRepository.save(ReadingGroupMember.owner(group, user));
             return toResponse(group, userId);
         }
-        ReadingGroupMemberStatus status = group.getJoinPolicy() == ReadingGroupJoinPolicy.OPEN
-                ? ReadingGroupMemberStatus.APPROVED
-                : ReadingGroupMemberStatus.PENDING;
         memberRepository.save(ReadingGroupMember.join(group, user, status));
         return toResponse(group, userId);
     }
@@ -151,6 +162,19 @@ public class ReadingGroupService {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
         member.reject();
+        return ReadingGroupMemberResponse.from(member);
+    }
+
+    @Transactional
+    public ReadingGroupMemberResponse blockMember(String slug, Long memberId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        ReadingGroupMember member = findMemberInGroup(group, memberId);
+        if (member.getRole() == ReadingGroupMemberRole.OWNER) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        member.block();
         return ReadingGroupMemberResponse.from(member);
     }
 

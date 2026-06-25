@@ -64,6 +64,13 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.rejectMember(slug, memberId));
     }
 
+    @PostMapping("/{slug}/members/{memberId}/block")
+    public ApiResponse<ReadingGroupMemberResponse> blockMember(
+            @PathVariable String slug,
+            @PathVariable Long memberId) {
+        return ApiResponse.ok(readingGroupService.blockMember(slug, memberId));
+    }
+
     @PostMapping("/{slug}/books")
     public ApiResponse<ReadingGroupResponse> addBook(
             @PathVariable String slug,

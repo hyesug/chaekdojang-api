@@ -44,7 +44,7 @@ public class ReadingGroupService {
             groupRepository.findAllByOwnerIdOrderByCreatedAtDesc(userId)
                     .forEach(group -> groups.putIfAbsent(group.getId(), group));
         }
-        groupRepository.findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility.PUBLIC)
+        groupRepository.findAllByOrderByCreatedAtDesc()
                 .forEach(group -> groups.putIfAbsent(group.getId(), group));
         return groups.values().stream()
                 .map(group -> toResponse(group, userId))
@@ -54,7 +54,6 @@ public class ReadingGroupService {
     public ReadingGroupResponse getGroup(String slug) {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
         ReadingGroup group = findBySlug(slug);
-        assertReadable(group, userId);
         return toResponse(group, userId);
     }
 
@@ -189,7 +188,7 @@ public class ReadingGroupService {
     public List<ReadingGroupReviewResponse> getGroupBookReviews(String slug, Long groupBookId) {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
         ReadingGroup group = findBySlug(slug);
-        assertReadable(group, userId);
+        assertContentReadable(group, userId);
         ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         return groupReviewRepository.findAllByGroupBookIdOrderByCreatedAtDesc(groupBook.getId())
@@ -225,10 +224,12 @@ public class ReadingGroupService {
         if (!memberRepository.existsByGroupIdAndUserIdAndStatus(group.getId(), group.getOwner().getId(), ReadingGroupMemberStatus.APPROVED)) {
             memberCount++;
         }
-        List<ReadingGroupBookResponse> books = groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(group.getId())
-                .stream()
-                .map(groupBook -> ReadingGroupBookResponse.of(groupBook, groupReviewRepository.countByGroupBookId(groupBook.getId())))
-                .toList();
+        List<ReadingGroupBookResponse> books = canReadContent(group, userId)
+                ? groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(group.getId())
+                        .stream()
+                        .map(groupBook -> ReadingGroupBookResponse.of(groupBook, groupReviewRepository.countByGroupBookId(groupBook.getId())))
+                        .toList()
+                : List.of();
         return ReadingGroupResponse.of(
                 group,
                 memberCount,
@@ -253,12 +254,16 @@ public class ReadingGroupService {
         return member;
     }
 
-    private void assertReadable(ReadingGroup group, Long userId) {
-        if (group.getVisibility() == ReadingGroupVisibility.PUBLIC) return;
-        if (isOwner(group, userId)) return;
-        if (isApprovedMember(group.getId(), userId)) return;
-        if (SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
+    private void assertContentReadable(ReadingGroup group, Long userId) {
+        if (canReadContent(group, userId)) return;
         throw new CustomException(ErrorCode.FORBIDDEN);
+    }
+
+    private boolean canReadContent(ReadingGroup group, Long userId) {
+        return group.getVisibility() == ReadingGroupVisibility.PUBLIC
+                || isOwner(group, userId)
+                || isApprovedMember(group.getId(), userId)
+                || SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN");
     }
 
     private void assertManager(ReadingGroup group, Long userId) {

@@ -34,6 +34,15 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
 
     long countByUserIdAndStatus(Long userId, LibraryStatus status);
 
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM libraries
+            WHERE user_id = :userId
+            AND status = 'FINISHED'
+            AND EXTRACT(YEAR FROM updated_at) = :year
+            """, nativeQuery = true)
+    long countFinishedByUserIdAndYear(@Param("userId") Long userId, @Param("year") int year);
+
     void deleteAllByUserId(Long userId);
 
     @Query("SELECT l.book.id FROM Library l WHERE l.user.id = :userId")

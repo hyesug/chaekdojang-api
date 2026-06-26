@@ -13,11 +13,27 @@ public record UserProfileResponse(
         long followerCount,
         long followingCount,
         LibrarySummary librarySummary,
+        ReadingGoalSummary readingGoal,
         LifeBook lifeBook,
         boolean onboardingCompleted,
         String preferredGenres
 ) {
     public record LibrarySummary(long readingCount, long finishedCount, long wishlistCount) {
+    }
+
+    public record ReadingGoalSummary(
+            Integer year,
+            Integer targetCount,
+            long finishedCount,
+            int progressPercent,
+            long remainingCount
+    ) {
+        public static ReadingGoalSummary of(Integer year, Integer targetCount, long finishedCount) {
+            if (year == null || targetCount == null || targetCount <= 0) return null;
+            int progressPercent = (int) Math.min(100, Math.round((finishedCount * 100.0) / targetCount));
+            long remainingCount = Math.max(0, targetCount - finishedCount);
+            return new ReadingGoalSummary(year, targetCount, finishedCount, progressPercent, remainingCount);
+        }
     }
 
     public record LifeBook(Long id, String title, String author, String thumbnail) {
@@ -31,7 +47,8 @@ public record UserProfileResponse(
             long reviewCount,
             long followerCount,
             long followingCount,
-            LibrarySummary librarySummary) {
+            LibrarySummary librarySummary,
+            ReadingGoalSummary readingGoal) {
         LifeBook lifeBook = user.getLifeBook() != null ? LifeBook.from(user.getLifeBook()) : null;
         return new UserProfileResponse(
                 user.getId(),
@@ -43,6 +60,7 @@ public record UserProfileResponse(
                 followerCount,
                 followingCount,
                 librarySummary,
+                readingGoal,
                 lifeBook,
                 user.isOnboardingCompleted(),
                 user.getPreferredGenres()

@@ -146,10 +146,23 @@ jobs:
             }
           }' > send-command.json
 
+          set +e
           command_id=$(aws ssm send-command \
             --cli-input-json file://send-command.json \
             --query "Command.CommandId" \
-            --output text)
+            --output text 2>/tmp/send-command-error.txt)
+          send_status=$?
+          set -e
+
+          if [ "$send_status" -ne 0 ]; then
+            error_message=$(cat /tmp/send-command-error.txt 2>/dev/null || true)
+            echo "$error_message" >&2
+            if echo "$error_message" | grep -Eq "InvalidInstanceId|not in a valid state"; then
+              echo "Staging EC2 is not ready for SSM. Image push completed; deploy is skipped without failure."
+              exit 0
+            fi
+            exit "$send_status"
+          fi
 
           echo "SSM command: $command_id"
 

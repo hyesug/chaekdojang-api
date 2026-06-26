@@ -67,6 +67,12 @@ public class User {
     @JoinColumn(name = "life_book_id")
     private Book lifeBook;
 
+    @Column
+    private Integer readingGoalYear;
+
+    @Column
+    private Integer readingGoalCount;
+
     public static User create(String email, String nickname, String profileImage) {
         User user = new User();
         user.email = email;
@@ -80,6 +86,11 @@ public class User {
 
     public void updateLifeBook(Book book) {
         this.lifeBook = book;
+    }
+
+    public void updateReadingGoal(Integer year, Integer targetCount) {
+        this.readingGoalYear = year;
+        this.readingGoalCount = targetCount;
     }
 
     public void updateProfile(String nickname, String bio, String profileImage) {
@@ -100,6 +111,8 @@ public class User {
         this.bio = null;
         this.lifeBook = null;
         this.preferredGenres = null;
+        this.readingGoalYear = null;
+        this.readingGoalCount = null;
         this.onboardingCompleted = false;
         this.role = UserRole.USER;
         this.deletedAt = LocalDateTime.now();

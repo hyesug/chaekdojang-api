@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -86,6 +87,25 @@ public class UserService {
     }
 
     @Transactional
+    public UserProfileResponse updateReadingGoal(UpdateReadingGoalRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        User user = findUser(userId);
+
+        if (request.targetCount() == null) {
+            user.updateReadingGoal(null, null);
+            return buildProfile(userId);
+        }
+
+        int year = request.year() == null ? Year.now().getValue() : request.year();
+        if (year < 2020 || year > 2100 || request.targetCount() < 1 || request.targetCount() > 999) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        user.updateReadingGoal(year, request.targetCount());
+        return buildProfile(userId);
+    }
+
+    @Transactional
     public void setLifeBook(Long bookId) {
         Long userId = SecurityUtils.getCurrentUserId();
         User user = findUser(userId);
@@ -118,7 +138,15 @@ public class UserService {
                 libraryRepository.countByUserIdAndStatus(userId, LibraryStatus.FINISHED),
                 libraryRepository.countByUserIdAndStatus(userId, LibraryStatus.WISHLIST)
         );
-        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary);
+        long yearlyFinishedCount = user.getReadingGoalYear() == null
+                ? 0
+                : libraryRepository.countFinishedByUserIdAndYear(userId, user.getReadingGoalYear());
+        UserProfileResponse.ReadingGoalSummary readingGoal = UserProfileResponse.ReadingGoalSummary.of(
+                user.getReadingGoalYear(),
+                user.getReadingGoalCount(),
+                yearlyFinishedCount
+        );
+        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary, readingGoal);
     }
 
     public List<UserSummary> searchUsers(String q) {

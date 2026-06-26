@@ -185,19 +185,33 @@ public class BookService {
     }
 
     private Book upsertBook(BookSearchResult result) {
-        return bookRepository.findByIsbn13(result.isbn13())
-                .orElseGet(() -> bookRepository.save(
-                        Book.builder()
-                                .isbn13(result.isbn13())
-                                .title(result.title())
-                                .author(result.author())
-                                .publisher(result.publisher())
-                                .thumbnail(result.thumbnail())
-                                .slug(BookSlugGenerator.create(result.title(), result.author(), result.isbn13(), null))
-                                .source(result.source())
-                                .category(result.category())
-                                .build()
-                ));
+        String isbn13 = normalizeIsbn13(result.isbn13());
+        if (isbn13 != null) {
+            return bookRepository.findByIsbn13(isbn13)
+                    .orElseGet(() -> createBook(result, isbn13));
+        }
+        return createBook(result, null);
+    }
+
+    private Book createBook(BookSearchResult result, String isbn13) {
+        return bookRepository.save(
+                Book.builder()
+                        .isbn13(isbn13)
+                        .title(result.title())
+                        .author(result.author())
+                        .publisher(result.publisher())
+                        .thumbnail(result.thumbnail())
+                        .slug(BookSlugGenerator.create(result.title(), result.author(), isbn13, null))
+                        .source(result.source())
+                        .category(result.category())
+                        .build()
+        );
+    }
+
+    private String normalizeIsbn13(String value) {
+        if (value == null) return null;
+        String normalized = value.replaceAll("[^0-9Xx]", "").trim();
+        return normalized.isBlank() ? null : normalized;
     }
 
     private Book findPublicBook(String slug) {

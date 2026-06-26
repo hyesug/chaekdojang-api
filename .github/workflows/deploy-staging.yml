@@ -65,18 +65,26 @@ jobs:
       - name: Check staging EC2 state
         id: ec2
         run: |
+          set +e
           state=$(aws ec2 describe-instances \
             --instance-ids "$EC2_INSTANCE_ID" \
             --query 'Reservations[0].Instances[0].State.Name' \
-            --output text)
+            --output text 2>/tmp/describe-instance-error.txt)
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            cat /tmp/describe-instance-error.txt >&2
+            state="unknown"
+            echo "Could not check staging EC2 state; attempting SSM deploy anyway."
+          fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
           echo "Staging EC2 state: $state"
-          if [ "$state" != "running" ]; then
+          if [ "$state" != "running" ] && [ "$state" != "unknown" ]; then
             echo "Staging EC2 is not running. Build and image push completed; deploy is skipped without failure."
           fi
 
       - name: Deploy on staging EC2 through SSM
-        if: steps.ec2.outputs.state == 'running'
+        if: steps.ec2.outputs.state == 'running' || steps.ec2.outputs.state == 'unknown'
         working-directory: .
         run: |
           set -euo pipefail

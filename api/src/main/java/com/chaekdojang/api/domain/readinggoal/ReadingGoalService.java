@@ -53,8 +53,9 @@ public class ReadingGoalService {
     private ReadingGoalResponse getGoal(Long userId, int year, boolean includePrivate) {
         long finishedCount = countFinishedInYear(userId, year);
         return readingGoalRepository.findByUserIdAndYear(userId, year)
-                .filter(goal -> includePrivate || goal.isPublicVisible())
-                .map(goal -> ReadingGoalResponse.of(goal, finishedCount))
+                .map(goal -> includePrivate || goal.isPublicVisible()
+                        ? ReadingGoalResponse.of(goal, finishedCount)
+                        : ReadingGoalResponse.empty(year, finishedCount))
                 .orElseGet(() -> userRepository.findById(userId)
                         .filter(user -> user.getReadingGoalYear() != null
                                 && user.getReadingGoalYear() == year

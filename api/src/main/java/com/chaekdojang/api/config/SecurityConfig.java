@@ -95,6 +95,7 @@ public class SecurityConfig {
                             "/api/groups", "/api/groups/**",
                             "/api/users/*/followers", "/api/users/*/followings",
                             "/api/users/*/reviews",
+                            "/api/users/*/reading-goal",
                             "/api/users/nickname/*",
                             "/api/users/*"
                     ).permitAll()

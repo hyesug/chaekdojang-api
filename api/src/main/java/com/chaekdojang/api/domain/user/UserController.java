@@ -44,6 +44,12 @@ public class UserController {
         return ApiResponse.ok(userService.updateMyProfile(request));
     }
 
+    @Operation(summary = "내 독서 목표 수정", description = "올해 독서 목표 권수를 설정하거나 삭제합니다. targetCount가 null이면 삭제. JWT 필요.")
+    @PatchMapping("/me/reading-goal")
+    public ApiResponse<UserProfileResponse> updateReadingGoal(@RequestBody @Valid UpdateReadingGoalRequest request) {
+        return ApiResponse.ok(userService.updateReadingGoal(request));
+    }
+
     @Operation(summary = "회원 탈퇴", description = "계정을 soft delete 처리합니다. JWT 필요.")
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)

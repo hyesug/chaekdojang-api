@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reading_goal_year INTEGER;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reading_goal_count INTEGER;

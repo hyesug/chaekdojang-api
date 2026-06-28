@@ -515,6 +515,7 @@ public class AdminService {
             case "review_write_click" -> "독후감 작성 클릭";
             case "review_created" -> "독후감 등록";
             case "book_search" -> "책 검색";
+            case "book_click_search" -> "검색 결과 책 클릭";
             case "share_click" -> "공유 클릭";
             case "heartbeat" -> "체류 신호";
             case "session_end" -> "페이지 이탈";

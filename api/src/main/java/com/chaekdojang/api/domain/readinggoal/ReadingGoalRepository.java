@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface ReadingGoalRepository extends JpaRepository<ReadingGoal, Long> {
     Optional<ReadingGoal> findByUserIdAndYear(Long userId, int year);
+
+    void deleteByUserIdAndYear(Long userId, int year);
 }

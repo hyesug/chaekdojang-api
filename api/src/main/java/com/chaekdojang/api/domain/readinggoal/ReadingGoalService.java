@@ -55,7 +55,16 @@ public class ReadingGoalService {
         return readingGoalRepository.findByUserIdAndYear(userId, year)
                 .filter(goal -> includePrivate || goal.isPublicVisible())
                 .map(goal -> ReadingGoalResponse.of(goal, finishedCount))
-                .orElseGet(() -> ReadingGoalResponse.empty(year, finishedCount));
+                .orElseGet(() -> userRepository.findById(userId)
+                        .filter(user -> user.getReadingGoalYear() != null
+                                && user.getReadingGoalYear() == year
+                                && user.getReadingGoalCount() != null)
+                        .map(user -> {
+                            long remaining = Math.max(user.getReadingGoalCount() - finishedCount, 0);
+                            int progress = (int) Math.min(100, Math.round((finishedCount * 100.0) / user.getReadingGoalCount()));
+                            return new ReadingGoalResponse(year, user.getReadingGoalCount(), finishedCount, remaining, progress, true);
+                        })
+                        .orElseGet(() -> ReadingGoalResponse.empty(year, finishedCount)));
     }
 
     private long countFinishedInYear(Long userId, int year) {

@@ -7,6 +7,8 @@ import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import com.chaekdojang.api.domain.notification.NotificationRepository;
+import com.chaekdojang.api.domain.readinggoal.ReadingGoal;
+import com.chaekdojang.api.domain.readinggoal.ReadingGoalRepository;
 import com.chaekdojang.api.domain.review.ReviewBookmarkRepository;
 import com.chaekdojang.api.domain.review.ReviewLikeRepository;
 import com.chaekdojang.api.domain.review.ReviewRepository;
@@ -40,6 +42,7 @@ public class UserService {
     private final ReviewBookmarkRepository reviewBookmarkRepository;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
+    private final ReadingGoalRepository readingGoalRepository;
     private final NotificationRepository notificationRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final UserAuthProviderRepository userAuthProviderRepository;
@@ -92,6 +95,9 @@ public class UserService {
         User user = findUser(userId);
 
         if (request.targetCount() == null) {
+            if (user.getReadingGoalYear() != null) {
+                readingGoalRepository.deleteByUserIdAndYear(userId, user.getReadingGoalYear());
+            }
             user.updateReadingGoal(null, null);
             return buildProfile(userId);
         }
@@ -101,7 +107,15 @@ public class UserService {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
+        if (user.getReadingGoalYear() != null && !user.getReadingGoalYear().equals(year)) {
+            readingGoalRepository.deleteByUserIdAndYear(userId, user.getReadingGoalYear());
+        }
         user.updateReadingGoal(year, request.targetCount());
+        boolean publicVisible = request.publicVisible() == null || request.publicVisible();
+        ReadingGoal goal = readingGoalRepository.findByUserIdAndYear(userId, year)
+                .orElseGet(() -> ReadingGoal.create(user, year, request.targetCount(), publicVisible));
+        goal.update(request.targetCount(), publicVisible);
+        readingGoalRepository.save(goal);
         return buildProfile(userId);
     }
 
@@ -141,10 +155,15 @@ public class UserService {
         long yearlyFinishedCount = user.getReadingGoalYear() == null
                 ? 0
                 : libraryRepository.countFinishedByUserIdAndYear(userId, user.getReadingGoalYear());
+        boolean readingGoalPublicVisible = user.getReadingGoalYear() == null
+                || readingGoalRepository.findByUserIdAndYear(userId, user.getReadingGoalYear())
+                .map(ReadingGoal::isPublicVisible)
+                .orElse(true);
         UserProfileResponse.ReadingGoalSummary readingGoal = UserProfileResponse.ReadingGoalSummary.of(
                 user.getReadingGoalYear(),
                 user.getReadingGoalCount(),
-                yearlyFinishedCount
+                yearlyFinishedCount,
+                readingGoalPublicVisible
         );
         return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary, readingGoal);
     }

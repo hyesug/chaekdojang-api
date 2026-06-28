@@ -26,13 +26,14 @@ public record UserProfileResponse(
             Integer targetCount,
             long finishedCount,
             int progressPercent,
-            long remainingCount
+            long remainingCount,
+            boolean publicVisible
     ) {
-        public static ReadingGoalSummary of(Integer year, Integer targetCount, long finishedCount) {
+        public static ReadingGoalSummary of(Integer year, Integer targetCount, long finishedCount, boolean publicVisible) {
             if (year == null || targetCount == null || targetCount <= 0) return null;
             int progressPercent = (int) Math.min(100, Math.round((finishedCount * 100.0) / targetCount));
             long remainingCount = Math.max(0, targetCount - finishedCount);
-            return new ReadingGoalSummary(year, targetCount, finishedCount, progressPercent, remainingCount);
+            return new ReadingGoalSummary(year, targetCount, finishedCount, progressPercent, remainingCount, publicVisible);
         }
     }
 

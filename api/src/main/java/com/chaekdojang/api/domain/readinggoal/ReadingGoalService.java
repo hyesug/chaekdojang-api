@@ -1,5 +1,6 @@
 package com.chaekdojang.api.domain.readinggoal;
 
+import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.readinggoal.dto.ReadingGoalResponse;
 import com.chaekdojang.api.domain.readinggoal.dto.ReadingGoalUpdateRequest;
 import com.chaekdojang.api.domain.user.User;
@@ -7,8 +8,6 @@ import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.global.security.SecurityUtils;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +21,7 @@ public class ReadingGoalService {
 
     private final ReadingGoalRepository readingGoalRepository;
     private final UserRepository userRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final LibraryRepository libraryRepository;
 
     public ReadingGoalResponse getMyGoal() {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -69,21 +66,7 @@ public class ReadingGoalService {
     }
 
     private long countFinishedInYear(Long userId, int year) {
-        LocalDate start = LocalDate.of(year, 1, 1);
-        LocalDate end = start.plusYears(1);
-        Object result = entityManager.createNativeQuery("""
-                        SELECT COUNT(*)
-                        FROM libraries
-                        WHERE user_id = :userId
-                          AND status = 'FINISHED'
-                          AND completed_at >= :startDate
-                          AND completed_at < :endDate
-                        """)
-                .setParameter("userId", userId)
-                .setParameter("startDate", start)
-                .setParameter("endDate", end)
-                .getSingleResult();
-        return ((Number) result).longValue();
+        return libraryRepository.countFinishedByUserIdAndYear(userId, year);
     }
 
     private int currentYear() {

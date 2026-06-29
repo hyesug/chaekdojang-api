@@ -36,7 +36,10 @@ public class ReviewAiSummaryService {
     @Transactional
     public ReviewAiSummaryResponse getStatus(Long reviewId) {
         Review review = findVisibleOrOwnedReview(reviewId);
-        return ReviewAiSummaryResponse.from(getOrCreateSummary(review));
+        return summaryRepository.findByReviewId(review.getId())
+                .filter(summary -> hasActiveOrFinishedSummary(review.getId(), summary))
+                .map(ReviewAiSummaryResponse::from)
+                .orElse(null);
     }
 
     @Transactional
@@ -109,6 +112,15 @@ public class ReviewAiSummaryService {
     private ReviewAiSummary getOrCreateSummary(Review review) {
         return summaryRepository.findByReviewId(review.getId())
                 .orElseGet(() -> summaryRepository.save(ReviewAiSummary.builder().review(review).build()));
+    }
+
+    private boolean hasActiveOrFinishedSummary(Long reviewId, ReviewAiSummary summary) {
+        if (summary.getStatus() != ReviewAiSummaryStatus.PENDING) return true;
+        boolean hasActiveJob = jobRepository.existsByReviewIdAndStatusIn(
+                reviewId,
+                List.of(ReviewAiSummaryStatus.PENDING, ReviewAiSummaryStatus.PROCESSING)
+        );
+        return hasActiveJob;
     }
 
     private Review findVisibleOrOwnedReview(Long reviewId) {

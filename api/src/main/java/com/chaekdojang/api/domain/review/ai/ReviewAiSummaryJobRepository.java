@@ -13,6 +13,8 @@ public interface ReviewAiSummaryJobRepository extends JpaRepository<ReviewAiSumm
 
     List<ReviewAiSummaryJob> findByStatusOrderByIdAsc(ReviewAiSummaryStatus status, Pageable pageable);
 
+    boolean existsByReviewIdAndStatusIn(Long reviewId, List<ReviewAiSummaryStatus> statuses);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE ReviewAiSummaryJob job

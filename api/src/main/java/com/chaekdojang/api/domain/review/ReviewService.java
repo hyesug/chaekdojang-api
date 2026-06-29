@@ -69,7 +69,9 @@ public class ReviewService {
                 .content(request.content()).rating(request.rating())
                 .build();
         ReviewResponse saved = ReviewResponse.from(reviewRepository.save(review), 0L, 0L);
-        reviewAiSummaryService.enqueueForReview(review);
+        if (request.shouldGenerateAiSummary()) {
+            reviewAiSummaryService.enqueueForReview(review);
+        }
 
         // 책이 있으면 서재에 완독으로 자동 등록 (이미 있으면 상태만 업데이트)
         final Book finalBook = book;

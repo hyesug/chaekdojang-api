@@ -33,7 +33,7 @@ public class OpenAiReviewSummaryClient {
 
         String text = extractOutputText(response);
         try {
-            AiSummaryResult result = objectMapper.readValue(text, AiSummaryResult.class);
+            AiSummaryResult result = normalize(objectMapper.readValue(text, AiSummaryResult.class));
             validate(result);
             return result;
         } catch (Exception e) {
@@ -50,7 +50,8 @@ public class OpenAiReviewSummaryClient {
                                 "content", """
                                         당신은 책도장 독후감 요약카드를 만드는 편집자입니다.
                                         반드시 JSON만 반환하세요. 사용자의 독후감 본문에 없는 사실을 만들지 마세요.
-                                        recommendedFor는 반드시 "~한 사람" 형식으로 작성하세요.
+                                        recommendedFor는 반드시 마지막 단어가 "사람"이어야 합니다.
+                                        예: 익숙한 일상의 의미를 다시 보고 싶은 사람
                                         """
                         ),
                         Map.of(
@@ -114,6 +115,32 @@ public class OpenAiReviewSummaryClient {
         throw new IllegalStateException("OpenAI response did not contain output text.");
     }
 
+    private AiSummaryResult normalize(AiSummaryResult result) {
+        return new AiSummaryResult(
+                trim(result.oneLineReview()),
+                result.emotionKeywords().stream()
+                        .map(this::trim)
+                        .filter(value -> !value.isBlank())
+                        .distinct()
+                        .limit(5)
+                        .toList(),
+                normalizeRecommendedFor(result.recommendedFor()),
+                trim(result.impressivePoint())
+        );
+    }
+
+    private String normalizeRecommendedFor(String value) {
+        String normalized = trim(value);
+        if (normalized.isBlank() || normalized.endsWith("사람")) {
+            return normalized;
+        }
+        return normalized + " 사람";
+    }
+
+    private String trim(String value) {
+        return value == null ? "" : value.trim();
+    }
+
     private void validate(AiSummaryResult result) {
         if (result.oneLineReview() == null || result.oneLineReview().isBlank()
                 || result.oneLineReview().length() > 60) {
@@ -123,8 +150,9 @@ public class OpenAiReviewSummaryClient {
             throw new IllegalStateException("emotionKeywords must contain 3-5 items.");
         }
         if (result.recommendedFor() == null || result.recommendedFor().isBlank()
-                || !result.recommendedFor().endsWith("한 사람")) {
-            throw new IllegalStateException("recommendedFor must end with '~한 사람'.");
+                || result.recommendedFor().length() > 120
+                || !result.recommendedFor().endsWith("사람")) {
+            throw new IllegalStateException("recommendedFor must be 1-120 characters and end with '사람'.");
         }
         if (result.impressivePoint() == null || result.impressivePoint().isBlank()
                 || result.impressivePoint().length() > 100) {

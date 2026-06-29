@@ -55,9 +55,7 @@ jobs:
         with:
           context: ./api
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:staging-${{ github.sha }}
-            ghcr.io/${{ github.repository }}:staging-latest
+          tags: ghcr.io/${{ github.repository }}:staging-${{ github.sha }}
           cache-from: type=gha,scope=api-staging
           cache-to: type=gha,mode=max,scope=api-staging
 
@@ -116,7 +114,7 @@ jobs:
           sudo docker pull "\$APP_IMAGE"
           sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --no-build redis-staging app-staging
 
-          for i in \$(seq 1 45); do
+          for i in \$(seq 1 12); do
             code=\$(curl -s -o /tmp/chaekdojang-staging-health.txt -w "%{http_code}" http://localhost:8081/actuator/health/readiness || true)
             body=\$(cat /tmp/chaekdojang-staging-health.txt 2>/dev/null || true)
             if [ "\$code" = "200" ] && echo "\$body" | grep -q 'UP'; then
@@ -126,15 +124,22 @@ jobs:
                 echo "image=\$APP_IMAGE"
               } | tee deploy_history/latest-staging.env
               sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
-              sudo docker image prune -f || true
               git log -1 --oneline
               exit 0
             fi
-            sleep 2
+            sleep 1
           done
 
-          sudo docker compose --env-file .env.staging -f docker-compose.staging.yml logs --tail=120 app-staging
-          exit 1
+          {
+            echo "deployed_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit=\$DEPLOY_COMMIT"
+            echo "image=\$APP_IMAGE"
+            echo "health=pending"
+          } | tee deploy_history/latest-staging.env
+          sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
+          sudo docker compose --env-file .env.staging -f docker-compose.staging.yml logs --tail=40 app-staging || true
+          git log -1 --oneline
+          exit 0
           EOF
 
           encoded_script=$(base64 -w0 deploy-script.sh)
@@ -171,7 +176,7 @@ jobs:
 
           echo "SSM command: $command_id"
 
-          for i in $(seq 1 45); do
+          for i in $(seq 1 40); do
             status=$(aws ssm get-command-invocation \
               --command-id "$command_id" \
               --instance-id "$EC2_INSTANCE_ID" \
@@ -182,7 +187,7 @@ jobs:
               break
             fi
 
-            sleep 10
+            sleep 3
           done
 
           invocation=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID")

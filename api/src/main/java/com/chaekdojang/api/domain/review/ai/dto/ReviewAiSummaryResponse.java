@@ -26,7 +26,7 @@ public record ReviewAiSummaryResponse(
         return new ReviewAiSummaryResponse(
                 summary.getReview().getId(),
                 summary.getOneLineReview(),
-                summary.getEmotionKeywords(),
+                List.copyOf(summary.getEmotionKeywords()),
                 summary.getRecommendedFor(),
                 summary.getImpressivePoint(),
                 summary.getStatus(),

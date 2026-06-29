@@ -79,7 +79,7 @@ public record ReviewResponse(
             }
             return new AiSummaryInfo(
                     summary.getOneLineReview(),
-                    summary.getEmotionKeywords(),
+                    List.copyOf(summary.getEmotionKeywords()),
                     summary.getRecommendedFor(),
                     summary.getImpressivePoint()
             );

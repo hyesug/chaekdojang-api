@@ -74,7 +74,7 @@ class ReviewServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
         when(reviewRepository.save(any())).thenReturn(saved);
 
-        ReviewResponse result = reviewService.create(new ReviewCreateRequest(null, "좋은 책이었어요", 5));
+        ReviewResponse result = reviewService.create(new ReviewCreateRequest(null, "좋은 책이었어요", 5, false));
 
         assertThat(result.id()).isEqualTo(REVIEW_ID);
         assertThat(result.likeCount()).isZero();
@@ -88,7 +88,7 @@ class ReviewServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
         when(bookRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> reviewService.create(new ReviewCreateRequest(99L, "내용", 4)))
+        assertThatThrownBy(() -> reviewService.create(new ReviewCreateRequest(99L, "내용", 4, false)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOK_NOT_FOUND);
     }

@@ -18,10 +18,20 @@ public class AdminAlertService {
     @Value("${app.notification.admin-email:}")
     private String adminEmail;
 
+    @Value("${app.notification.from-email:${spring.mail.username:}}")
+    private String fromEmail;
+
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
     public void sendSignupAlert(String userEmail, String nickname) {
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
         if (mailSender == null) {
-            log.warn("가입 알림 이메일 발송 건너뜀: 메일 발송 설정이 없습니다.");
+            log.warn("가입 알림 이메일 발송 건너뜀: JavaMailSender가 없습니다. spring.mail.host 설정 여부를 확인하세요. hostConfigured={}",
+                    mailHost != null && !mailHost.isBlank());
             return;
         }
         if (adminEmail == null || adminEmail.isBlank()) {
@@ -31,13 +41,20 @@ public class AdminAlertService {
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            if (fromEmail != null && !fromEmail.isBlank()) {
+                message.setFrom(fromEmail);
+            }
             message.setTo(adminEmail);
             message.setSubject("[책도장] 신규 가입");
             message.setText("닉네임: " + nickname + "\n이메일: " + (userEmail != null ? userEmail : "없음"));
             mailSender.send(message);
             log.info("가입 알림 이메일 발송 완료: nickname={}", nickname);
         } catch (Exception e) {
-            log.warn("가입 알림 이메일 발송 실패: {}", e.getMessage());
+            log.warn("가입 알림 이메일 발송 실패: hostConfigured={}, usernameConfigured={}, adminEmailConfigured={}, error={}",
+                    mailHost != null && !mailHost.isBlank(),
+                    mailUsername != null && !mailUsername.isBlank(),
+                    adminEmail != null && !adminEmail.isBlank(),
+                    e.getMessage());
         }
     }
 }

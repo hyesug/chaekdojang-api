@@ -7,6 +7,9 @@ import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.readinggroup.dto.*;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummary;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryRepository;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryStatus;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.global.exception.CustomException;
@@ -22,6 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +41,7 @@ public class ReadingGroupService {
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
+    private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final NotificationService notificationService;
 
     public List<ReadingGroupResponse> getPublicGroups() {
@@ -267,6 +273,54 @@ public class ReadingGroupService {
                 .toList();
     }
 
+    public ReadingGroupBookResultResponse getGroupBookResult(String slug, Long groupBookId) {
+        ReadingGroup group = findBySlug(slug);
+        if (group.getVisibility() != ReadingGroupVisibility.PUBLIC) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+        ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        List<Review> reviews = groupReviewRepository.findAllByGroupBookIdOrderByCreatedAtDesc(groupBook.getId())
+                .stream()
+                .map(ReadingGroupReview::getReview)
+                .filter(review -> review.getDeletedAt() == null && !review.isHidden())
+                .toList();
+        List<Long> reviewIds = reviews.stream().map(Review::getId).toList();
+        Map<Long, ReviewAiSummary> summaryMap = reviewIds.isEmpty()
+                ? Map.of()
+                : reviewAiSummaryRepository.findAllByReviewIdIn(reviewIds)
+                .stream()
+                .filter(this::isCompletedSummary)
+                .collect(Collectors.toMap(summary -> summary.getReview().getId(), Function.identity()));
+        List<ReadingGroupBookResultResponse.AiReadingCardInfo> cards = reviews.stream()
+                .map(review -> toAiReadingCard(review, summaryMap.get(review.getId())))
+                .filter(card -> card != null)
+                .toList();
+        List<String> commonKeywords = cards.stream()
+                .flatMap(card -> card.emotionKeywords().stream())
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(5)
+                .map(Map.Entry::getKey)
+                .toList();
+        return new ReadingGroupBookResultResponse(
+                group.getName(),
+                group.getSlug(),
+                new ReadingGroupBookResultResponse.BookInfo(
+                        groupBook.getBook().getId(),
+                        groupBook.getBook().getTitle(),
+                        groupBook.getBook().getAuthor(),
+                        groupBook.getBook().getThumbnail()
+                ),
+                reviews.stream().map(review -> review.getAuthor().getId()).distinct().count(),
+                commonKeywords,
+                cards.isEmpty() ? null : cards.get(0).oneLineReview(),
+                cards
+        );
+    }
+
     public List<ReadingGroupMyReviewResponse> getMyGroupBookReviews(String slug, Long groupBookId) {
         Long userId = SecurityUtils.getCurrentUserId();
         ReadingGroup group = findBySlug(slug);
@@ -360,6 +414,24 @@ public class ReadingGroupService {
         return userId != null && memberRepository.findByGroupIdAndUserId(groupId, userId)
                 .map(ReadingGroupMember::canManage)
                 .orElse(false);
+    }
+
+    private boolean isCompletedSummary(ReviewAiSummary summary) {
+        return summary.getStatus() == ReviewAiSummaryStatus.COMPLETED
+                || summary.getStatus() == ReviewAiSummaryStatus.EDITED;
+    }
+
+    private ReadingGroupBookResultResponse.AiReadingCardInfo toAiReadingCard(Review review, ReviewAiSummary summary) {
+        if (summary == null) return null;
+        return new ReadingGroupBookResultResponse.AiReadingCardInfo(
+                review.getId(),
+                review.getAuthor().getNickname(),
+                review.getBook() != null ? review.getBook().getTitle() : "독후감",
+                summary.getOneLineReview(),
+                summary.getEmotionKeywords(),
+                summary.getRecommendedFor(),
+                summary.getImpressivePoint()
+        );
     }
 
     private String createUniqueSlug(String name) {

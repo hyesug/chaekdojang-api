@@ -85,6 +85,13 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.getGroupBookReviews(slug, groupBookId));
     }
 
+    @GetMapping("/{slug}/books/{groupBookId}/result")
+    public ApiResponse<ReadingGroupBookResultResponse> getGroupBookResult(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId) {
+        return ApiResponse.ok(readingGroupService.getGroupBookResult(slug, groupBookId));
+    }
+
     @GetMapping("/{slug}/books/{groupBookId}/my-reviews")
     public ApiResponse<List<ReadingGroupMyReviewResponse>> getMyGroupBookReviews(
             @PathVariable String slug,

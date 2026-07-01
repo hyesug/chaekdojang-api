@@ -11,6 +11,9 @@ import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewVisibilityRequest;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummary;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryRepository;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryService;
 import com.chaekdojang.api.domain.user.FollowRepository;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
@@ -48,6 +51,8 @@ public class ReviewService {
     private final FollowRepository followRepository;
     private final LibraryRepository libraryRepository;
     private final NotificationService notificationService;
+    private final ReviewAiSummaryRepository reviewAiSummaryRepository;
+    private final ReviewAiSummaryService reviewAiSummaryService;
 
     @Transactional
     public ReviewResponse create(ReviewCreateRequest request) {
@@ -64,6 +69,9 @@ public class ReviewService {
                 .content(request.content()).rating(request.rating())
                 .build();
         ReviewResponse saved = ReviewResponse.from(reviewRepository.save(review), 0L, 0L);
+        if (request.shouldGenerateAiSummary()) {
+            reviewAiSummaryService.enqueueForReview(review);
+        }
 
         // 책이 있으면 서재에 완독으로 자동 등록 (이미 있으면 상태만 업데이트)
         final Book finalBook = book;
@@ -220,9 +228,11 @@ public class ReviewService {
         List<Long> ids = page.stream().map(Review::getId).toList();
         Map<Long, Long> likeMap = buildLikeCountMap(ids);
         Map<Long, Long> commentMap = buildCommentCountMap(ids);
+        Map<Long, ReviewAiSummary> summaryMap = buildSummaryMap(ids);
         return page.map(r -> ReviewResponse.from(r,
                 likeMap.getOrDefault(r.getId(), 0L),
-                commentMap.getOrDefault(r.getId(), 0L)));
+                commentMap.getOrDefault(r.getId(), 0L),
+                summaryMap.get(r.getId())));
     }
 
     private List<ReviewResponse> toResponseList(List<Review> reviews) {
@@ -231,11 +241,19 @@ public class ReviewService {
         List<Long> ids = limited.stream().map(Review::getId).toList();
         Map<Long, Long> likeMap = buildLikeCountMap(ids);
         Map<Long, Long> commentMap = buildCommentCountMap(ids);
+        Map<Long, ReviewAiSummary> summaryMap = buildSummaryMap(ids);
         return limited.stream()
                 .map(r -> ReviewResponse.from(r,
                         likeMap.getOrDefault(r.getId(), 0L),
-                        commentMap.getOrDefault(r.getId(), 0L)))
+                        commentMap.getOrDefault(r.getId(), 0L),
+                        summaryMap.get(r.getId())))
                 .toList();
+    }
+
+    private Map<Long, ReviewAiSummary> buildSummaryMap(List<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return reviewAiSummaryRepository.findAllByReviewIdIn(ids).stream()
+                .collect(Collectors.toMap(summary -> summary.getReview().getId(), summary -> summary));
     }
 
     // 리뷰 ID 목록 → {reviewId: likeCount} 맵 (쿼리 1번)

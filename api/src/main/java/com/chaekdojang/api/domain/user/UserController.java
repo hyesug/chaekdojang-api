@@ -101,7 +101,7 @@ public class UserController {
     }
 
     @Operation(summary = "다른 유저 프로필 조회", description = "userId로 다른 사용자의 프로필을 조회합니다. 인증 불필요.")
-    @GetMapping("/{userId}")
+    @GetMapping("/{userId:\\d+}")
     public ApiResponse<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
         return ApiResponse.ok(userService.getUserProfile(userId));
     }
@@ -113,20 +113,23 @@ public class UserController {
     }
 
     @Operation(summary = "특정 유저 독후감 목록", description = "userId에 해당하는 사용자의 독후감 목록을 반환합니다. 인증 불필요.")
-    @GetMapping("/{userId}/reviews")
+    @GetMapping("/{userId:\\d+}/reviews")
     public ApiResponse<List<ReviewResponse>> getUserReviews(@PathVariable Long userId) {
         return ApiResponse.ok(reviewService.getByUser(userId));
     }
 
     @Operation(summary = "특정 유저 공개 완독 목록", description = "공개 독후감이 있는 완독 도서만 반환합니다. 인증 불필요.")
-    @GetMapping("/{userId}/library")
+    @GetMapping("/{userId:\\d+}/library")
     public ApiResponse<List<LibraryResponse>> getUserLibrary(@PathVariable Long userId) {
         return ApiResponse.ok(libraryService.getPublicFinishedLibrary(userId));
     }
 
     @Operation(summary = "사용자 검색", description = "닉네임으로 사용자를 검색합니다. 인증 불필요.")
     @GetMapping("/search")
-    public ApiResponse<List<UserSummary>> searchUsers(@RequestParam String q) {
+    public ApiResponse<List<UserSummary>> searchUsers(@RequestParam(required = false) String q) {
+        if (q == null || q.isBlank()) {
+            return ApiResponse.ok(List.of());
+        }
         return ApiResponse.ok(userService.searchUsers(q));
     }
 }

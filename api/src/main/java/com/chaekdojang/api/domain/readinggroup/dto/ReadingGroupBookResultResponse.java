@@ -7,8 +7,14 @@ public record ReadingGroupBookResultResponse(
         String groupSlug,
         BookInfo book,
         long participantCount,
+        long reviewCount,
+        double averageRating,
         List<String> commonEmotionKeywords,
         String representativeOneLineReview,
+        String recommendedForSummary,
+        String impressivePointSummary,
+        long publicReviewCount,
+        long generatedCardCount,
         List<AiReadingCardInfo> cards
 ) {
     public record BookInfo(
@@ -26,7 +32,8 @@ public record ReadingGroupBookResultResponse(
             String oneLineReview,
             List<String> emotionKeywords,
             String recommendedFor,
-            String impressivePoint
+            String impressivePoint,
+            int rating
     ) {
     }
 }

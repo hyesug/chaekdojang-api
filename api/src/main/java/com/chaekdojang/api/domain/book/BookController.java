@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.book;
 
 import com.chaekdojang.api.domain.book.dto.BookResponse;
+import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
 import com.chaekdojang.api.domain.review.ReviewService;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
@@ -58,6 +59,12 @@ public class BookController {
     @GetMapping("/{id:\\d+}")
     public ApiResponse<BookResponse> getOne(@PathVariable Long id) {
         return ApiResponse.ok(bookService.findById(id));
+    }
+
+    @Operation(summary = "책 반응 리포트", description = "책 1권의 공개 독후감과 AI 독서카드를 집계한 공개 리포트를 반환합니다. 인증 불필요.")
+    @GetMapping("/{id:\\d+}/reaction-report")
+    public ApiResponse<BookReactionReportResponse> getReactionReport(@PathVariable Long id) {
+        return ApiResponse.ok(bookService.getReactionReport(id));
     }
 
     @Operation(summary = "책별 독후감 목록", description = "특정 책에 대해 작성된 독후감 목록을 반환합니다. 인증 불필요.")

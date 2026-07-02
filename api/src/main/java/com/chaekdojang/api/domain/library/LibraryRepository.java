@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.library;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import com.chaekdojang.api.domain.book.Book;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,18 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
             ORDER BY l.updatedAt DESC
             """)
     List<Library> findPublicFinishedByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT r.book
+            FROM Review r
+            WHERE r.author.id = :userId
+            AND r.book IS NOT NULL
+            AND r.deletedAt IS NULL
+            AND r.hidden = false
+            GROUP BY r.book
+            ORDER BY MAX(r.createdAt) DESC
+            """)
+    List<Book> findPublicReviewBooksByUserId(@Param("userId") Long userId);
 
     Optional<Library> findByIdAndUserId(Long id, Long userId);
 

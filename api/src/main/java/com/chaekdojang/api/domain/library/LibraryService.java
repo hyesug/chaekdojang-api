@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -54,11 +56,16 @@ public class LibraryService {
         if (!userRepository.existsById(userId)) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
-        return libraryRepository.findPublicFinishedByUserId(userId)
+        Map<Long, LibraryResponse> responses = new LinkedHashMap<>();
+        libraryRepository.findPublicFinishedByUserId(userId)
                 .stream()
-                .limit(200)
                 .map(LibraryResponse::from)
-                .toList();
+                .forEach(response -> responses.putIfAbsent(response.book().id(), response));
+        libraryRepository.findPublicReviewBooksByUserId(userId)
+                .stream()
+                .map(LibraryResponse::fromPublicReviewBook)
+                .forEach(response -> responses.putIfAbsent(response.book().id(), response));
+        return responses.values().stream().limit(200).toList();
     }
 
     @Transactional

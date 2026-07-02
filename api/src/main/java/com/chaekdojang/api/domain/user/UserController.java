@@ -118,7 +118,7 @@ public class UserController {
         return ApiResponse.ok(reviewService.getByUser(userId));
     }
 
-    @Operation(summary = "특정 유저 공개 완독 목록", description = "공개 독후감이 있는 완독 도서만 반환합니다. 인증 불필요.")
+    @Operation(summary = "특정 유저 공개 서재", description = "공유 프로필에서 볼 수 있는 사용자 서재를 반환합니다. 인증 불필요.")
     @GetMapping("/{userId:\\d+}/library")
     public ApiResponse<List<LibraryResponse>> getUserLibrary(@PathVariable Long userId) {
         return ApiResponse.ok(libraryService.getPublicFinishedLibrary(userId));

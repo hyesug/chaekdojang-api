@@ -57,7 +57,7 @@ public class LibraryService {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
         Map<Long, LibraryResponse> responses = new LinkedHashMap<>();
-        libraryRepository.findPublicFinishedByUserId(userId)
+        libraryRepository.findAllByUserIdOrderByUpdatedAtDesc(userId)
                 .stream()
                 .map(LibraryResponse::from)
                 .forEach(response -> responses.putIfAbsent(response.book().id(), response));

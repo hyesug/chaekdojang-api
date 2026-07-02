@@ -3,9 +3,13 @@ package com.chaekdojang.api.domain.book;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chaekdojang.api.domain.book.dto.BookResponse;
+import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
 import com.chaekdojang.api.domain.book.dto.BookSearchResult;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
 import com.chaekdojang.api.domain.review.Review;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummary;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryRepository;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryStatus;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.google.GoogleBookClient;
@@ -25,6 +29,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +41,7 @@ public class BookService {
     private final KakaoBookClient kakaoBookClient;
     private final GoogleBookClient googleBookClient;
     private final ReviewRepository reviewRepository;
+    private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final CommentRepository commentRepository;
     private final StringRedisTemplate redisTemplate;
@@ -77,6 +84,44 @@ public class BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
         return toResponseWithReviewCount(book);
+    }
+
+    public BookReactionReportResponse getReactionReport(Long bookId) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
+        List<Review> reviews = reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(bookId);
+        List<Long> reviewIds = reviews.stream().map(Review::getId).toList();
+        Map<Long, ReviewAiSummary> summaryMap = reviewIds.isEmpty()
+                ? Map.of()
+                : reviewAiSummaryRepository.findAllByReviewIdIn(reviewIds)
+                .stream()
+                .filter(this::isCompletedSummary)
+                .collect(Collectors.toMap(summary -> summary.getReview().getId(), Function.identity()));
+        List<BookReactionReportResponse.ReviewCardInfo> cards = reviews.stream()
+                .map(review -> {
+                    ReviewAiSummary summary = summaryMap.get(review.getId());
+                    return summary == null ? null : BookReactionReportResponse.ReviewCardInfo.of(review, summary);
+                })
+                .filter(card -> card != null)
+                .toList();
+        double averageRating = reviews.stream()
+                .mapToInt(Review::getRating)
+                .average()
+                .stream()
+                .map(value -> Math.round(value * 10.0) / 10.0)
+                .findFirst()
+                .orElse(0.0);
+        return new BookReactionReportResponse(
+                BookReactionReportResponse.BookInfo.from(book),
+                reviews.size(),
+                reviews.stream().map(review -> review.getAuthor().getId()).distinct().count(),
+                averageRating,
+                commonEmotionKeywords(cards),
+                cards.isEmpty() ? null : cards.get(0).oneLineReview(),
+                cards.isEmpty() ? null : cards.get(0).recommendedFor(),
+                cards.isEmpty() ? null : cards.get(0).impressivePoint(),
+                cards
+        );
     }
 
     @Transactional
@@ -305,6 +350,24 @@ public class BookService {
         if (ids.isEmpty()) return Map.of();
         return commentRepository.countGroupByReviewIds(ids).stream()
                 .collect(java.util.stream.Collectors.toMap(row -> toLong(row[0]), row -> toLong(row[1])));
+    }
+
+    private boolean isCompletedSummary(ReviewAiSummary summary) {
+        return summary.getStatus() == ReviewAiSummaryStatus.COMPLETED
+                || summary.getStatus() == ReviewAiSummaryStatus.EDITED;
+    }
+
+    private List<String> commonEmotionKeywords(List<BookReactionReportResponse.ReviewCardInfo> cards) {
+        return cards.stream()
+                .flatMap(card -> card.emotionKeywords().stream())
+                .filter(keyword -> keyword != null && !keyword.isBlank())
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(5)
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     private Long toLong(Object value) {

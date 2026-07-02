@@ -312,11 +312,23 @@ public class ReadingGroupService {
                         groupBook.getBook().getId(),
                         groupBook.getBook().getTitle(),
                         groupBook.getBook().getAuthor(),
-                        groupBook.getBook().getThumbnail()
+                groupBook.getBook().getThumbnail()
                 ),
                 reviews.stream().map(review -> review.getAuthor().getId()).distinct().count(),
+                reviews.size(),
+                reviews.stream()
+                        .mapToInt(Review::getRating)
+                        .average()
+                        .stream()
+                        .map(value -> Math.round(value * 10.0) / 10.0)
+                        .findFirst()
+                        .orElse(0.0),
                 commonKeywords,
                 cards.isEmpty() ? null : cards.get(0).oneLineReview(),
+                cards.isEmpty() ? null : cards.get(0).recommendedFor(),
+                cards.isEmpty() ? null : cards.get(0).impressivePoint(),
+                reviews.size(),
+                cards.size(),
                 cards
         );
     }
@@ -430,7 +442,8 @@ public class ReadingGroupService {
                 summary.getOneLineReview(),
                 summary.getEmotionKeywords(),
                 summary.getRecommendedFor(),
-                summary.getImpressivePoint()
+                summary.getImpressivePoint(),
+                review.getRating()
         );
     }
 

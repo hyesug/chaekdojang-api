@@ -32,4 +32,15 @@ public record LibraryResponse(
                 library.getUpdatedAt()
         );
     }
+
+    public static LibraryResponse fromPublicReviewBook(Book book) {
+        return new LibraryResponse(
+                null,
+                BookInfo.from(book),
+                LibraryStatus.FINISHED,
+                null,
+                null,
+                null
+        );
+    }
 }

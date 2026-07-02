@@ -96,6 +96,7 @@ public class SecurityConfig {
                             "/api/review/*/ai-summary/status",
                             "/api/users/*/followers", "/api/users/*/followings",
                             "/api/users/*/reviews",
+                            "/api/users/*/library",
                             "/api/users/*/reading-goal",
                             "/api/users/nickname/*",
                             "/api/users/*"

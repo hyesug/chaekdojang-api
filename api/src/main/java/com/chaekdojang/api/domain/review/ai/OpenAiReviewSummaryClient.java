@@ -68,15 +68,15 @@ public class OpenAiReviewSummaryClient {
                                         "type", "object",
                                         "additionalProperties", false,
                                         "properties", Map.of(
-                                                "oneLineReview", Map.of("type", "string", "maxLength", 60),
+                                                "oneLineReview", Map.of("type", "string", "maxLength", 180),
                                                 "emotionKeywords", Map.of(
                                                         "type", "array",
                                                         "minItems", 3,
                                                         "maxItems", 5,
                                                         "items", Map.of("type", "string", "maxLength", 50)
                                                 ),
-                                                "recommendedFor", Map.of("type", "string", "maxLength", 120),
-                                                "impressivePoint", Map.of("type", "string", "maxLength", 100)
+                                                "recommendedFor", Map.of("type", "string", "maxLength", 200),
+                                                "impressivePoint", Map.of("type", "string", "maxLength", 300)
                                         ),
                                         "required", List.of(
                                                 "oneLineReview",
@@ -143,20 +143,20 @@ public class OpenAiReviewSummaryClient {
 
     private void validate(AiSummaryResult result) {
         if (result.oneLineReview() == null || result.oneLineReview().isBlank()
-                || result.oneLineReview().length() > 60) {
-            throw new IllegalStateException("oneLineReview must be 1-60 characters.");
+                || result.oneLineReview().length() > 180) {
+            throw new IllegalStateException("oneLineReview must be 1-180 characters.");
         }
         if (result.emotionKeywords().size() < 3 || result.emotionKeywords().size() > 5) {
             throw new IllegalStateException("emotionKeywords must contain 3-5 items.");
         }
         if (result.recommendedFor() == null || result.recommendedFor().isBlank()
-                || result.recommendedFor().length() > 120
+                || result.recommendedFor().length() > 200
                 || !result.recommendedFor().endsWith("사람")) {
-            throw new IllegalStateException("recommendedFor must be 1-120 characters and end with '사람'.");
+            throw new IllegalStateException("recommendedFor must be 1-200 characters and end with '사람'.");
         }
         if (result.impressivePoint() == null || result.impressivePoint().isBlank()
-                || result.impressivePoint().length() > 100) {
-            throw new IllegalStateException("impressivePoint must be 1-100 characters.");
+                || result.impressivePoint().length() > 300) {
+            throw new IllegalStateException("impressivePoint must be 1-300 characters.");
         }
     }
 }

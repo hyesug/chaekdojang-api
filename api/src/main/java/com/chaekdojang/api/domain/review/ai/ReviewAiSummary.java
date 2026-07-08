@@ -28,7 +28,7 @@ public class ReviewAiSummary {
     @JoinColumn(name = "review_id", nullable = false, unique = true)
     private Review review;
 
-    @Column(length = 60)
+    @Column(length = 180)
     private String oneLineReview;
 
     @ElementCollection
@@ -36,10 +36,10 @@ public class ReviewAiSummary {
     @Column(name = "keyword", nullable = false)
     private List<String> emotionKeywords = new ArrayList<>();
 
-    @Column(length = 120)
+    @Column(length = 200)
     private String recommendedFor;
 
-    @Column(length = 100)
+    @Column(length = 300)
     private String impressivePoint;
 
     @Enumerated(EnumType.STRING)

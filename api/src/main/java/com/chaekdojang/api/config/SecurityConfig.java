@@ -101,6 +101,7 @@ public class SecurityConfig {
                             "/api/users/nickname/*",
                             "/api/users/*"
                     ).permitAll()
+                    .requestMatchers("/api/feedback/**").authenticated()
                     // 문의: POST·GET 모두 비회원 허용 (권한 체크는 서비스 레이어에서)
                     .requestMatchers("/api/inquiries/**").permitAll()
                     // 관리자 API: Security 레벨에서 1차 차단, 서비스 레이어에서 2차 검증

@@ -142,6 +142,18 @@ app:
     max-retries: ${AI_SUMMARY_MAX_RETRIES:3}
     timeout: ${AI_SUMMARY_TIMEOUT:30s}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
+  feedback:
+    enabled: ${FEEDBACK_ENABLED:true}
+    api-key: ${LLM_API_KEY:${OPENAI_API_KEY:}}
+    model: ${LLM_MODEL:${OPENAI_REVIEW_SUMMARY_MODEL:gpt-5.5}}
+    api-url: ${LLM_API_URL:${OPENAI_RESPONSES_API_URL:https://api.openai.com/v1/responses}}
+    min-chars: ${FEEDBACK_MIN_CHARS:150}
+    max-chars: ${FEEDBACK_MAX_CHARS:6000}
+    max-tokens: ${FEEDBACK_MAX_TOKENS:2500}
+    timeout: ${FEEDBACK_TIMEOUT:30s}
+    member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:5}
+    boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:도장 코멘트는 참고용이에요. 내 생각과 감상을 가장 중요한 기준으로 삼아주세요.}
+    beta-apply-url: ${BETA_APPLY_URL:}
 
 kakao:
   api-key: ${KAKAO_API_KEY:}

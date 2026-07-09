@@ -5,9 +5,12 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -51,12 +54,16 @@ public class MetricEvent {
     @Column(length = 50)
     private String ip;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> meta;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private MetricEvent(User user, String eventType, String sessionId, String path,
-                        String referrer, long durationMs, String device, String ip) {
+                        String referrer, long durationMs, String device, String ip, Map<String, Object> meta) {
         this.user = user;
         this.eventType = eventType;
         this.sessionId = sessionId;
@@ -65,6 +72,7 @@ public class MetricEvent {
         this.durationMs = durationMs;
         this.device = device;
         this.ip = ip;
+        this.meta = meta;
         this.createdAt = LocalDateTime.now(KST);
     }
 }

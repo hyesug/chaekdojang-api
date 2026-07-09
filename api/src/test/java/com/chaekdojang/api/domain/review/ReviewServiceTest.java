@@ -74,7 +74,7 @@ class ReviewServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
         when(reviewRepository.save(any())).thenReturn(saved);
 
-        ReviewResponse result = reviewService.create(new ReviewCreateRequest(null, "좋은 책이었어요", 5, false));
+        ReviewResponse result = reviewService.create(new ReviewCreateRequest(null, "좋은 책이었어요", 5, false, null));
 
         assertThat(result.id()).isEqualTo(REVIEW_ID);
         assertThat(result.likeCount()).isZero();
@@ -88,7 +88,7 @@ class ReviewServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
         when(bookRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> reviewService.create(new ReviewCreateRequest(99L, "내용", 4, false)))
+        assertThatThrownBy(() -> reviewService.create(new ReviewCreateRequest(99L, "내용", 4, false, null)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOK_NOT_FOUND);
     }
@@ -156,9 +156,9 @@ class ReviewServiceTest {
         when(reviewLikeRepository.countByReviewId(REVIEW_ID)).thenReturn(0L);
         when(commentRepository.countByReviewIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(0L);
 
-        reviewService.update(REVIEW_ID, new ReviewUpdateRequest("수정된 내용", 3));
+        reviewService.update(REVIEW_ID, new ReviewUpdateRequest(null, "수정된 내용", 3, null, null));
 
-        verify(review).update("수정된 내용", 3);
+        verify(review).update("수정된 내용", 3, null);
     }
 
     @Test
@@ -168,10 +168,10 @@ class ReviewServiceTest {
         when(review.isAuthor(USER_ID)).thenReturn(false);
         when(reviewRepository.findByIdAndDeletedAtIsNull(REVIEW_ID)).thenReturn(Optional.of(review));
 
-        assertThatThrownBy(() -> reviewService.update(REVIEW_ID, new ReviewUpdateRequest("수정", 3)))
+        assertThatThrownBy(() -> reviewService.update(REVIEW_ID, new ReviewUpdateRequest(null, "수정", 3, null, null)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-        verify(review, never()).update(any(), anyInt());
+        verify(review, never()).update(any(), anyInt(), any());
     }
 
     // ── delete ─────────────────────────────────────────────────────────────────

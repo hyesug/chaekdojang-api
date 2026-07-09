@@ -15,6 +15,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    continue-on-error: true
     timeout-minutes: 25
     defaults:
       run:

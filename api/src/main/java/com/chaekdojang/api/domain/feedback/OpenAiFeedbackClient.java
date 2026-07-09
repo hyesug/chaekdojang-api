@@ -97,10 +97,11 @@ public class OpenAiFeedbackClient {
                                         "properties", Map.of(
                                                 "point", Map.of("type", "string"),
                                                 "before", Map.of("type", "string"),
+                                                "direction", Map.of("type", "string"),
                                                 "after", Map.of("type", "string"),
                                                 "reason", Map.of("type", "string")
                                         ),
-                                        "required", List.of("point", "before", "after", "reason")
+                                        "required", List.of("point", "before", "direction", "after", "reason")
                                 )
                         ),
                         "sentence_examples", Map.of(
@@ -194,9 +195,10 @@ public class OpenAiFeedbackClient {
         result.improvements().forEach(improvement -> {
             if (isBlank(improvement.point())
                     || isBlank(improvement.before())
+                    || isBlank(improvement.direction())
                     || isBlank(improvement.after())
                     || isBlank(improvement.reason())) {
-                throw new IllegalStateException("Improvement must include point, before, after, and reason.");
+                throw new IllegalStateException("Improvement must include point, before, direction, after, and reason.");
             }
             if (normalizeForComparison(improvement.before()).equals(normalizeForComparison(improvement.after()))) {
                 throw new IllegalStateException("Improvement before and after must be different.");

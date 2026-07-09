@@ -9,7 +9,7 @@ public record FeedbackResult(
         String message,
         @JsonProperty("core_theme") String coreTheme,
         List<String> strengths,
-        List<String> improvements,
+        List<FeedbackImprovement> improvements,
         @JsonProperty("sentence_examples") List<FeedbackSentenceExample> sentenceExamples,
         @JsonProperty("title_suggestions") List<String> titleSuggestions,
         @JsonProperty("deep_question") String deepQuestion

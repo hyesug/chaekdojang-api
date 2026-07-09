@@ -91,7 +91,17 @@ public class OpenAiFeedbackClient {
                                 "type", "array",
                                 "minItems", 0,
                                 "maxItems", 2,
-                                "items", Map.of("type", "string")
+                                "items", Map.of(
+                                        "type", "object",
+                                        "additionalProperties", false,
+                                        "properties", Map.of(
+                                                "point", Map.of("type", "string"),
+                                                "before", Map.of("type", "string"),
+                                                "after", Map.of("type", "string"),
+                                                "reason", Map.of("type", "string")
+                                        ),
+                                        "required", List.of("point", "before", "after", "reason")
+                                )
                         ),
                         "sentence_examples", Map.of(
                                 "type", "array",

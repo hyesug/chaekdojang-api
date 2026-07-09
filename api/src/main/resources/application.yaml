@@ -152,7 +152,7 @@ app:
     max-tokens: ${FEEDBACK_MAX_TOKENS:1200}
     timeout: ${FEEDBACK_TIMEOUT:30s}
     member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:0}
-    boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:AI 코멘트는 글의 구조와 문장을 봅니다. 관점과 사고, 나만의 발견을 다듬는 일은 1:1 첨삭에서 함께 합니다.}
+    boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:도장 코멘트는 참고용이에요. 내 생각과 감상을 가장 중요한 기준으로 삼아주세요.}
     beta-apply-url: ${BETA_APPLY_URL:}
 
 kakao:

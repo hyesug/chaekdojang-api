@@ -20,7 +20,10 @@ public final class FeedbackPrompt {
             {
               "core_theme": "이 글이 말하는 핵심을 한 문장으로",
               "strengths": ["원문 인용을 포함한 좋은 점", "…총 2개"],
-              "improvements": ["무엇을 어떻게 고칠지 실행 가능하게", "…총 2개"],
+              "improvements": [
+                {"point": "보완할 점", "before": "원문 표현", "after": "바꿔볼 표현", "reason": "왜 이렇게 바꾸면 좋은지"},
+                {"point": "…총 2개", "before": "원문 표현", "after": "바꿔볼 표현", "reason": "이유"}
+              ],
               "sentence_examples": [{"before": "원문 문장", "after": "개선 예시"}],
               "title_suggestions": ["제목 후보 2~3개"],
               "deep_question": "감상을 한 단계 깊게 만드는 질문 1개"

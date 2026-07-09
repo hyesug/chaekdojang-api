@@ -29,7 +29,7 @@ public class OpenAiFeedbackClient {
         for (int attempt = 0; attempt < 2; attempt++) {
             try {
                 return parseFeedback(callOpenAi(content));
-            } catch (RuntimeException e) {
+            } catch (FeedbackFormatException e) {
                 lastError = e;
             }
         }
@@ -146,13 +146,16 @@ public class OpenAiFeedbackClient {
             validate(result);
             return result;
         } catch (Exception e) {
-            throw new IllegalStateException("Feedback JSON parsing failed: " + e.getMessage(), e);
+            throw new FeedbackFormatException("Feedback JSON parsing failed: " + e.getMessage(), e);
         }
     }
 
     private String extractText(JsonNode response) {
         if (response == null) {
             throw new IllegalStateException("OpenAI response is empty.");
+        }
+        if ("incomplete".equals(response.path("status").asText())) {
+            throw new IllegalStateException("OpenAI response was incomplete: " + response.path("incomplete_details"));
         }
         JsonNode output = response.path("output");
         if (output.isArray()) {
@@ -214,5 +217,11 @@ public class OpenAiFeedbackClient {
         return value == null
                 ? ""
                 : value.replaceAll("[\\s\\p{Punct}·…]+", "").trim();
+    }
+
+    private static class FeedbackFormatException extends RuntimeException {
+        FeedbackFormatException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

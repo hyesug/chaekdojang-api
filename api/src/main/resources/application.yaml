@@ -149,9 +149,9 @@ app:
     api-url: ${LLM_API_URL:${OPENAI_RESPONSES_API_URL:https://api.openai.com/v1/responses}}
     min-chars: ${FEEDBACK_MIN_CHARS:150}
     max-chars: ${FEEDBACK_MAX_CHARS:6000}
-    max-tokens: ${FEEDBACK_MAX_TOKENS:1200}
+    max-tokens: ${FEEDBACK_MAX_TOKENS:2500}
     timeout: ${FEEDBACK_TIMEOUT:30s}
-    member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:0}
+    member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:5}
     boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:도장 코멘트는 참고용이에요. 내 생각과 감상을 가장 중요한 기준으로 삼아주세요.}
     beta-apply-url: ${BETA_APPLY_URL:}
 

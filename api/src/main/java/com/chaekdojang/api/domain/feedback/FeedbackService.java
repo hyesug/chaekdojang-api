@@ -10,6 +10,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.global.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FeedbackService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final String PATH = "/write";
@@ -65,6 +67,7 @@ public class FeedbackService {
                     properties.getBetaApplyUrl()
             );
         } catch (Exception e) {
+            log.warn("feedback failed", e);
             record("feedback_failed", request.sessionId(), ip, userId, Map.of(
                     "contentLength", content.length(),
                     "reason", e.getClass().getSimpleName()

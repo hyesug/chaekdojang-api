@@ -11,12 +11,12 @@ public class FeedbackProperties {
     private boolean enabled = true;
     private String apiKey = "";
     private String model = "";
-    private String apiUrl = "https://api.anthropic.com/v1/messages";
+    private String apiUrl = "https://api.openai.com/v1/responses";
     private int minChars = 150;
     private int maxChars = 6000;
-    private int maxTokens = 1200;
+    private int maxTokens = 2500;
     private Duration timeout = Duration.ofSeconds(30);
-    private int memberDailyLimit = 0;
+    private int memberDailyLimit = 5;
     private String boundaryMessage = "";
     private String betaApplyUrl = "";
 

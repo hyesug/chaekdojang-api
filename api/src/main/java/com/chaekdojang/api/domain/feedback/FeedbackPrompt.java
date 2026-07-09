@@ -27,8 +27,8 @@ public final class FeedbackPrompt {
             - improvements의 direction에는 무엇을 더하거나 줄이거나 연결해야 하는지 사용자가 실행할 수 있게 적을 것.
             - improvements의 reason에는 before에서 무엇이 아쉬웠고 after에서 무엇이 나아졌는지 1문장으로 설명할 것.
             - 책도장 홍보문구, URL, 가입 유도, 분량 제한, 완성본 대필은 출력하지 말 것.
-            - 독후감이 아니라고 판단되면(광고, 무관한 글, 무의미한 텍스트)
-              {"not_review": true, "message": "독후감을 붙여넣어 주시면 코멘트를 드릴 수 있어요."} 만 출력.
+            - 독후감이 아니라고 판단되면(광고, 무관한 글, 무의미한 텍스트) 아래 JSON처럼 출력할 것.
+              {"not_review": true, "message": "독후감을 붙여넣어 주시면 코멘트를 드릴 수 있어요.", "core_theme": null, "strengths": [], "improvements": [], "sentence_examples": [], "title_suggestions": [], "deep_question": null}
             - 마크다운·설명문 없이 JSON만 출력.
 
             JSON 스키마:

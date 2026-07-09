@@ -191,9 +191,26 @@ public class OpenAiFeedbackClient {
                 || isBlank(result.deepQuestion())) {
             throw new IllegalStateException("Feedback result does not match required schema.");
         }
+        result.improvements().forEach(improvement -> {
+            if (isBlank(improvement.point())
+                    || isBlank(improvement.before())
+                    || isBlank(improvement.after())
+                    || isBlank(improvement.reason())) {
+                throw new IllegalStateException("Improvement must include point, before, after, and reason.");
+            }
+            if (normalizeForComparison(improvement.before()).equals(normalizeForComparison(improvement.after()))) {
+                throw new IllegalStateException("Improvement before and after must be different.");
+            }
+        });
     }
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String normalizeForComparison(String value) {
+        return value == null
+                ? ""
+                : value.replaceAll("[\\s\\p{Punct}·…]+", "").trim();
     }
 }

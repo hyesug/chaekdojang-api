@@ -148,7 +148,26 @@ public class ReviewService {
         Long userId = SecurityUtils.getCurrentUserId();
         Review review = findActiveReview(id);
         if (!review.isAuthor(userId)) throw new CustomException(ErrorCode.FORBIDDEN);
-        review.update(request.content(), request.rating());
+        Book book = review.getBook();
+        if (request.bookId() != null) {
+            book = bookRepository.findById(request.bookId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
+        }
+        review.update(request.content(), request.rating(), book);
+        if (request.shouldHide()) review.hide(); else review.unhide();
+        if (request.shouldGenerateAiSummary()) {
+            reviewAiSummaryService.enqueueForReview(review);
+        }
+        final Book updatedBook = book;
+        if (updatedBook != null) {
+            libraryRepository.findByUserIdAndBookId(userId, updatedBook.getId())
+                    .ifPresentOrElse(
+                            lib -> lib.updateStatus(LibraryStatus.FINISHED, null),
+                            () -> libraryRepository.save(
+                                    Library.builder().user(review.getAuthor()).book(updatedBook).status(LibraryStatus.FINISHED).build()
+                            )
+                    );
+        }
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));

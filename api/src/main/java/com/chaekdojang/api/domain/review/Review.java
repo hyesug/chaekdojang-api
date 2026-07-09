@@ -66,9 +66,10 @@ public class Review {
         this.rating = rating;
     }
 
-    public void update(String content, int rating) {
+    public void update(String content, int rating, Book book) {
         this.content = content;
         this.rating = rating;
+        this.book = book;
     }
 
     public void softDelete() {

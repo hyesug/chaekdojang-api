@@ -142,6 +142,18 @@ app:
     max-retries: ${AI_SUMMARY_MAX_RETRIES:3}
     timeout: ${AI_SUMMARY_TIMEOUT:30s}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
+  feedback:
+    enabled: ${FEEDBACK_ENABLED:true}
+    api-key: ${LLM_API_KEY:${OPENAI_API_KEY:}}
+    model: ${LLM_MODEL:${OPENAI_REVIEW_SUMMARY_MODEL:gpt-5.5}}
+    api-url: ${LLM_API_URL:${OPENAI_RESPONSES_API_URL:https://api.openai.com/v1/responses}}
+    min-chars: ${FEEDBACK_MIN_CHARS:150}
+    max-chars: ${FEEDBACK_MAX_CHARS:6000}
+    max-tokens: ${FEEDBACK_MAX_TOKENS:1200}
+    timeout: ${FEEDBACK_TIMEOUT:30s}
+    member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:0}
+    boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:AI 코멘트는 글의 구조와 문장을 봅니다. 관점과 사고, 나만의 발견을 다듬는 일은 1:1 첨삭에서 함께 합니다.}
+    beta-apply-url: ${BETA_APPLY_URL:}
 
 kakao:
   api-key: ${KAKAO_API_KEY:}

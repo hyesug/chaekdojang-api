@@ -78,4 +78,6 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM MetricEvent m WHERE m.createdAt < :cutoff")
     int deleteCreatedBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    long countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(Long userId, String eventType, LocalDateTime createdAt);
 }

@@ -68,6 +68,9 @@ public class ReviewService {
                 .author(author).book(book)
                 .content(request.content()).rating(request.rating())
                 .build();
+        if (request.shouldHide()) {
+            review.hide();
+        }
         ReviewResponse saved = ReviewResponse.from(reviewRepository.save(review), 0L, 0L);
         if (request.shouldGenerateAiSummary()) {
             reviewAiSummaryService.enqueueForReview(review);
@@ -83,7 +86,9 @@ public class ReviewService {
                                     Library.builder().user(author).book(finalBook).status(LibraryStatus.FINISHED).build()
                             )
                     );
-            notifySameBookReaders(author, finalBook, review.getId());
+            if (!review.isHidden()) {
+                notifySameBookReaders(author, finalBook, review.getId());
+            }
         }
 
         return saved;

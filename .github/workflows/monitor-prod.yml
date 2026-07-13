@@ -13,76 +13,192 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Run production smoke test
         run: |
-          chmod +x scripts/smoke-prod.sh
-          ./scripts/smoke-prod.sh
+          set -euo pipefail
+
+          API_BASE="${API_BASE:-https://api.chaekdojang.com}"
+          WEB_BASE="${WEB_BASE:-https://www.chaekdojang.com}"
+
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          check_json_status() {
+            local name="$1"
+            local url="$2"
+            local file="$tmp_dir/$name.json"
+            local code
+
+            code="$(curl -sS -o "$file" -w "%{http_code}" "$url")" || return 1
+            if [ "$code" != "200" ]; then
+              echo "FAIL $name: expected 200, got $code"
+              cat "$file" || true
+              return 1
+            fi
+          }
+
+          smoke_check() {
+            check_json_status "api-health" "$API_BASE/actuator/health" || return 1
+            python3 - "$tmp_dir/api-health.json" <<'PY' || return 1
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as file:
+              body = json.load(file)
+
+          if body.get("status") != "UP":
+              print("FAIL api-health: status is not UP", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+            check_json_status "web-reviews" "$WEB_BASE/api/reviews?page=0&size=5&sort=recent" || return 1
+            python3 - "$tmp_dir/web-reviews.json" <<'PY' || return 1
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as file:
+              body = json.load(file)
+
+          content = body.get("data", {}).get("content")
+          if not isinstance(content, list) or len(content) < 1:
+              print("FAIL web-reviews: expected at least one review", file=sys.stderr)
+              sys.exit(1)
+
+          first_id = content[0].get("id") if isinstance(content[0], dict) else None
+          print(f"OK web-reviews: {len(content)} reviews, first id {first_id}")
+          PY
+
+            home_code="$(curl -sS -o "$tmp_dir/home.html" -w "%{http_code}" "$WEB_BASE")" || return 1
+            if [ "$home_code" != "200" ]; then
+              echo "FAIL web-home: expected 200, got $home_code"
+              return 1
+            fi
+
+            echo "OK api-health"
+            echo "OK web-home"
+          }
+
+          for attempt in 1 2 3; do
+            echo "Smoke test attempt ${attempt}/3"
+
+            if smoke_check; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              sleep_seconds=$((attempt * 10))
+              echo "Smoke test attempt ${attempt} failed. Retrying in ${sleep_seconds}s." >&2
+              sleep "$sleep_seconds"
+            fi
+          done
+
+          echo "Smoke test failed after 3 attempts." >&2
+          exit 1
 
   disk:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ap-northeast-2
+      AWS_ROLE_ARN: arn:aws:iam::863518416212:role/chaekdojang-github-actions-deploy
       EC2_INSTANCE_ID: i-0362f42382b67f52b
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::863518416212:role/chaekdojang-github-actions-deploy
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Check EC2 disk usage
         run: |
           set -euo pipefail
 
-          jq -n '{
-            DocumentName: "AWS-RunShellScript",
-            InstanceIds: [env.EC2_INSTANCE_ID],
-            Comment: "Monitor production disk usage",
-            Parameters: {
-              commands: [
-                "set -eu",
-                "usage=$(df -P / | tail -n 1 | tr -s \" \" | cut -d \" \" -f 5 | tr -d \"%\")",
-                "test -n \"$usage\"",
-                "df -h /",
-                "if [ \"$usage\" -ge 90 ]; then echo \"Root disk usage is ${usage}%, threshold is 90%.\"; exit 1; fi",
-                "echo \"Root disk usage is ${usage}%.\""
-              ]
-            }
-          }' > send-command.json
+          assume_role() {
+            oidc_response=$(curl -fsSL \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com") || return 1
+            oidc_token=$(echo "$oidc_response" | jq -r '.value') || return 1
+            test -n "$oidc_token" || return 1
+            test "$oidc_token" != "null" || return 1
 
-          command_id=$(aws ssm send-command \
-            --cli-input-json file://send-command.json \
-            --query "Command.CommandId" \
-            --output text)
+            aws sts assume-role-with-web-identity \
+              --role-arn "$AWS_ROLE_ARN" \
+              --role-session-name "GitHubActionsMonitorProduction" \
+              --web-identity-token "$oidc_token" \
+              --duration-seconds 900 > aws-credentials.json || return 1
 
-          echo "SSM command: $command_id"
+            export AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY
+            export AWS_SESSION_TOKEN
+            AWS_ACCESS_KEY_ID=$(jq -r '.Credentials.AccessKeyId' aws-credentials.json) || return 1
+            AWS_SECRET_ACCESS_KEY=$(jq -r '.Credentials.SecretAccessKey' aws-credentials.json) || return 1
+            AWS_SESSION_TOKEN=$(jq -r '.Credentials.SessionToken' aws-credentials.json) || return 1
+            test -n "$AWS_ACCESS_KEY_ID" || return 1
+            test "$AWS_ACCESS_KEY_ID" != "null" || return 1
+            test -n "$AWS_SECRET_ACCESS_KEY" || return 1
+            test "$AWS_SECRET_ACCESS_KEY" != "null" || return 1
+            test -n "$AWS_SESSION_TOKEN" || return 1
+            test "$AWS_SESSION_TOKEN" != "null" || return 1
+          }
 
-          for i in $(seq 1 30); do
-            status=$(aws ssm get-command-invocation \
-              --command-id "$command_id" \
-              --instance-id "$EC2_INSTANCE_ID" \
-              --query "Status" \
-              --output text)
+          check_disk() {
+            jq -n '{
+              DocumentName: "AWS-RunShellScript",
+              InstanceIds: [env.EC2_INSTANCE_ID],
+              Comment: "Monitor production disk usage",
+              Parameters: {
+                commands: [
+                  "set -eu",
+                  "usage=$(df -P / | tail -n 1 | tr -s \" \" | cut -d \" \" -f 5 | tr -d \"%\")",
+                  "test -n \"$usage\"",
+                  "df -h /",
+                  "if [ \"$usage\" -ge 90 ]; then echo \"Root disk usage is ${usage}%, threshold is 90%.\"; exit 1; fi",
+                  "echo \"Root disk usage is ${usage}%.\""
+                ]
+              }
+            }' > send-command.json || return 1
 
-            if [ "$status" != "Pending" ] && [ "$status" != "InProgress" ] && [ "$status" != "Delayed" ]; then
-              break
+            command_id=$(aws ssm send-command \
+              --cli-input-json file://send-command.json \
+              --query "Command.CommandId" \
+              --output text) || return 1
+
+            echo "SSM command: $command_id"
+
+            for i in $(seq 1 30); do
+              status=$(aws ssm get-command-invocation \
+                --command-id "$command_id" \
+                --instance-id "$EC2_INSTANCE_ID" \
+                --query "Status" \
+                --output text) || return 1
+
+              if [ "$status" != "Pending" ] && [ "$status" != "InProgress" ] && [ "$status" != "Delayed" ]; then
+                break
+              fi
+
+              sleep 5
+            done
+
+            invocation=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID") || return 1
+            echo "$invocation" | jq -r '.StandardOutputContent' || return 1
+            error_output=$(echo "$invocation" | jq -r '.StandardErrorContent') || return 1
+            if [ -n "$error_output" ]; then
+              echo "$error_output" >&2
             fi
 
-            sleep 5
+            status=$(echo "$invocation" | jq -r '.Status') || return 1
+            if [ "$status" != "Success" ]; then
+              echo "SSM disk check failed with status=$status" >&2
+              return 1
+            fi
+          }
+
+          for attempt in 1 2 3; do
+            echo "Disk check attempt ${attempt}/3"
+
+            if assume_role && check_disk; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              sleep_seconds=$((attempt * 20))
+              echo "Disk check attempt ${attempt} failed. Retrying in ${sleep_seconds}s." >&2
+              sleep "$sleep_seconds"
+            fi
           done
 
-          invocation=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$EC2_INSTANCE_ID")
-          echo "$invocation" | jq -r '.StandardOutputContent'
-          error_output=$(echo "$invocation" | jq -r '.StandardErrorContent')
-          if [ -n "$error_output" ]; then
-            echo "$error_output" >&2
-          fi
-
-          status=$(echo "$invocation" | jq -r '.Status')
-          if [ "$status" != "Success" ]; then
-            echo "SSM disk check failed with status=$status" >&2
-            exit 1
-          fi
+          echo "Disk check failed after 3 attempts." >&2
+          exit 1

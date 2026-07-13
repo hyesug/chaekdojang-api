@@ -359,7 +359,7 @@ public class AdminService {
             String ip = error.getIp() == null || error.getIp().isBlank() ? "-" : error.getIp();
             String key = "error:" + type + ":" + normalizePath(error.getUri()) + ":" + ip;
             SecurityAccumulator item = summaries.computeIfAbsent(key,
-                    ignored -> new SecurityAccumulator(error.getStatus() >= 500 ? "오류" : "주의", type, normalizePath(error.getUri()), ip));
+                    ignored -> new SecurityAccumulator(securitySeverity(error.getMethod(), error.getUri(), error.getStatus()), type, normalizePath(error.getUri()), ip));
             item.count++;
             if (item.lastAt == null || error.getCreatedAt().isAfter(item.lastAt)) item.lastAt = error.getCreatedAt();
         });
@@ -370,7 +370,7 @@ public class AdminService {
                     if ("요청 오류".equals(type) && log.getStatus() < 500) return;
                     String key = "access:" + type + ":" + normalizePath(log.getUri()) + ":" + log.getIp();
                     SecurityAccumulator item = summaries.computeIfAbsent(key,
-                            ignored -> new SecurityAccumulator(log.getStatus() >= 500 ? "오류" : "주의", type, normalizePath(log.getUri()), log.getIp()));
+                            ignored -> new SecurityAccumulator(securitySeverity(log.getMethod(), log.getUri(), log.getStatus()), type, normalizePath(log.getUri()), log.getIp()));
                     item.count++;
                     if (item.lastAt == null || log.getCreatedAt().isAfter(item.lastAt)) item.lastAt = log.getCreatedAt();
                 });
@@ -551,6 +551,12 @@ public class AdminService {
         if (status >= 500) return "서버 오류";
         if (status >= 400) return "요청 오류";
         return "기타 이상 요청";
+    }
+
+    private String securitySeverity(String method, String uri, int status) {
+        String path = normalizePath(uri);
+        if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/books/public/") && status == 404) return "정보";
+        return status >= 500 ? "오류" : "주의";
     }
 
     private long countSecurityOccurrences(List<ErrorLog> errors, List<AccessLog> accessLogs) {

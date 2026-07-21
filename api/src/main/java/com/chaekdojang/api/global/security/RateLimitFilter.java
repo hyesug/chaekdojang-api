@@ -113,7 +113,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/dev/login")) {
             return new LimitPolicy("auth", authLimitPerMinute);
         }
-        if (path.startsWith("/api/books/search")) {
+        if (path.startsWith("/api/books/search") || path.startsWith("/api/books/web-novels/search")) {
             return new LimitPolicy("search", Math.min(apiLimitPerMinute, 120));
         }
         if (path.matches("^/api/reviews/\\d+/comments.*") && (method.equals("POST") || method.equals("DELETE"))) {

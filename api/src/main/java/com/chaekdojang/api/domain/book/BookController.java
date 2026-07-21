@@ -3,6 +3,8 @@ package com.chaekdojang.api.domain.book;
 import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
+import com.chaekdojang.api.domain.book.dto.WebNovelRegisterRequest;
+import com.chaekdojang.api.domain.book.dto.WebNovelSearchResult;
 import com.chaekdojang.api.domain.review.ReviewService;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.global.response.ApiResponse;
@@ -10,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +24,7 @@ import java.util.List;
 public class BookController {
 
     private final BookService bookService;
+    private final WebNovelService webNovelService;
     private final ReviewService reviewService;
 
     @Operation(summary = "도서 검색", description = "카카오 책 API와 Google Books API를 통합 검색합니다. 인증 불필요.")
@@ -33,6 +37,19 @@ public class BookController {
             @Parameter(description = "출판사")
             @RequestParam(required = false) String publisher) {
         return ApiResponse.ok(bookService.search(q, author, publisher));
+    }
+
+    @Operation(summary = "웹소설 검색", description = "네이버 시리즈, 카카오페이지, 리디, 문피아의 공식 작품 페이지를 웹 검색합니다. 인증 불필요.")
+    @GetMapping("/web-novels/search")
+    public ApiResponse<List<WebNovelSearchResult>> searchWebNovels(
+            @RequestParam(required = false, defaultValue = "") String q) {
+        return ApiResponse.ok(webNovelService.search(q));
+    }
+
+    @Operation(summary = "웹소설 등록", description = "검색한 공식 작품 페이지를 책도장 작품으로 등록하거나 이미 등록된 작품을 반환합니다.")
+    @PostMapping("/web-novels")
+    public ApiResponse<BookResponse> registerWebNovel(@RequestBody @Valid WebNovelRegisterRequest request) {
+        return ApiResponse.ok(webNovelService.register(request));
     }
 
     @Operation(summary = "카테고리별 도서 조회", description = "특정 카테고리에 속한 도서 목록을 반환합니다. 인증 불필요.")

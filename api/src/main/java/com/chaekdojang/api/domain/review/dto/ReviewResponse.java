@@ -32,10 +32,20 @@ public record ReviewResponse(
         }
     }
 
-    public record BookInfo(Long id, String isbn13, String title, String author, String thumbnail) {
+    public record BookInfo(
+            Long id,
+            String isbn13,
+            String title,
+            String author,
+            String thumbnail,
+            String source,
+            String contentType,
+            String sourceUrl
+    ) {
         public static BookInfo from(Book book) {
             return new BookInfo(book.getId(), book.getIsbn13(), book.getTitle(),
-                    book.getAuthor(), book.getThumbnail());
+                    book.getAuthor(), book.getThumbnail(), book.getSource().name(),
+                    book.isWebNovel() ? "WEB_NOVEL" : "BOOK", book.getSourceUrl());
         }
     }
 

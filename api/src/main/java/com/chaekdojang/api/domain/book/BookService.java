@@ -304,11 +304,18 @@ public class BookService {
         }
         String seoTitle = book.getSeoTitle();
         if (seoTitle == null || seoTitle.isBlank()) {
-            seoTitle = book.getTitle() + " 독후감과 문장 기록 | 책도장";
+            seoTitle = book.isWebNovel()
+                    ? book.getTitle() + " 웹소설 감상과 독후감 | 책도장"
+                    : book.getTitle() + " 독후감과 문장 기록 | 책도장";
         }
         String seoDescription = book.getSeoDescription();
         if (seoDescription == null || seoDescription.isBlank()) {
-            seoDescription = book.getAuthor() + "의 " + book.getTitle()
+            String authorPrefix = book.getAuthor() == null || book.getAuthor().isBlank()
+                    ? ""
+                    : book.getAuthor() + "의 ";
+            seoDescription = book.isWebNovel()
+                    ? authorPrefix + book.getTitle() + "을 읽고 남긴 웹소설 감상과 독후감을 책도장에서 확인해보세요."
+                    : authorPrefix + book.getTitle()
                     + "을 읽고 남긴 독후감, 인상 깊은 문장, 독서 기록을 책도장에서 확인해보세요.";
         }
         book.updateSeoFields(slug, description, seoTitle, seoDescription);
@@ -320,8 +327,15 @@ public class BookService {
     }
 
     private String defaultDescription(Book book) {
-        return book.getTitle() + "은 " + book.getAuthor()
-                + "의 책입니다. 책도장에서 이 책을 읽은 사람들의 독후감, 리뷰, 독서 기록과 인상 깊은 문장을 확인해보세요.";
+        String authorText = book.getAuthor() == null || book.getAuthor().isBlank()
+                ? ""
+                : book.getAuthor() + "의 ";
+        if (book.isWebNovel()) {
+            return book.getTitle() + "은 " + authorText
+                    + "웹소설입니다. 책도장에서 이 작품을 읽은 사람들의 감상과 독후감을 확인해보세요.";
+        }
+        return book.getTitle() + "은 " + authorText
+                + "책입니다. 책도장에서 이 책을 읽은 사람들의 독후감, 리뷰, 독서 기록과 인상 깊은 문장을 확인해보세요.";
     }
 
     private List<String> buildSentenceExcerpts(List<Review> reviews) {

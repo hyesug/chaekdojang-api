@@ -11,6 +11,9 @@ public record BookResponse(
         String thumbnail,
         String slug,
         String source,
+        String contentType,
+        String externalId,
+        String sourceUrl,
         String category,
         long reviewCount
 ) {
@@ -28,6 +31,9 @@ public record BookResponse(
                 book.getThumbnail(),
                 book.getSlug(),
                 book.getSource().name(),
+                book.isWebNovel() ? "WEB_NOVEL" : "BOOK",
+                book.getExternalId(),
+                book.getSourceUrl(),
                 book.getCategory(),
                 reviewCount
         );

@@ -21,7 +21,7 @@ public class Book {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 13)
+    @Column(unique = true, length = 13)
     private String isbn13;
 
     @Column(nullable = false)
@@ -61,6 +61,12 @@ public class Book {
     @Column(nullable = false, length = 20)
     private BookSource source;
 
+    @Column(length = 255)
+    private String externalId;
+
+    @Column(length = 1000)
+    private String sourceUrl;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -75,7 +81,8 @@ public class Book {
     @Builder
     private Book(String isbn13, String title, String author, String publisher,
                  String thumbnail, String slug, String description, Integer publishedYear,
-                 String seoTitle, String seoDescription, BookSource source, String category) {
+                 String seoTitle, String seoDescription, BookSource source, String category,
+                 String externalId, String sourceUrl) {
         this.isbn13 = isbn13;
         this.title = title;
         this.author = author;
@@ -88,6 +95,12 @@ public class Book {
         this.seoDescription = seoDescription;
         this.source = source;
         this.category = category;
+        this.externalId = externalId;
+        this.sourceUrl = sourceUrl;
+    }
+
+    public boolean isWebNovel() {
+        return source != null && source.isWebNovel();
     }
 
     public void updateSeoFields(String slug, String description, String seoTitle, String seoDescription) {

@@ -1,8 +1,12 @@
 package com.chaekdojang.api.domain.readinggroup;
 
+import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.book.BookSource;
 import com.chaekdojang.api.domain.notification.NotificationService;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupMyReviewResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupResponse;
+import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
@@ -19,6 +23,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +85,62 @@ class ReadingGroupServiceTest {
         verify(notificationService, never()).send(any(), any(), any(), any(), any());
     }
 
+    @Test
+    @DisplayName("비공개 모임의 내 독후감 목록에는 비공개 독후감도 포함한다")
+    void getMyGroupBookReviews_privateGroup_includesHiddenReviews() {
+        User owner = user(OWNER_ID, "owner");
+        User member = user(USER_ID, "reader");
+        ReadingGroup group = privateGroup(owner);
+        Book book = book();
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book, null);
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        Review hiddenReview = review(book, member, true);
+
+        when(groupRepository.findBySlug("private-group")).thenReturn(Optional.of(group));
+        when(memberRepository.existsByGroupIdAndUserIdAndStatus(
+                GROUP_ID, USER_ID, ReadingGroupMemberStatus.APPROVED)).thenReturn(true);
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+        when(reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(USER_ID, 30L))
+                .thenReturn(List.of(hiddenReview));
+        when(groupReviewRepository.existsByGroupBookIdAndReviewId(20L, 40L)).thenReturn(false);
+
+        List<ReadingGroupMyReviewResponse> responses =
+                readingGroupService.getMyGroupBookReviews("private-group", 20L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).hidden()).isTrue();
+        verify(reviewRepository, never())
+                .findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("공개 모임의 내 독후감 목록은 공개 독후감만 조회한다")
+    void getMyGroupBookReviews_publicGroup_usesPublicReviewsOnly() {
+        User owner = user(OWNER_ID, "owner");
+        User member = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        Book book = book();
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book, null);
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        Review publicReview = review(book, member, false);
+
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(memberRepository.existsByGroupIdAndUserIdAndStatus(
+                GROUP_ID, USER_ID, ReadingGroupMemberStatus.APPROVED)).thenReturn(true);
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+        when(reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(USER_ID, 30L))
+                .thenReturn(List.of(publicReview));
+        when(groupReviewRepository.existsByGroupBookIdAndReviewId(20L, 40L)).thenReturn(false);
+
+        List<ReadingGroupMyReviewResponse> responses =
+                readingGroupService.getMyGroupBookReviews("public-group", 20L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).hidden()).isFalse();
+        verify(reviewRepository, never())
+                .findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(anyLong(), anyLong());
+    }
+
     private User user(Long id, String nickname) {
         User user = User.create(nickname + "@example.com", nickname, null);
         ReflectionTestUtils.setField(user, "id", id);
@@ -96,5 +157,40 @@ class ReadingGroupServiceTest {
                 .build();
         ReflectionTestUtils.setField(group, "id", GROUP_ID);
         return group;
+    }
+
+    private ReadingGroup publicGroup(User owner) {
+        ReadingGroup group = ReadingGroup.builder()
+                .owner(owner)
+                .name("Public Group")
+                .slug("public-group")
+                .visibility(ReadingGroupVisibility.PUBLIC)
+                .joinPolicy(ReadingGroupJoinPolicy.OPEN)
+                .build();
+        ReflectionTestUtils.setField(group, "id", GROUP_ID);
+        return group;
+    }
+
+    private Book book() {
+        Book book = Book.builder()
+                .isbn13("9781234567890")
+                .title("테스트 책")
+                .author("테스트 작가")
+                .source(BookSource.KAKAO)
+                .build();
+        ReflectionTestUtils.setField(book, "id", 30L);
+        return book;
+    }
+
+    private Review review(Book book, User author, boolean hidden) {
+        Review review = Review.builder()
+                .book(book)
+                .author(author)
+                .content("테스트 독후감")
+                .rating(5)
+                .build();
+        ReflectionTestUtils.setField(review, "id", 40L);
+        if (hidden) review.hide();
+        return review;
     }
 }

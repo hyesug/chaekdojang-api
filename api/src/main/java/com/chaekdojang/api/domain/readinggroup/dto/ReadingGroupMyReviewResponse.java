@@ -8,6 +8,7 @@ public record ReadingGroupMyReviewResponse(
         Long id,
         String content,
         int rating,
+        boolean hidden,
         boolean attached,
         LocalDateTime createdAt
 ) {
@@ -16,6 +17,7 @@ public record ReadingGroupMyReviewResponse(
                 review.getId(),
                 review.getContent(),
                 review.getRating(),
+                review.isHidden(),
                 attached,
                 review.getCreatedAt()
         );

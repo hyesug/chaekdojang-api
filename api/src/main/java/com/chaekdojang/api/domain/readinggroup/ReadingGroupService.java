@@ -235,7 +235,9 @@ public class ReadingGroupService {
         assertApprovedMember(group, userId);
         ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
-        Review review = reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(request.reviewId())
+        Review review = (group.getVisibility() == ReadingGroupVisibility.PRIVATE
+                ? reviewRepository.findByIdAndDeletedAtIsNull(request.reviewId())
+                : reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(request.reviewId()))
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
         if (!review.isAuthor(userId) || review.getBook() == null || !review.getBook().getId().equals(groupBook.getBook().getId())) {
             throw new CustomException(ErrorCode.FORBIDDEN);
@@ -269,6 +271,8 @@ public class ReadingGroupService {
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         return groupReviewRepository.findAllByGroupBookIdOrderByCreatedAtDesc(groupBook.getId())
                 .stream()
+                .filter(groupReview -> group.getVisibility() == ReadingGroupVisibility.PRIVATE
+                        || !groupReview.getReview().isHidden())
                 .map(ReadingGroupReviewResponse::from)
                 .toList();
     }
@@ -339,9 +343,14 @@ public class ReadingGroupService {
         assertApprovedMember(group, userId);
         ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
-        return reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(
+        List<Review> reviews = group.getVisibility() == ReadingGroupVisibility.PRIVATE
+                ? reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(
                         userId,
                         groupBook.getBook().getId())
+                : reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(
+                        userId,
+                        groupBook.getBook().getId());
+        return reviews
                 .stream()
                 .map(review -> ReadingGroupMyReviewResponse.of(
                         review,

@@ -58,6 +58,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long authorId, Long bookId);
 
+    List<Review> findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long authorId, Long bookId);
+
     List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByRatingDescCreatedAtDesc(Long bookId);
 
     List<Review> findTop5ByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long bookId);

@@ -17,6 +17,7 @@ public record ReadingGroupReviewResponse(
         String bookThumbnail,
         String content,
         int rating,
+        boolean hidden,
         long viewCount,
         LocalDateTime createdAt
 ) {
@@ -34,6 +35,7 @@ public record ReadingGroupReviewResponse(
                 review.getBook() != null ? review.getBook().getThumbnail() : null,
                 review.getContent(),
                 review.getRating(),
+                review.isHidden(),
                 review.getViewCount(),
                 review.getCreatedAt()
         );

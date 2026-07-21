@@ -39,7 +39,7 @@ public enum WebNovelPlatform {
     }
 
     public String searchQuery(String query) {
-        return query + " 웹소설 site:" + searchSite;
+        return query + " site:" + searchSite;
     }
 
     public Optional<ResolvedWork> resolve(String rawUrl) {

@@ -7,6 +7,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class WebNovelPlatformTest {
 
     @Test
+    void buildsSiteSearchQueryWithoutExtraWebNovelKeyword() {
+        assertThat(WebNovelPlatform.NAVER_SERIES.searchQuery("화산귀환"))
+                .isEqualTo("화산귀환 site:series.naver.com/novel");
+    }
+
+    @Test
     void resolvesNaverSeriesWork() {
         WebNovelPlatform.ResolvedWork work = WebNovelPlatform.NAVER_SERIES
                 .resolve("https://m.series.naver.com/novel/detail.series?sortOrder=DESC&productNo=3400123")

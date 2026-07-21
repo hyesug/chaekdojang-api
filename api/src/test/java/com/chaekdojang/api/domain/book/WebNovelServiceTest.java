@@ -3,13 +3,16 @@ package com.chaekdojang.api.domain.book;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.WebNovelRegisterRequest;
+import com.chaekdojang.api.domain.book.dto.WebNovelSearchResult;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
+import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,16 +27,21 @@ class WebNovelServiceTest {
 
     private BookRepository bookRepository;
     private ReviewRepository reviewRepository;
+    private KakaoWebNovelClient kakaoWebNovelClient;
+    private NaverWebNovelClient naverWebNovelClient;
     private WebNovelService webNovelService;
 
     @BeforeEach
     void setUp() {
         bookRepository = mock(BookRepository.class);
         reviewRepository = mock(ReviewRepository.class);
+        kakaoWebNovelClient = mock(KakaoWebNovelClient.class);
+        naverWebNovelClient = mock(NaverWebNovelClient.class);
         webNovelService = new WebNovelService(
                 bookRepository,
                 reviewRepository,
-                mock(KakaoWebNovelClient.class),
+                kakaoWebNovelClient,
+                naverWebNovelClient,
                 mock(StringRedisTemplate.class),
                 new ObjectMapper()
         );
@@ -69,5 +77,30 @@ class WebNovelServiceTest {
                 BookSource.RIDI,
                 "https://page.kakao.com/content/56566288"
         ))).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    void mergesNaverAndKakaoResultsWithoutDuplicates() {
+        WebNovelSearchResult naver = result("재혼 황후", BookSource.NAVER_SERIES, "3713078");
+        WebNovelSearchResult kakaoDuplicate = result("재혼 황후", BookSource.NAVER_SERIES, "3713078");
+        WebNovelSearchResult kakaoOnly = result("상수리나무 아래", BookSource.RIDI, "4362000001");
+        when(naverWebNovelClient.search("재혼 황후")).thenReturn(List.of(naver));
+        when(kakaoWebNovelClient.search("재혼 황후")).thenReturn(List.of(kakaoDuplicate, kakaoOnly));
+
+        List<WebNovelSearchResult> results = webNovelService.search("재혼 황후");
+
+        assertThat(results).containsExactly(naver, kakaoOnly);
+    }
+
+    private WebNovelSearchResult result(String title, BookSource platform, String externalId) {
+        return new WebNovelSearchResult(
+                title,
+                "",
+                platform,
+                platform.name(),
+                "https://example.com/" + externalId,
+                externalId,
+                ""
+        );
     }
 }

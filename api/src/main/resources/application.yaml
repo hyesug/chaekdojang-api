@@ -158,6 +158,11 @@ app:
 kakao:
   api-key: ${KAKAO_API_KEY:}
 
+naver:
+  search:
+    client-id: ${NAVER_CLIENT_ID:}
+    client-secret: ${NAVER_CLIENT_SECRET:}
+
 deepl:
   api-key: ${DEEPL_API_KEY:}
 

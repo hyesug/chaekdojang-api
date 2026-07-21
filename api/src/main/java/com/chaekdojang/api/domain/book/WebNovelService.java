@@ -9,6 +9,7 @@ import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
+import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.HtmlUtils;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class WebNovelService {
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
     private final KakaoWebNovelClient kakaoWebNovelClient;
+    private final NaverWebNovelClient naverWebNovelClient;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -34,13 +38,22 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v2:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v3:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
-        List<WebNovelSearchResult> results = kakaoWebNovelClient.search(normalized);
+        Map<String, WebNovelSearchResult> merged = new LinkedHashMap<>();
+        addResults(merged, naverWebNovelClient.search(normalized));
+        addResults(merged, kakaoWebNovelClient.search(normalized));
+        List<WebNovelSearchResult> results = List.copyOf(merged.values());
         writeCache(cacheKey, results);
         return results;
+    }
+
+    private void addResults(Map<String, WebNovelSearchResult> target, List<WebNovelSearchResult> results) {
+        for (WebNovelSearchResult result : results) {
+            target.putIfAbsent(result.platform().name() + ":" + result.externalId(), result);
+        }
     }
 
     @Transactional

@@ -38,16 +38,33 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v3:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v4:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
         Map<String, WebNovelSearchResult> merged = new LinkedHashMap<>();
         addResults(merged, naverWebNovelClient.search(normalized));
         addResults(merged, kakaoWebNovelClient.search(normalized));
-        List<WebNovelSearchResult> results = List.copyOf(merged.values());
+        List<WebNovelSearchResult> results = merged.values().stream()
+                .sorted((left, right) -> Integer.compare(
+                        titleMatchRank(normalized, left.title()),
+                        titleMatchRank(normalized, right.title())
+                ))
+                .toList();
         writeCache(cacheKey, results);
         return results;
+    }
+
+    private int titleMatchRank(String query, String title) {
+        String normalizedQuery = normalizeTitle(query);
+        String normalizedTitle = normalizeTitle(title);
+        return normalizedTitle.equals(normalizedQuery) ? 0 : 1;
+    }
+
+    private String normalizeTitle(String value) {
+        return value == null ? "" : value
+                .replaceAll("[^가-힣A-Za-z0-9]", "")
+                .toLowerCase(Locale.ROOT);
     }
 
     private void addResults(Map<String, WebNovelSearchResult> target, List<WebNovelSearchResult> results) {

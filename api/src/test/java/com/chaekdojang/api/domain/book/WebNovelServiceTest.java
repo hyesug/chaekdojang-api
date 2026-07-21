@@ -92,6 +92,26 @@ class WebNovelServiceTest {
         assertThat(results).containsExactly(naver, kakaoOnly);
     }
 
+    @Test
+    void putsExactTitleBeforeRelatedWorks() {
+        WebNovelSearchResult prologue = result(
+                "데뷔 못 하면 죽는 병 걸림 시즌3 프롤로그",
+                BookSource.KAKAO_PAGE,
+                "59782511"
+        );
+        WebNovelSearchResult original = result(
+                "데뷔 못 하면 죽는 병 걸림",
+                BookSource.KAKAO_PAGE,
+                "56325530"
+        );
+        when(naverWebNovelClient.search("데뷔 못 하면 죽는 병 걸림")).thenReturn(List.of(prologue, original));
+        when(kakaoWebNovelClient.search("데뷔 못 하면 죽는 병 걸림")).thenReturn(List.of());
+
+        List<WebNovelSearchResult> results = webNovelService.search("데뷔 못 하면 죽는 병 걸림");
+
+        assertThat(results).containsExactly(original, prologue);
+    }
+
     private WebNovelSearchResult result(String title, BookSource platform, String externalId) {
         return new WebNovelSearchResult(
                 title,

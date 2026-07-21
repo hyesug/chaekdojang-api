@@ -112,7 +112,7 @@ public class NaverWebNovelClient {
         String normalizedTitle = normalize(title);
         return !normalizedQuery.isBlank()
                 && !normalizedTitle.isBlank()
-                && (normalizedTitle.contains(normalizedQuery) || normalizedQuery.contains(normalizedTitle));
+                && (normalizedTitle.startsWith(normalizedQuery) || normalizedQuery.startsWith(normalizedTitle));
     }
 
     private String normalize(String value) {

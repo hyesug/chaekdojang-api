@@ -68,12 +68,15 @@ public class NaverWebNovelClient {
 
     public List<WebNovelSearchResult> search(String query) {
         Map<String, WebNovelSearchResult> results = new LinkedHashMap<>();
-        List<WebNovelSearchResult> officialResults = new ArrayList<>(searchNaverWebNovelPage(query));
-        if (officialResults.isEmpty() && configured) {
+        List<WebNovelSearchResult> officialResults = new ArrayList<>();
+        if (configured) {
             for (String titleHint : findNaverWebNovelTitleHints(query)) {
-                officialResults.addAll(searchNaverWebNovelPage(titleHint));
+                if (!titleHint.equals(query)) {
+                    officialResults.addAll(searchNaverWebNovelPage(titleHint));
+                }
             }
         }
+        officialResults.addAll(searchNaverWebNovelPage(query));
         for (WebNovelSearchResult result : officialResults) {
             results.putIfAbsent(result.platform().name() + ":" + result.externalId(), result);
         }
@@ -114,10 +117,13 @@ public class NaverWebNovelClient {
     String extractMentionedWorkTitle(String query, String rawTitle) {
         String title = cleanText(rawTitle);
         Matcher matcher = MENTIONED_WORK_TITLE.matcher(title);
-        if (!matcher.find()) return "";
+        if (matcher.find()) {
+            String mentionedTitle = matcher.group(1).trim();
+            if (titleMatches(query, mentionedTitle)) return mentionedTitle;
+        }
 
-        String mentionedTitle = matcher.group(1).trim();
-        return titleMatches(query, mentionedTitle) ? mentionedTitle : "";
+        String cleanedTitle = cleanTitle(rawTitle);
+        return isExactTitle(query, cleanedTitle) ? cleanedTitle : "";
     }
 
     private List<WebNovelSearchResult> searchNaverWebNovelPage(String query) {

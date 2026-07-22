@@ -71,5 +71,10 @@ class NaverWebNovelClientTest {
                 "착한오빠, 나쁜오빠",
                 "&lt;<b>착한 오빠, 나쁜 오빠</b>&gt; 연재 시작했습니다 :), 순한맛인 줄 알았더니 매운맛"
         )).isEqualTo("착한 오빠, 나쁜 오빠");
+
+        assertThat(client.extractMentionedWorkTitle(
+                "웨딩케이크",
+                "<b>웨딩 케이크</b> : 네이버웹소설"
+        )).isEqualTo("웨딩 케이크");
     }
 }

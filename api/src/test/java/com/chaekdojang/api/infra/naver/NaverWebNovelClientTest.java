@@ -27,4 +27,16 @@ class NaverWebNovelClientTest {
         assertThat(client.titleMatches("웨딩케이크", "웨딩케이크 외전")).isTrue();
         assertThat(client.titleMatches("착한오빠, 나쁜오빠", "착한 오빠")).isFalse();
     }
+
+    @Test
+    void acceptsNaverWebNovelListsButRejectsEpisodeAndNoticePages() {
+        assertThat(client.isSearchResultUrl(
+                WebNovelPlatform.NAVER_SERIES,
+                "https://novel.naver.com/best/list?novelId=1159312"
+        )).isTrue();
+        assertThat(client.isSearchResultUrl(
+                WebNovelPlatform.NAVER_SERIES,
+                "https://novel.naver.com/best/detail?novelId=1145814&volumeNo=242"
+        )).isFalse();
+    }
 }

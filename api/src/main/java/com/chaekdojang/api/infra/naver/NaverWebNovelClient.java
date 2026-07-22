@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.HtmlUtils;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -19,6 +20,8 @@ import java.util.Set;
 @Slf4j
 @Component
 public class NaverWebNovelClient {
+
+    private static final String NAVER_WEB_NOVEL_LIST_PATH = "^/(webnovel|best|challenge)/list(?:\\.(?:nhn|series))?$";
 
     private final RestClient restClient;
     private final boolean configured;
@@ -106,6 +109,7 @@ public class NaverWebNovelClient {
             WebNovelPlatform platform,
             NaverWebSearchResponse.Item item
     ) {
+        if (!isSearchResultUrl(platform, item.link())) return null;
         WebNovelPlatform.ResolvedWork resolved = platform.resolve(item.link()).orElse(null);
         if (resolved == null) return null;
 
@@ -121,6 +125,20 @@ public class NaverWebNovelClient {
                 resolved.externalId(),
                 truncate(description, 240)
         );
+    }
+
+    boolean isSearchResultUrl(WebNovelPlatform platform, String rawUrl) {
+        if (platform != WebNovelPlatform.NAVER_SERIES) return true;
+        try {
+            URI uri = URI.create(rawUrl == null ? "" : rawUrl.trim());
+            String host = uri.getHost();
+            if (!("novel.naver.com".equalsIgnoreCase(host) || "m.novel.naver.com".equalsIgnoreCase(host))) {
+                return true;
+            }
+            return uri.getPath() != null && uri.getPath().matches(NAVER_WEB_NOVEL_LIST_PATH);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
     private String cleanTitle(String value) {

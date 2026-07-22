@@ -10,7 +10,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
-import com.chaekdojang.api.infra.ridi.RidiBookMetadataClient;
+import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -22,6 +22,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +38,7 @@ public class WebNovelService {
     private final ReviewRepository reviewRepository;
     private final KakaoWebNovelClient kakaoWebNovelClient;
     private final NaverWebNovelClient naverWebNovelClient;
-    private final RidiBookMetadataClient ridiBookMetadataClient;
+    private final WebNovelMetadataClient webNovelMetadataClient;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -40,16 +46,14 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v11:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v12:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
         Map<String, WebNovelSearchResult> merged = new LinkedHashMap<>();
         addResults(merged, naverWebNovelClient.search(normalized));
         addResults(merged, kakaoWebNovelClient.search(normalized));
-        List<WebNovelSearchResult> enriched = merged.values().stream()
-                .map(this::enrichRidiAuthor)
-                .toList();
+        List<WebNovelSearchResult> enriched = enrichMetadata(List.copyOf(merged.values()));
         List<WebNovelSearchResult> results = deduplicateRidiWorks(enriched).stream()
                 .sorted((left, right) -> Integer.compare(
                         titleMatchRank(normalized, left.title()),
@@ -71,11 +75,42 @@ public class WebNovelService {
         return List.copyOf(deduplicated.values());
     }
 
-    private WebNovelSearchResult enrichRidiAuthor(WebNovelSearchResult result) {
-        if (result.platform() != BookSource.RIDI || !result.author().isBlank()) return result;
+    private List<WebNovelSearchResult> enrichMetadata(List<WebNovelSearchResult> results) {
+        if (results.isEmpty()) return results;
+        int enrichmentCount = Math.min(results.size(), 12);
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, enrichmentCount));
+        try {
+            List<Callable<WebNovelSearchResult>> tasks = results.subList(0, enrichmentCount).stream()
+                    .<Callable<WebNovelSearchResult>>map(result -> () -> enrichMetadata(result))
+                    .toList();
+            List<Future<WebNovelSearchResult>> futures = executor.invokeAll(tasks, 12, TimeUnit.SECONDS);
+            List<WebNovelSearchResult> enriched = new java.util.ArrayList<>(results.size());
+            for (int index = 0; index < futures.size(); index++) {
+                Future<WebNovelSearchResult> future = futures.get(index);
+                try {
+                    enriched.add(future.isCancelled() ? results.get(index) : future.get());
+                } catch (ExecutionException e) {
+                    enriched.add(results.get(index));
+                }
+            }
+            enriched.addAll(results.subList(enrichmentCount, results.size()));
+            return List.copyOf(enriched);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return results;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
-        String author = ridiBookMetadataClient.findAuthor(result.sourceUrl());
-        if (author == null || author.isBlank()) return result;
+    private WebNovelSearchResult enrichMetadata(WebNovelSearchResult result) {
+        WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
+                result.platform(), result.sourceUrl());
+        String author = result.author().isBlank() ? metadata.author() : result.author();
+        String thumbnail = metadata.thumbnail().isBlank() ? result.thumbnail() : metadata.thumbnail();
+        if (author.equals(result.author()) && java.util.Objects.equals(thumbnail, result.thumbnail())) {
+            return result;
+        }
         return new WebNovelSearchResult(
                 result.title(),
                 author,
@@ -83,7 +118,8 @@ public class WebNovelService {
                 result.platformLabel(),
                 result.sourceUrl(),
                 result.externalId(),
-                result.description()
+                result.description(),
+                thumbnail
         );
     }
 
@@ -113,7 +149,16 @@ public class WebNovelService {
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_REQUEST));
 
         Book book = bookRepository.findBySourceAndExternalId(request.platform(), resolved.externalId())
-                .orElseGet(() -> createBook(request, platform, resolved));
+                .orElse(null);
+        if (book == null) {
+            WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
+                    request.platform(), resolved.canonicalUrl());
+            book = createBook(request, platform, resolved, metadata.thumbnail());
+        } else if (book.getThumbnail() == null || book.getThumbnail().isBlank()) {
+            WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
+                    request.platform(), resolved.canonicalUrl());
+            book.updateThumbnailIfMissing(metadata.thumbnail());
+        }
         long reviewCount = reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(book.getId());
         return BookResponse.from(book, reviewCount);
     }
@@ -121,7 +166,8 @@ public class WebNovelService {
     private Book createBook(
             WebNovelRegisterRequest request,
             WebNovelPlatform platform,
-            WebNovelPlatform.ResolvedWork resolved
+            WebNovelPlatform.ResolvedWork resolved,
+            String thumbnail
     ) {
         String title = cleanText(request.title(), 255);
         if (title.isBlank()) throw new CustomException(ErrorCode.INVALID_REQUEST);
@@ -132,6 +178,7 @@ public class WebNovelService {
                         .title(title)
                         .author(author)
                         .publisher(platform.labelFor(resolved))
+                        .thumbnail(thumbnail)
                         .slug(BookSlugGenerator.create(title, author, slugKey, null))
                         .source(request.platform())
                         .externalId(resolved.externalId())

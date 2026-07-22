@@ -8,7 +8,7 @@ import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
-import com.chaekdojang.api.infra.ridi.RidiBookMetadataClient;
+import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -30,7 +30,7 @@ class WebNovelServiceTest {
     private ReviewRepository reviewRepository;
     private KakaoWebNovelClient kakaoWebNovelClient;
     private NaverWebNovelClient naverWebNovelClient;
-    private RidiBookMetadataClient ridiBookMetadataClient;
+    private WebNovelMetadataClient webNovelMetadataClient;
     private WebNovelService webNovelService;
 
     @BeforeEach
@@ -39,13 +39,15 @@ class WebNovelServiceTest {
         reviewRepository = mock(ReviewRepository.class);
         kakaoWebNovelClient = mock(KakaoWebNovelClient.class);
         naverWebNovelClient = mock(NaverWebNovelClient.class);
-        ridiBookMetadataClient = mock(RidiBookMetadataClient.class);
+        webNovelMetadataClient = mock(WebNovelMetadataClient.class);
+        when(webNovelMetadataClient.findMetadata(any(), any()))
+                .thenReturn(WebNovelMetadataClient.Metadata.empty());
         webNovelService = new WebNovelService(
                 bookRepository,
                 reviewRepository,
                 kakaoWebNovelClient,
                 naverWebNovelClient,
-                ridiBookMetadataClient,
+                webNovelMetadataClient,
                 mock(StringRedisTemplate.class),
                 new ObjectMapper()
         );
@@ -57,6 +59,11 @@ class WebNovelServiceTest {
                 .thenReturn(Optional.empty());
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(nullable(Long.class))).thenReturn(0L);
+        when(webNovelMetadataClient.findMetadata(BookSource.RIDI, "https://ridibooks.com/books/4362000001"))
+                .thenReturn(new WebNovelMetadataClient.Metadata(
+                        "김수지",
+                        "https://img.ridicdn.net/cover/4362000001/large"
+                ));
 
         BookResponse response = webNovelService.register(new WebNovelRegisterRequest(
                 "상수리나무 아래",
@@ -70,6 +77,7 @@ class WebNovelServiceTest {
         assertThat(response.contentType()).isEqualTo("WEB_NOVEL");
         assertThat(response.externalId()).isEqualTo("4362000001");
         assertThat(response.sourceUrl()).isEqualTo("https://ridibooks.com/books/4362000001");
+        assertThat(response.thumbnail()).isEqualTo("https://img.ridicdn.net/cover/4362000001/large");
         verify(bookRepository).save(any(Book.class));
     }
 
@@ -142,13 +150,18 @@ class WebNovelServiceTest {
         WebNovelSearchResult ridi = result("웨딩케이크 살인사건", BookSource.RIDI, "2089000054");
         when(naverWebNovelClient.search("웨딩케이크")).thenReturn(List.of(ridi));
         when(kakaoWebNovelClient.search("웨딩케이크")).thenReturn(List.of());
-        when(ridiBookMetadataClient.findAuthor(ridi.sourceUrl())).thenReturn("조앤 플루크");
+        when(webNovelMetadataClient.findMetadata(BookSource.RIDI, ridi.sourceUrl()))
+                .thenReturn(new WebNovelMetadataClient.Metadata(
+                        "조앤 플루크",
+                        "https://img.ridicdn.net/cover/2089000054/large"
+                ));
 
         List<WebNovelSearchResult> results = webNovelService.search("웨딩케이크");
 
-        assertThat(results).singleElement().satisfies(result ->
-                assertThat(result.author()).isEqualTo("조앤 플루크")
-        );
+        assertThat(results).singleElement().satisfies(result -> {
+            assertThat(result.author()).isEqualTo("조앤 플루크");
+            assertThat(result.thumbnail()).isEqualTo("https://img.ridicdn.net/cover/2089000054/large");
+        });
     }
 
     @Test
@@ -157,7 +170,11 @@ class WebNovelServiceTest {
         WebNovelSearchResult laterVolume = result("은행원도 용꿈을 꾸나요 - 판타지 웹소설", BookSource.RIDI, "6188000155");
         when(naverWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of(firstVolume, laterVolume));
         when(kakaoWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of());
-        when(ridiBookMetadataClient.findAuthor(any())).thenReturn("연산호");
+        when(webNovelMetadataClient.findMetadata(any(), any()))
+                .thenReturn(new WebNovelMetadataClient.Metadata(
+                        "연산호",
+                        "https://img.ridicdn.net/cover/6188000001/large"
+                ));
 
         List<WebNovelSearchResult> results = webNovelService.search("은행원도 용꿈을 꾸나요");
 

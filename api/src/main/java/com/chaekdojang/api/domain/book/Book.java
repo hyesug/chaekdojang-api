@@ -103,6 +103,13 @@ public class Book {
         return source != null && source.isWebNovel();
     }
 
+    public void updateThumbnailIfMissing(String thumbnail) {
+        if ((this.thumbnail == null || this.thumbnail.isBlank())
+                && thumbnail != null && !thumbnail.isBlank()) {
+            this.thumbnail = thumbnail;
+        }
+    }
+
     public void updateSeoFields(String slug, String description, String seoTitle, String seoDescription) {
         if (slug != null && !slug.isBlank()) this.slug = slug;
         if (description != null && !description.isBlank()) this.description = description;

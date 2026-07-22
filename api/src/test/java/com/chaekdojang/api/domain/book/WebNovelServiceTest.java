@@ -8,6 +8,7 @@ import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
+import com.chaekdojang.api.infra.ridi.RidiWebNovelClient;
 import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class WebNovelServiceTest {
 
     private BookRepository bookRepository;
     private ReviewRepository reviewRepository;
+    private RidiWebNovelClient ridiWebNovelClient;
     private KakaoWebNovelClient kakaoWebNovelClient;
     private NaverWebNovelClient naverWebNovelClient;
     private WebNovelMetadataClient webNovelMetadataClient;
@@ -37,6 +39,7 @@ class WebNovelServiceTest {
     void setUp() {
         bookRepository = mock(BookRepository.class);
         reviewRepository = mock(ReviewRepository.class);
+        ridiWebNovelClient = mock(RidiWebNovelClient.class);
         kakaoWebNovelClient = mock(KakaoWebNovelClient.class);
         naverWebNovelClient = mock(NaverWebNovelClient.class);
         webNovelMetadataClient = mock(WebNovelMetadataClient.class);
@@ -45,6 +48,7 @@ class WebNovelServiceTest {
         webNovelService = new WebNovelService(
                 bookRepository,
                 reviewRepository,
+                ridiWebNovelClient,
                 kakaoWebNovelClient,
                 naverWebNovelClient,
                 webNovelMetadataClient,

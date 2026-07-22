@@ -104,12 +104,12 @@ public class KakaoWebNovelClient {
                 .trim();
     }
 
-    private boolean titleMatches(String query, String title) {
+    boolean titleMatches(String query, String title) {
         String normalizedQuery = normalize(query);
         String normalizedTitle = normalize(title);
         return !normalizedQuery.isBlank()
                 && !normalizedTitle.isBlank()
-                && (normalizedTitle.startsWith(normalizedQuery) || normalizedQuery.startsWith(normalizedTitle));
+                && (normalizedTitle.contains(normalizedQuery) || normalizedQuery.startsWith(normalizedTitle));
     }
 
     private String normalize(String value) {

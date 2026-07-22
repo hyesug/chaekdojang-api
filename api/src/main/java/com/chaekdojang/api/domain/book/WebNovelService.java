@@ -10,6 +10,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
+import com.chaekdojang.api.infra.ridi.RidiWebNovelClient;
 import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -36,6 +37,7 @@ public class WebNovelService {
 
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
+    private final RidiWebNovelClient ridiWebNovelClient;
     private final KakaoWebNovelClient kakaoWebNovelClient;
     private final NaverWebNovelClient naverWebNovelClient;
     private final WebNovelMetadataClient webNovelMetadataClient;
@@ -46,11 +48,12 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v12:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v14:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
         Map<String, WebNovelSearchResult> merged = new LinkedHashMap<>();
+        addResults(merged, ridiWebNovelClient.search(normalized));
         addResults(merged, naverWebNovelClient.search(normalized));
         addResults(merged, kakaoWebNovelClient.search(normalized));
         List<WebNovelSearchResult> enriched = enrichMetadata(List.copyOf(merged.values()));
@@ -104,6 +107,10 @@ public class WebNovelService {
     }
 
     private WebNovelSearchResult enrichMetadata(WebNovelSearchResult result) {
+        if (!result.author().isBlank()
+                && result.thumbnail() != null && !result.thumbnail().isBlank()) {
+            return result;
+        }
         WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                 result.platform(), result.sourceUrl());
         String author = result.author().isBlank() ? metadata.author() : result.author();

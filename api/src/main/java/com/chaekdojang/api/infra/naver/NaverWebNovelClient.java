@@ -291,7 +291,7 @@ public class NaverWebNovelClient {
         String normalizedTitle = normalize(title);
         return !normalizedQuery.isBlank()
                 && !normalizedTitle.isBlank()
-                && normalizedTitle.startsWith(normalizedQuery);
+                && normalizedTitle.contains(normalizedQuery);
     }
 
     private boolean isExactTitle(String query, String title) {

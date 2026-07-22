@@ -25,9 +25,10 @@ class NaverWebNovelClientTest {
     }
 
     @Test
-    void keepsExactAndRelatedTitlesButRejectsShortPartialTitle() {
+    void matchesTitleFragmentsButRejectsTruncatedCandidate() {
         assertThat(client.titleMatches("웨딩케이크", "웨딩케이크")).isTrue();
         assertThat(client.titleMatches("웨딩케이크", "웨딩케이크 외전")).isTrue();
+        assertThat(client.titleMatches("용꿈", "은행원도 용꿈을 꾸나요 - 판타지 웹소설")).isTrue();
         assertThat(client.titleMatches("착한오빠, 나쁜오빠", "착한 오빠")).isFalse();
     }
 

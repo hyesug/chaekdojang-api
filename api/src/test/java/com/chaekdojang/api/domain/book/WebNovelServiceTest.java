@@ -8,6 +8,7 @@ import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
+import com.chaekdojang.api.infra.ridi.RidiBookMetadataClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,6 +30,7 @@ class WebNovelServiceTest {
     private ReviewRepository reviewRepository;
     private KakaoWebNovelClient kakaoWebNovelClient;
     private NaverWebNovelClient naverWebNovelClient;
+    private RidiBookMetadataClient ridiBookMetadataClient;
     private WebNovelService webNovelService;
 
     @BeforeEach
@@ -37,11 +39,13 @@ class WebNovelServiceTest {
         reviewRepository = mock(ReviewRepository.class);
         kakaoWebNovelClient = mock(KakaoWebNovelClient.class);
         naverWebNovelClient = mock(NaverWebNovelClient.class);
+        ridiBookMetadataClient = mock(RidiBookMetadataClient.class);
         webNovelService = new WebNovelService(
                 bookRepository,
                 reviewRepository,
                 kakaoWebNovelClient,
                 naverWebNovelClient,
+                ridiBookMetadataClient,
                 mock(StringRedisTemplate.class),
                 new ObjectMapper()
         );
@@ -131,6 +135,20 @@ class WebNovelServiceTest {
         List<WebNovelSearchResult> results = webNovelService.search("데뷔 못 하면 죽는 병 걸림");
 
         assertThat(results).containsExactly(original, prologue);
+    }
+
+    @Test
+    void enrichesMissingRidiAuthorFromOfficialWorkPage() {
+        WebNovelSearchResult ridi = result("웨딩케이크 살인사건", BookSource.RIDI, "2089000054");
+        when(naverWebNovelClient.search("웨딩케이크")).thenReturn(List.of(ridi));
+        when(kakaoWebNovelClient.search("웨딩케이크")).thenReturn(List.of());
+        when(ridiBookMetadataClient.findAuthor(ridi.sourceUrl())).thenReturn("조앤 플루크");
+
+        List<WebNovelSearchResult> results = webNovelService.search("웨딩케이크");
+
+        assertThat(results).singleElement().satisfies(result ->
+                assertThat(result.author()).isEqualTo("조앤 플루크")
+        );
     }
 
     private WebNovelSearchResult result(String title, BookSource platform, String externalId) {

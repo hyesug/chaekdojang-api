@@ -10,6 +10,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.kakao.KakaoWebNovelClient;
 import com.chaekdojang.api.infra.naver.NaverWebNovelClient;
+import com.chaekdojang.api.infra.ridi.RidiBookMetadataClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class WebNovelService {
     private final ReviewRepository reviewRepository;
     private final KakaoWebNovelClient kakaoWebNovelClient;
     private final NaverWebNovelClient naverWebNovelClient;
+    private final RidiBookMetadataClient ridiBookMetadataClient;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -38,7 +40,7 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v9:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v10:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
@@ -46,6 +48,7 @@ public class WebNovelService {
         addResults(merged, naverWebNovelClient.search(normalized));
         addResults(merged, kakaoWebNovelClient.search(normalized));
         List<WebNovelSearchResult> results = merged.values().stream()
+                .map(this::enrichRidiAuthor)
                 .sorted((left, right) -> Integer.compare(
                         titleMatchRank(normalized, left.title()),
                         titleMatchRank(normalized, right.title())
@@ -53,6 +56,22 @@ public class WebNovelService {
                 .toList();
         writeCache(cacheKey, results);
         return results;
+    }
+
+    private WebNovelSearchResult enrichRidiAuthor(WebNovelSearchResult result) {
+        if (result.platform() != BookSource.RIDI || !result.author().isBlank()) return result;
+
+        String author = ridiBookMetadataClient.findAuthor(result.sourceUrl());
+        if (author == null || author.isBlank()) return result;
+        return new WebNovelSearchResult(
+                result.title(),
+                author,
+                result.platform(),
+                result.platformLabel(),
+                result.sourceUrl(),
+                result.externalId(),
+                result.description()
+        );
     }
 
     private int titleMatchRank(String query, String title) {

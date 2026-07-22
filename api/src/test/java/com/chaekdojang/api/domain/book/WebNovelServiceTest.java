@@ -169,8 +169,8 @@ class WebNovelServiceTest {
     }
 
     @Test
-    void deduplicatesRidiVolumesWithSameTitleAndAuthor() {
-        WebNovelSearchResult firstVolume = result("은행원도 용꿈을 꾸나요 - 판타지 웹소설", BookSource.RIDI, "6188000001");
+    void deduplicatesRidiVolumesWithMarketingTitleSuffix() {
+        WebNovelSearchResult firstVolume = result("은행원도 용꿈을 꾸나요", BookSource.RIDI, "6188000001");
         WebNovelSearchResult laterVolume = result("은행원도 용꿈을 꾸나요 - 판타지 웹소설", BookSource.RIDI, "6188000155");
         when(naverWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of(firstVolume, laterVolume));
         when(kakaoWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of());

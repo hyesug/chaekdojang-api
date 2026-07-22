@@ -48,7 +48,7 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v14:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v15:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
@@ -71,7 +71,7 @@ public class WebNovelService {
         Map<String, WebNovelSearchResult> deduplicated = new LinkedHashMap<>();
         for (WebNovelSearchResult result : results) {
             String key = result.platform() == BookSource.RIDI
-                    ? "RIDI:" + normalizeTitle(result.title()) + ":" + normalizeTitle(result.author())
+                    ? "RIDI:" + normalizeRidiTitle(result.title()) + ":" + normalizeTitle(result.author())
                     : result.platform().name() + ":" + result.externalId();
             deduplicated.putIfAbsent(key, result);
         }
@@ -140,6 +140,14 @@ public class WebNovelService {
         return value == null ? "" : value
                 .replaceAll("[^가-힣A-Za-z0-9]", "")
                 .toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeRidiTitle(String value) {
+        String withoutMarketingSuffix = value == null ? "" : value.replaceFirst(
+                "(?i)\\s*[-|:：]\\s*(?:현대\\s*판타지|판타지|로맨스|로맨스\\s*판타지|로판|BL|무협)?\\s*웹소설\\s*$",
+                ""
+        );
+        return normalizeTitle(withoutMarketingSuffix);
     }
 
     private void addResults(Map<String, WebNovelSearchResult> target, List<WebNovelSearchResult> results) {

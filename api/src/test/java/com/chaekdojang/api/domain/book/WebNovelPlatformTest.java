@@ -66,6 +66,16 @@ class WebNovelPlatformTest {
     }
 
     @Test
+    void resolvesCurrentMunpiaWorkUrl() {
+        WebNovelPlatform.ResolvedWork work = WebNovelPlatform.MUNPIA
+                .resolve("https://www.munpia.com/novel/detail/578243")
+                .orElseThrow();
+
+        assertThat(work.externalId()).isEqualTo("578243");
+        assertThat(work.canonicalUrl()).isEqualTo("https://novel.munpia.com/578243");
+    }
+
+    @Test
     void rejectsWrongPlatformAndNonWorkUrls() {
         assertThat(WebNovelPlatform.RIDI.resolve("https://page.kakao.com/content/56566288")).isEmpty();
         assertThat(WebNovelPlatform.NAVER_SERIES.resolve("https://series.naver.com/comic/detail.series?productNo=5133669")).isEmpty();

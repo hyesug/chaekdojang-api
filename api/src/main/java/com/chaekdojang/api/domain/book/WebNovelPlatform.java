@@ -101,7 +101,7 @@ public enum WebNovelPlatform {
         if (host.equals("novel.munpia.com")) {
             return resolvePath(true, NUMBER_PATH, path, id -> "https://novel.munpia.com/" + id);
         }
-        if (host.equals("m.munpia.com") || host.equals("mm.munpia.com")) {
+        if (host.equals("www.munpia.com") || host.equals("m.munpia.com") || host.equals("mm.munpia.com")) {
             return resolvePath(true, MUNPIA_MOBILE_PATH, path, id -> "https://novel.munpia.com/" + id);
         }
         return Optional.empty();

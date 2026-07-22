@@ -40,15 +40,17 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v10:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v11:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
         Map<String, WebNovelSearchResult> merged = new LinkedHashMap<>();
         addResults(merged, naverWebNovelClient.search(normalized));
         addResults(merged, kakaoWebNovelClient.search(normalized));
-        List<WebNovelSearchResult> results = merged.values().stream()
+        List<WebNovelSearchResult> enriched = merged.values().stream()
                 .map(this::enrichRidiAuthor)
+                .toList();
+        List<WebNovelSearchResult> results = deduplicateRidiWorks(enriched).stream()
                 .sorted((left, right) -> Integer.compare(
                         titleMatchRank(normalized, left.title()),
                         titleMatchRank(normalized, right.title())
@@ -56,6 +58,17 @@ public class WebNovelService {
                 .toList();
         writeCache(cacheKey, results);
         return results;
+    }
+
+    private List<WebNovelSearchResult> deduplicateRidiWorks(List<WebNovelSearchResult> results) {
+        Map<String, WebNovelSearchResult> deduplicated = new LinkedHashMap<>();
+        for (WebNovelSearchResult result : results) {
+            String key = result.platform() == BookSource.RIDI
+                    ? "RIDI:" + normalizeTitle(result.title()) + ":" + normalizeTitle(result.author())
+                    : result.platform().name() + ":" + result.externalId();
+            deduplicated.putIfAbsent(key, result);
+        }
+        return List.copyOf(deduplicated.values());
     }
 
     private WebNovelSearchResult enrichRidiAuthor(WebNovelSearchResult result) {

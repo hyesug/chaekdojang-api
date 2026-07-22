@@ -151,6 +151,22 @@ class WebNovelServiceTest {
         );
     }
 
+    @Test
+    void deduplicatesRidiVolumesWithSameTitleAndAuthor() {
+        WebNovelSearchResult firstVolume = result("은행원도 용꿈을 꾸나요 - 판타지 웹소설", BookSource.RIDI, "6188000001");
+        WebNovelSearchResult laterVolume = result("은행원도 용꿈을 꾸나요 - 판타지 웹소설", BookSource.RIDI, "6188000155");
+        when(naverWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of(firstVolume, laterVolume));
+        when(kakaoWebNovelClient.search("은행원도 용꿈을 꾸나요")).thenReturn(List.of());
+        when(ridiBookMetadataClient.findAuthor(any())).thenReturn("연산호");
+
+        List<WebNovelSearchResult> results = webNovelService.search("은행원도 용꿈을 꾸나요");
+
+        assertThat(results).singleElement().satisfies(result -> {
+            assertThat(result.externalId()).isEqualTo("6188000001");
+            assertThat(result.author()).isEqualTo("연산호");
+        });
+    }
+
     private WebNovelSearchResult result(String title, BookSource platform, String externalId) {
         return new WebNovelSearchResult(
                 title,

@@ -16,14 +16,38 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
 public class NaverWebNovelClient {
 
     private static final String NAVER_WEB_NOVEL_LIST_PATH = "^/(webnovel|best|challenge)/list(?:\\.(?:nhn|series))?$";
+    private static final Pattern NAVER_WEB_NOVEL_ITEM = Pattern.compile(
+            "<li[^>]+class=\"[^\"]*\\bitem\\b[^\"]*\"[^>]*>([\\s\\S]*?)</li>",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAVER_WEB_NOVEL_URL = Pattern.compile(
+            "href=\"([^\"]*/(?:webnovel|best|challenge)/list(?:\\.(?:nhn|series))?\\?[^\"]*novelId=\\d+[^\"]*)\"",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAVER_WEB_NOVEL_TITLE = Pattern.compile(
+            "class=\"title\"[^>]*>[\\s\\S]*?<strong>([\\s\\S]*?)</strong>",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAVER_WEB_NOVEL_AUTHOR = Pattern.compile(
+            "class=\"author\"[^>]*>([\\s\\S]*?)</span>",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAVER_WEB_NOVEL_TAG = Pattern.compile(
+            "class=\"tag\"[^>]*>([\\s\\S]*?)</span>",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern MENTIONED_WORK_TITLE = Pattern.compile("^[<《「『](.+?)[>》」』]");
 
     private final RestClient restClient;
+    private final RestClient naverWebNovelRestClient;
     private final boolean configured;
 
     public NaverWebNovelClient(
@@ -37,18 +61,117 @@ public class NaverWebNovelClient {
                     .defaultHeader("X-Naver-Client-Secret", clientSecret);
         }
         this.restClient = builder.build();
+        this.naverWebNovelRestClient = RestClient.builder()
+                .baseUrl("https://novel.naver.com")
+                .build();
     }
 
     public List<WebNovelSearchResult> search(String query) {
-        if (!configured) return List.of();
-
         Map<String, WebNovelSearchResult> results = new LinkedHashMap<>();
+        List<WebNovelSearchResult> officialResults = new ArrayList<>(searchNaverWebNovelPage(query));
+        if (officialResults.isEmpty() && configured) {
+            for (String titleHint : findNaverWebNovelTitleHints(query)) {
+                officialResults.addAll(searchNaverWebNovelPage(titleHint));
+            }
+        }
+        for (WebNovelSearchResult result : officialResults) {
+            results.putIfAbsent(result.platform().name() + ":" + result.externalId(), result);
+        }
+        if (!configured) return new ArrayList<>(results.values());
+
         for (WebNovelPlatform platform : WebNovelPlatform.values()) {
             for (WebNovelSearchResult result : searchPlatform(query, platform)) {
                 results.putIfAbsent(result.platform().name() + ":" + result.externalId(), result);
             }
         }
         return new ArrayList<>(results.values());
+    }
+
+    private List<String> findNaverWebNovelTitleHints(String query) {
+        try {
+            NaverWebSearchResponse response = restClient.get()
+                    .uri(builder -> builder
+                            .path("/v1/search/webkr.json")
+                            .queryParam("query", query + " site:novel.naver.com")
+                            .queryParam("display", 100)
+                            .build())
+                    .retrieve()
+                    .body(NaverWebSearchResponse.class);
+            if (response == null || response.items() == null) return List.of();
+
+            return response.items().stream()
+                    .map(item -> extractMentionedWorkTitle(query, item.title()))
+                    .filter(title -> !title.isBlank())
+                    .distinct()
+                    .limit(3)
+                    .toList();
+        } catch (Exception e) {
+            log.warn("네이버 웹소설 제목 보정 실패: query={} message={}", query, e.getMessage());
+            return List.of();
+        }
+    }
+
+    String extractMentionedWorkTitle(String query, String rawTitle) {
+        String title = cleanText(rawTitle);
+        Matcher matcher = MENTIONED_WORK_TITLE.matcher(title);
+        if (!matcher.find()) return "";
+
+        String mentionedTitle = matcher.group(1).trim();
+        return titleMatches(query, mentionedTitle) ? mentionedTitle : "";
+    }
+
+    private List<WebNovelSearchResult> searchNaverWebNovelPage(String query) {
+        try {
+            String html = naverWebNovelRestClient.get()
+                    .uri(builder -> builder
+                            .path("/search")
+                            .queryParam("keyword", query)
+                            .build())
+                    .retrieve()
+                    .body(String.class);
+            return parseNaverWebNovelSearch(query, html);
+        } catch (Exception e) {
+            log.warn("네이버 웹소설 공식 검색 실패: query={} message={}", query, e.getMessage());
+            return List.of();
+        }
+    }
+
+    List<WebNovelSearchResult> parseNaverWebNovelSearch(String query, String html) {
+        if (html == null || html.isBlank()) return List.of();
+
+        Map<String, WebNovelSearchResult> results = new LinkedHashMap<>();
+        Matcher itemMatcher = NAVER_WEB_NOVEL_ITEM.matcher(html);
+        while (itemMatcher.find()) {
+            String item = itemMatcher.group(1);
+            String rawUrl = firstGroup(NAVER_WEB_NOVEL_URL, item);
+            String title = cleanText(firstGroup(NAVER_WEB_NOVEL_TITLE, item));
+            if (rawUrl.isBlank() || !titleMatches(query, title)) continue;
+
+            String sourceUrl = URI.create("https://novel.naver.com")
+                    .resolve(HtmlUtils.htmlUnescape(rawUrl))
+                    .toString();
+            WebNovelPlatform.ResolvedWork resolved = WebNovelPlatform.NAVER_SERIES
+                    .resolve(sourceUrl)
+                    .orElse(null);
+            if (resolved == null) continue;
+
+            WebNovelSearchResult result = new WebNovelSearchResult(
+                    title,
+                    cleanText(firstGroup(NAVER_WEB_NOVEL_AUTHOR, item)),
+                    WebNovelPlatform.NAVER_SERIES.source(),
+                    WebNovelPlatform.NAVER_SERIES.labelFor(resolved),
+                    resolved.canonicalUrl(),
+                    resolved.externalId(),
+                    truncate(cleanText(firstGroup(NAVER_WEB_NOVEL_TAG, item)), 240)
+            );
+            results.putIfAbsent(result.externalId(), result);
+        }
+        return new ArrayList<>(results.values());
+    }
+
+    private String firstGroup(Pattern pattern, String value) {
+        Matcher matcher = pattern.matcher(value);
+        return matcher.find() ? matcher.group(1) : "";
     }
 
     private List<WebNovelSearchResult> searchPlatform(String query, WebNovelPlatform platform) {

@@ -38,7 +38,7 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v4:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v5:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 

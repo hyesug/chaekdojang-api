@@ -10,9 +10,11 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -47,12 +49,30 @@ public class NaverWebNovelClient {
     }
 
     private List<WebNovelSearchResult> searchPlatform(String query, WebNovelPlatform platform) {
+        Map<String, WebNovelSearchResult> results = new LinkedHashMap<>();
+        for (String searchQuery : searchQueries(query, platform)) {
+            for (WebNovelSearchResult result : requestSearch(query, platform, searchQuery)) {
+                results.putIfAbsent(result.platform().name() + ":" + result.externalId(), result);
+            }
+            if (platform == WebNovelPlatform.NAVER_SERIES
+                    && results.values().stream().anyMatch(result -> isExactTitle(query, result.title()))) {
+                break;
+            }
+        }
+        return results.values().stream().limit(5).toList();
+    }
+
+    private List<WebNovelSearchResult> requestSearch(
+            String query,
+            WebNovelPlatform platform,
+            String searchQuery
+    ) {
         try {
             NaverWebSearchResponse response = restClient.get()
                     .uri(builder -> builder
                             .path("/v1/search/webkr.json")
-                            .queryParam("query", platform.searchQuery(query))
-                            .queryParam("display", 20)
+                            .queryParam("query", searchQuery)
+                            .queryParam("display", platform == WebNovelPlatform.NAVER_SERIES ? 100 : 20)
                             .build())
                     .retrieve()
                     .body(NaverWebSearchResponse.class);
@@ -61,12 +81,22 @@ public class NaverWebNovelClient {
             return response.items().stream()
                     .map(item -> toResult(query, platform, item))
                     .filter(result -> result != null)
-                    .limit(5)
                     .toList();
         } catch (Exception e) {
-            log.warn("네이버 웹소설 검색 실패: platform={} message={}", platform.name(), e.getMessage());
+            log.warn("네이버 웹소설 검색 실패: platform={} query={} message={}",
+                    platform.name(), searchQuery, e.getMessage());
             return List.of();
         }
+    }
+
+    List<String> searchQueries(String query, WebNovelPlatform platform) {
+        Set<String> queries = new LinkedHashSet<>();
+        queries.add(platform.searchQuery(query));
+        if (platform == WebNovelPlatform.NAVER_SERIES) {
+            queries.add("\"" + query + "\" site:series.naver.com/novel");
+            queries.add(query + " 네이버 시리즈 site:series.naver.com/novel");
+        }
+        return new ArrayList<>(queries);
     }
 
     private WebNovelSearchResult toResult(
@@ -107,12 +137,16 @@ public class NaverWebNovelClient {
                 .trim();
     }
 
-    private boolean titleMatches(String query, String title) {
+    boolean titleMatches(String query, String title) {
         String normalizedQuery = normalize(query);
         String normalizedTitle = normalize(title);
         return !normalizedQuery.isBlank()
                 && !normalizedTitle.isBlank()
-                && (normalizedTitle.startsWith(normalizedQuery) || normalizedQuery.startsWith(normalizedTitle));
+                && normalizedTitle.startsWith(normalizedQuery);
+    }
+
+    private boolean isExactTitle(String query, String title) {
+        return normalize(query).equals(normalize(title));
     }
 
     private String normalize(String value) {

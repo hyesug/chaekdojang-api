@@ -24,6 +24,18 @@ class WebNovelPlatformTest {
     }
 
     @Test
+    void resolvesNaverWebNovelWork() {
+        WebNovelPlatform.ResolvedWork work = WebNovelPlatform.NAVER_SERIES
+                .resolve("https://m.novel.naver.com/best/list?OSType=pc&novelId=1159312&page=7")
+                .orElseThrow();
+
+        assertThat(work.externalId()).isEqualTo("webnovel-1159312");
+        assertThat(work.canonicalUrl())
+                .isEqualTo("https://novel.naver.com/best/list?novelId=1159312");
+        assertThat(WebNovelPlatform.NAVER_SERIES.labelFor(work)).isEqualTo("네이버 웹소설");
+    }
+
+    @Test
     void resolvesKakaoPageViewerAsWork() {
         WebNovelPlatform.ResolvedWork work = WebNovelPlatform.KAKAO_PAGE
                 .resolve("https://page.kakao.com/content/56566288/viewer/62872637")

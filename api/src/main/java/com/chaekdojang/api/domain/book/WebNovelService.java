@@ -38,7 +38,7 @@ public class WebNovelService {
         String normalized = cleanText(query, 100);
         if (normalized.length() < 2) return List.of();
 
-        String cacheKey = "web-novel-search:v5:" + normalized.toLowerCase(Locale.ROOT);
+        String cacheKey = "web-novel-search:v6:" + normalized.toLowerCase(Locale.ROOT);
         List<WebNovelSearchResult> cached = readCache(cacheKey);
         if (cached != null) return cached;
 
@@ -99,7 +99,7 @@ public class WebNovelService {
                 Book.builder()
                         .title(title)
                         .author(author)
-                        .publisher(platform.label())
+                        .publisher(platform.labelFor(resolved))
                         .slug(BookSlugGenerator.create(title, author, slugKey, null))
                         .source(request.platform())
                         .externalId(resolved.externalId())

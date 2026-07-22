@@ -15,7 +15,9 @@ class NaverWebNovelClientTest {
                 .containsExactly(
                         "착한오빠, 나쁜오빠 site:series.naver.com/novel",
                         "\"착한오빠, 나쁜오빠\" site:series.naver.com/novel",
-                        "착한오빠, 나쁜오빠 네이버 시리즈 site:series.naver.com/novel"
+                        "착한오빠, 나쁜오빠 네이버 시리즈 site:series.naver.com/novel",
+                        "착한오빠, 나쁜오빠 site:novel.naver.com",
+                        "\"착한오빠, 나쁜오빠\" site:novel.naver.com"
                 );
     }
 

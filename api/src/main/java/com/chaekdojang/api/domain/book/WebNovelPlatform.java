@@ -19,6 +19,9 @@ public enum WebNovelPlatform {
     private static final Pattern CONTENT_PATH = Pattern.compile("^/content/(\\d+)(?:/.*)?$");
     private static final Pattern BOOK_PATH = Pattern.compile("^/books/(\\d+)(?:/.*)?$");
     private static final Pattern MUNPIA_MOBILE_PATH = Pattern.compile("^/novel/detail/(\\d+)(?:/.*)?$");
+    private static final Pattern NAVER_WEB_NOVEL_PATH = Pattern.compile(
+            "^/(webnovel|best|challenge)/(?:list|detail)(?:\\.(?:nhn|series))?$"
+    );
 
     private final BookSource source;
     private final String label;
@@ -35,6 +38,13 @@ public enum WebNovelPlatform {
     }
 
     public String label() {
+        return label;
+    }
+
+    public String labelFor(ResolvedWork work) {
+        if (this == NAVER_SERIES && work.canonicalUrl().contains("novel.naver.com")) {
+            return "네이버 웹소설";
+        }
         return label;
     }
 
@@ -70,13 +80,21 @@ public enum WebNovelPlatform {
     }
 
     private Optional<ResolvedWork> resolveNaver(String host, String path, String query) {
-        if (!(host.equals("series.naver.com") || host.equals("m.series.naver.com")) || !path.startsWith("/novel/")) {
-            return Optional.empty();
+        if ((host.equals("series.naver.com") || host.equals("m.series.naver.com")) && path.startsWith("/novel/")) {
+            String productNo = queryParameter(query, "productNo");
+            if (productNo == null || !productNo.matches("\\d+")) return Optional.empty();
+            return Optional.of(new ResolvedWork(productNo,
+                    "https://series.naver.com/novel/detail.series?productNo=" + productNo));
         }
-        String productNo = queryParameter(query, "productNo");
-        if (productNo == null || !productNo.matches("\\d+")) return Optional.empty();
-        return Optional.of(new ResolvedWork(productNo,
-                "https://series.naver.com/novel/detail.series?productNo=" + productNo));
+
+        if (!(host.equals("novel.naver.com") || host.equals("m.novel.naver.com"))) return Optional.empty();
+        Matcher matcher = NAVER_WEB_NOVEL_PATH.matcher(path);
+        if (!matcher.matches()) return Optional.empty();
+        String novelId = queryParameter(query, "novelId");
+        if (novelId == null || !novelId.matches("\\d+")) return Optional.empty();
+        String section = matcher.group(1);
+        return Optional.of(new ResolvedWork("webnovel-" + novelId,
+                "https://novel.naver.com/" + section + "/list?novelId=" + novelId));
     }
 
     private Optional<ResolvedWork> resolveMunpia(String host, String path) {

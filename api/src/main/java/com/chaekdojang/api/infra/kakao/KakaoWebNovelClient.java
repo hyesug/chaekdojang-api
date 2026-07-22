@@ -81,7 +81,7 @@ public class KakaoWebNovelClient {
                 title,
                 extractAuthor(contents),
                 platform.source(),
-                platform.label(),
+                platform.labelFor(resolved),
                 resolved.canonicalUrl(),
                 resolved.externalId(),
                 truncate(contents, 240)
@@ -90,7 +90,7 @@ public class KakaoWebNovelClient {
 
     private String cleanTitle(String value) {
         return cleanText(value)
-                .replaceAll("\\s*[|:：-]\\s*(네이버\\s*시리즈|카카오페이지|리디.*|웹소설\\s*문피아).*$", "")
+                .replaceAll("\\s*[|:：-]\\s*(네이버\\s*(시리즈|웹소설)|카카오페이지|리디.*|웹소설\\s*문피아).*$", "")
                 .replaceFirst("^(매일\\s*\\d{1,2}시\\s*무료|매일\\s*무료|기다리면\\s*무료|선독점|독점)\\s*", "")
                 .replaceAll("\\s*\\[(독점|선독점|완결|무료)\\]\\s*$", "")
                 .replaceAll("\\s+\\d+화$", "")

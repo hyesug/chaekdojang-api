@@ -70,6 +70,27 @@ class WebNovelServiceTest {
     }
 
     @Test
+    void registersNaverWebNovelUrlWithWebNovelIdentity() {
+        when(bookRepository.findBySourceAndExternalId(BookSource.NAVER_SERIES, "webnovel-1159312"))
+                .thenReturn(Optional.empty());
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(nullable(Long.class))).thenReturn(0L);
+
+        BookResponse response = webNovelService.register(new WebNovelRegisterRequest(
+                "착한 오빠, 나쁜 오빠",
+                "봉자까",
+                BookSource.NAVER_SERIES,
+                "https://novel.naver.com/best/list?OSType=pc&novelId=1159312&page=7"
+        ));
+
+        assertThat(response.publisher()).isEqualTo("네이버 웹소설");
+        assertThat(response.externalId()).isEqualTo("webnovel-1159312");
+        assertThat(response.sourceUrl())
+                .isEqualTo("https://novel.naver.com/best/list?novelId=1159312");
+        verify(bookRepository).save(any(Book.class));
+    }
+
+    @Test
     void rejectsUrlThatDoesNotMatchPlatform() {
         assertThatThrownBy(() -> webNovelService.register(new WebNovelRegisterRequest(
                 "상수리나무 아래",

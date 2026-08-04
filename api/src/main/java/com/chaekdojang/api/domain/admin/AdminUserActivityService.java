@@ -43,6 +43,7 @@ public class AdminUserActivityService {
     public static final String NOTICE = "이 정보는 동일 계정 사용 가능성을 검토하기 위한 참고 자료입니다. "
             + "공용 네트워크나 동일 가구 사용자는 같은 IP로 접속할 수 있으므로 자동 제재의 근거로 사용하지 마세요.";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final LocalDateTime FILTER_MAX = LocalDateTime.of(3000, 1, 1, 0, 0);
     private static final Set<String> SAFE_META_KEYS = Set.of(
             "groupId", "groupSlug", "groupName", "bookId", "bookTitle", "reviewId",
             "memberUserId", "memberNickname", "applicationId", "displayName", "profileType",
@@ -85,8 +86,8 @@ public class AdminUserActivityService {
         Page<AdminUserActivityResponse.TimelineEvent> timeline = metricEventRepository.findUserTimeline(
                         targetUserId,
                         normalize(eventType),
-                        from != null ? from.atStartOfDay() : null,
-                        to != null ? to.plusDays(1).atStartOfDay() : null,
+                        from != null ? from.atStartOfDay() : since,
+                        to != null ? to.plusDays(1).atStartOfDay() : FILTER_MAX,
                         pageable)
                 .map(this::toTimelineEvent);
 

@@ -35,7 +35,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +63,7 @@ class AdminUserActivityServiceTest {
         ReflectionTestUtils.setField(service, "retentionDays", 90);
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         lenient().when(userRepository.findById(2L)).thenReturn(Optional.of(target));
-        lenient().when(metricEventRepository.findUserTimeline(eq(2L), anyString(), isNull(), isNull(), any()))
+        lenient().when(metricEventRepository.findUserTimeline(eq(2L), anyString(), any(), any(), any()))
                 .thenReturn(Page.empty());
         lenient().when(authProviderRepository.findAllByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
     }

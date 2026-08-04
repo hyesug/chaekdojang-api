@@ -93,8 +93,8 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             SELECT m FROM MetricEvent m
             WHERE m.user.id = :userId
               AND (:eventType = '' OR m.eventType = :eventType)
-              AND (:from IS NULL OR m.createdAt >= :from)
-              AND (:to IS NULL OR m.createdAt < :to)
+              AND m.createdAt >= :from
+              AND m.createdAt < :to
             """)
     Page<MetricEvent> findUserTimeline(
             @Param("userId") Long userId,

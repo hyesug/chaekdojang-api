@@ -144,7 +144,7 @@ class AdminUserActivityServiceTest {
                 1L, 2L, "", null, null, false, PageRequest.of(0, 20));
 
         assertThat(response.timeline().getTotalElements()).isEqualTo(1);
-        assertThat(response.timeline().getContent().get(0).description()).isEqualTo("책 상세 조회");
+        assertThat(response.timeline().getContent().get(0).description()).isEqualTo("책 상세 조회 · 123");
         assertThat(response.timeline().getContent().get(0).path()).isEqualTo("/books/123");
     }
 

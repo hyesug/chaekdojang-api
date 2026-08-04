@@ -21,6 +21,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -354,6 +356,12 @@ public class AdminUserActivityService {
             case "profile_updated" -> "프로필 수정";
             case "official_profile_applied" -> "공식 프로필 신청";
             case "page_view" -> "페이지 조회";
+            case "review_write_click" -> "독후감 작성 시작";
+            case "book_search" -> "책 검색";
+            case "web_novel_search" -> "웹소설 검색";
+            case "book_click_search" -> "검색 결과 책 선택";
+            case "share_click" -> "공유";
+            case "revision_saved" -> "독후감 저장";
             case "heartbeat" -> "체류 신호";
             case "session_end" -> "세션 종료";
             default -> type;
@@ -374,6 +382,13 @@ public class AdminUserActivityService {
             case "review_created" -> book.isBlank() ? "독후감 작성" : "독후감 작성: " + book;
             case "official_profile_applied" -> "공식 프로필 신청: " + stringMeta(meta, "displayName", "");
             case "page_view" -> pageViewDescription(event.getPath());
+            case "review_write_click" -> "독후감 작성 시작";
+            case "book_search" -> searchDescription("책 검색", event.getPath());
+            case "web_novel_search" -> searchDescription("웹소설 검색", event.getPath());
+            case "book_click_search" -> "검색 결과에서 " + pageViewDescription(event.getPath()).replace(" 조회", " 선택");
+            case "share_click" -> pageViewDescription(event.getPath()).replace(" 조회", " 공유");
+            case "revision_saved" -> "edit".equals(stringMeta(meta, "mode", ""))
+                    ? "독후감 수정 내용 저장" : "독후감 작성 내용 저장";
             default -> eventLabel(type);
         };
     }
@@ -381,18 +396,74 @@ public class AdminUserActivityService {
     private String pageViewDescription(String value) {
         String path = value == null ? "/" : value.split("[?#]", 2)[0];
         if (path.isBlank() || "/".equals(path)) return "홈 피드 조회";
+        if (path.startsWith("/auth/login")) return "로그인 화면 조회";
+        if (path.startsWith("/auth/register")) return "회원가입 화면 조회";
+        if (path.startsWith("/auth/callback")) return "소셜 로그인 처리 화면 조회";
+        if (path.startsWith("/setup-nickname")) return "닉네임 설정 화면 조회";
+        if (path.startsWith("/onboarding")) return "가입 설정 화면 조회";
         if (path.startsWith("/search")) return "책 검색 화면 조회";
-        if (path.matches("^/books/[^/]+/reviews/?$")) return "책별 독후감 조회";
-        if (path.matches("^/books/[^/]+/?$")) return "책 상세 조회";
-        if (path.matches("^/reviews/[^/]+/?$")) return "독후감 상세 조회";
-        if (path.matches("^/groups/[^/]+/books/[^/]+/result/?$")) return "독서모임 AI 결과 조회";
-        if (path.startsWith("/groups")) return "독서모임 조회";
-        if (path.startsWith("/library")) return "서재 조회";
-        if (path.startsWith("/profile") || path.startsWith("/users/")
-                || path.startsWith("/u/") || path.startsWith("/profiles/")) return "프로필 조회";
+        if (path.matches("^/books/[^/]+/reviews/?$")) return withTarget("책별 독후감 조회", pathSegment(path, 2));
+        if (path.matches("^/books/[^/]+/?$")) return withTarget("책 상세 조회", pathSegment(path, 2));
+        if (path.matches("^/reviews/[^/]+/?$")) return withTarget("독후감 상세 조회", pathSegment(path, 2));
+        if (path.matches("^/groups/[^/]+/books/[^/]+/result/?$")) {
+            return withTarget("독서모임 AI 결과 조회", pathSegment(path, 2) + " / 모임책 " + pathSegment(path, 4));
+        }
+        if (path.matches("^/groups/[^/]+/books/[^/]+/?$")) {
+            return withTarget("독서모임 책 상세 조회", pathSegment(path, 2) + " / 모임책 " + pathSegment(path, 4));
+        }
+        if (path.matches("^/groups/[^/]+/?$")) return withTarget("독서모임 상세 조회", pathSegment(path, 2));
+        if (path.startsWith("/groups")) return "독서모임 목록 조회";
+        if (path.startsWith("/library")) return "내 서재 조회";
+        if (path.startsWith("/profile")) return "내 프로필 조회";
+        if (path.startsWith("/users/")) return withTarget("회원 프로필 조회", "ID " + pathSegment(path, 2));
+        if (path.startsWith("/u/")) return withTarget("회원 프로필 조회", pathSegment(path, 2));
+        if (path.startsWith("/profiles/")) return withTarget("공식 프로필 조회", pathSegment(path, 2));
         if (path.startsWith("/write")) return "독후감 작성 화면 조회";
-        if (path.startsWith("/notifications")) return "알림 조회";
+        if (path.startsWith("/notifications")) return "알림 목록 조회";
+        if (path.startsWith("/bookmarks")) return "북마크 목록 조회";
+        if (path.startsWith("/calendar")) return "독서 캘린더 조회";
+        if (path.startsWith("/stats")) return "독서 통계 조회";
+        if (path.startsWith("/dojangdan")) return "도장단 조회";
+        if (path.startsWith("/cs")) return "고객센터 조회";
         return "페이지 조회";
+    }
+
+    private String searchDescription(String label, String path) {
+        String query = queryParam(path, "q");
+        String author = queryParam(path, "author");
+        String publisher = queryParam(path, "publisher");
+        List<String> conditions = new ArrayList<>();
+        if (hasText(query)) conditions.add("검색어 " + query);
+        if (hasText(author)) conditions.add("저자 " + author);
+        if (hasText(publisher)) conditions.add("출판사 " + publisher);
+        return conditions.isEmpty() ? label : label + ": " + String.join(" · ", conditions);
+    }
+
+    private String queryParam(String value, String name) {
+        if (value == null || !value.contains("?")) return "";
+        String query = value.substring(value.indexOf('?') + 1);
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 2 && name.equals(parts[0])) return decode(parts[1].replace("+", " "));
+        }
+        return "";
+    }
+
+    private String pathSegment(String path, int index) {
+        String[] segments = path.split("/");
+        return segments.length > index ? decode(segments[index]) : "";
+    }
+
+    private String decode(String value) {
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ignored) {
+            return value;
+        }
+    }
+
+    private String withTarget(String label, String target) {
+        return hasText(target) ? label + " · " + target : label;
     }
 
     private Map<String, Object> safeMeta(Map<String, Object> meta) {

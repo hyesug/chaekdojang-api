@@ -96,6 +96,7 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
               AND m.createdAt >= :from
               AND m.createdAt < :to
               AND (:includeTechnical = true OR m.eventType NOT IN ('heartbeat', 'session_end'))
+              AND NOT (m.eventType = 'page_view' AND m.path = '/')
             """)
     Page<MetricEvent> findUserTimeline(
             @Param("userId") Long userId,

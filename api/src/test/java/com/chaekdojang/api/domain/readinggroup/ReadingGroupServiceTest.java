@@ -9,11 +9,14 @@ import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupMyReviewResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupCreateRequest;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupBookAddRequest;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupBookProgressUpdateRequest;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupNoticeUpdateRequest;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupReviewAttachRequest;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
+import com.chaekdojang.api.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,10 +30,12 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -73,6 +78,7 @@ class ReadingGroupServiceTest {
         User owner = user(OWNER_ID, "owner");
         User applicant = user(USER_ID, "reader");
         ReadingGroup group = privateGroup(owner);
+        group.updateNotice("멤버 전용 공지");
         ReadingGroupMember pendingMember = ReadingGroupMember.join(group, applicant, ReadingGroupMemberStatus.PENDING);
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(applicant));
@@ -86,6 +92,7 @@ class ReadingGroupServiceTest {
 
         assertThat(response.member()).isFalse();
         assertThat(response.membershipStatus()).isEqualTo(ReadingGroupMemberStatus.PENDING);
+        assertThat(response.notice()).isNull();
         verify(memberRepository, never()).save(any());
         verify(notificationService, never()).send(any(), any(), any(), any(), any());
     }
@@ -200,6 +207,62 @@ class ReadingGroupServiceTest {
         verify(metricEventService).recordCurrentRequestEvent(
                 eq("reading_group_book_added"), eq(USER_ID), eq("/groups/public-group"),
                 argThat(meta -> Long.valueOf(30L).equals(meta.get("bookId")) && !meta.containsKey("note")));
+    }
+
+    @Test
+    @DisplayName("모임장은 공지를 수정할 수 있고 공지 내용은 활동 로그에 저장하지 않는다")
+    void updateNotice_owner_updatesWithoutLoggingContent() {
+        User owner = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(GROUP_ID)).thenReturn(List.of());
+
+        ReadingGroupResponse response = readingGroupService.updateNotice(
+                "public-group", new ReadingGroupNoticeUpdateRequest("금요일 오후 8시에 만나요."));
+
+        assertThat(response.notice()).isEqualTo("금요일 오후 8시에 만나요.");
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_notice_updated"), eq(USER_ID), eq("/groups/public-group"),
+                argThat(meta -> !meta.containsKey("notice")));
+    }
+
+    @Test
+    @DisplayName("모임장은 선정 책의 진행 상태와 마감일을 수정할 수 있다")
+    void updateBookProgress_owner_updatesStatusAndDeadline() {
+        User owner = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book(), null);
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        LocalDate deadline = LocalDate.of(2026, 8, 31);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+        when(groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(GROUP_ID)).thenReturn(List.of(groupBook));
+
+        ReadingGroupResponse response = readingGroupService.updateBookProgress(
+                "public-group", 20L,
+                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, deadline));
+
+        assertThat(response.books().get(0).status()).isEqualTo(ReadingGroupBookStatus.READING);
+        assertThat(response.books().get(0).deadline()).isEqualTo(deadline);
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_book_progress_updated"), eq(USER_ID),
+                eq("/groups/public-group/books/20"),
+                argThat(meta -> "READING".equals(meta.get("status")) && !meta.containsKey("content")));
+    }
+
+    @Test
+    @DisplayName("일반 회원은 선정 책 진행 상태를 수정할 수 없다")
+    void updateBookProgress_nonManager_isForbidden() {
+        User owner = user(OWNER_ID, "owner");
+        ReadingGroup group = publicGroup(owner);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> readingGroupService.updateBookProgress(
+                "public-group", 20L,
+                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, null)))
+                .isInstanceOf(CustomException.class);
+
+        verify(groupBookRepository, never()).findByIdAndGroupId(anyLong(), anyLong());
     }
 
     @Test

@@ -35,6 +35,9 @@ public class ReadingGroup {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(columnDefinition = "TEXT")
+    private String notice;
+
     @Column(length = 500)
     private String imageUrl;
 
@@ -80,5 +83,9 @@ public class ReadingGroup {
 
     public void setJoinEnabled(boolean joinEnabled) {
         this.joinEnabled = joinEnabled;
+    }
+
+    public void updateNotice(String notice) {
+        this.notice = notice;
     }
 }

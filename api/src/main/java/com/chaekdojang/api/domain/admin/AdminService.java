@@ -551,6 +551,8 @@ public class AdminService {
             case "book_search" -> "책 검색";
             case "book_click_search" -> "검색 결과 책 클릭";
             case "share_click" -> "공유 클릭";
+            case "reading_group_notice_updated" -> "독서모임 공지 수정";
+            case "reading_group_book_progress_updated" -> "독서모임 책 진행 상태 수정";
             case "heartbeat" -> "체류 신호";
             case "session_end" -> "페이지 이탈";
             default -> eventType;

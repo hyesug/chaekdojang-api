@@ -2,7 +2,9 @@ package com.chaekdojang.api.domain.readinggroup.dto;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupBook;
+import com.chaekdojang.api.domain.readinggroup.ReadingGroupBookStatus;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record ReadingGroupBookResponse(
@@ -14,6 +16,8 @@ public record ReadingGroupBookResponse(
         String thumbnail,
         String slug,
         String note,
+        ReadingGroupBookStatus status,
+        LocalDate deadline,
         long reviewCount,
         LocalDateTime createdAt
 ) {
@@ -28,6 +32,8 @@ public record ReadingGroupBookResponse(
                 book.getThumbnail(),
                 book.getSlug(),
                 groupBook.getNote(),
+                groupBook.getStatus(),
+                groupBook.getDeadline(),
                 reviewCount,
                 groupBook.getCreatedAt()
         );

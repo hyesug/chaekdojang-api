@@ -1,0 +1,8 @@
+ALTER TABLE reading_groups
+    ADD COLUMN IF NOT EXISTS notice TEXT;
+
+ALTER TABLE reading_group_books
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'UPCOMING';
+
+ALTER TABLE reading_group_books
+    ADD COLUMN IF NOT EXISTS deadline DATE;

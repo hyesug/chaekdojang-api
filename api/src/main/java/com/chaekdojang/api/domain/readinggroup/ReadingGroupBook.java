@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static lombok.AccessLevel.PROTECTED;
@@ -32,6 +33,12 @@ public class ReadingGroupBook {
     @Column(length = 200)
     private String note;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ReadingGroupBookStatus status = ReadingGroupBookStatus.UPCOMING;
+
+    private LocalDate deadline;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -42,5 +49,10 @@ public class ReadingGroupBook {
         item.book = book;
         item.note = note;
         return item;
+    }
+
+    public void updateProgress(ReadingGroupBookStatus status, LocalDate deadline) {
+        this.status = status;
+        this.deadline = deadline;
     }
 }

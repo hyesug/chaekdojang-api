@@ -78,6 +78,21 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.addBook(slug, request));
     }
 
+    @PatchMapping("/{slug}/notice")
+    public ApiResponse<ReadingGroupResponse> updateNotice(
+            @PathVariable String slug,
+            @RequestBody @Valid ReadingGroupNoticeUpdateRequest request) {
+        return ApiResponse.ok(readingGroupService.updateNotice(slug, request));
+    }
+
+    @PatchMapping("/{slug}/books/{groupBookId}/progress")
+    public ApiResponse<ReadingGroupResponse> updateBookProgress(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @RequestBody @Valid ReadingGroupBookProgressUpdateRequest request) {
+        return ApiResponse.ok(readingGroupService.updateBookProgress(slug, groupBookId, request));
+    }
+
     @GetMapping("/{slug}/books/{groupBookId}/reviews")
     public ApiResponse<List<ReadingGroupReviewResponse>> getGroupBookReviews(
             @PathVariable String slug,

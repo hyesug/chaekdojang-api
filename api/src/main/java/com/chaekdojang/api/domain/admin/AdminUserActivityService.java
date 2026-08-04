@@ -49,7 +49,7 @@ public class AdminUserActivityService {
     private static final Set<String> SAFE_META_KEYS = Set.of(
             "groupId", "groupSlug", "groupName", "bookId", "bookTitle", "reviewId",
             "memberUserId", "memberNickname", "applicationId", "displayName", "profileType",
-            "oauthProvider", "userId", "mode"
+            "oauthProvider", "userId", "mode", "groupBookId", "status", "deadline", "channel"
     );
 
     private final UserRepository userRepository;
@@ -351,6 +351,8 @@ public class AdminUserActivityService {
             case "reading_group_join_requested" -> "독서모임 가입 요청";
             case "reading_group_member_approved" -> "독서모임 가입 승인";
             case "reading_group_book_added" -> "독서모임 책 추가";
+            case "reading_group_notice_updated" -> "독서모임 공지 수정";
+            case "reading_group_book_progress_updated" -> "독서모임 책 진행 상태 수정";
             case "reading_group_review_attached" -> "독서모임 독후감 연결";
             case "review_created" -> "독후감 작성";
             case "profile_updated" -> "프로필 수정";
@@ -378,6 +380,9 @@ public class AdminUserActivityService {
             case "reading_group_join_requested" -> "독서모임 가입 요청: " + group;
             case "reading_group_member_approved" -> "가입 승인: " + stringMeta(meta, "memberNickname", "회원");
             case "reading_group_book_added" -> "독서모임에 책 추가: " + book;
+            case "reading_group_notice_updated" -> "독서모임 공지 수정: " + group;
+            case "reading_group_book_progress_updated" -> "모임 책 진행 상태 수정: " + book
+                    + " · " + bookStatusLabel(stringMeta(meta, "status", ""));
             case "reading_group_review_attached" -> "모임 책에 독후감 연결: " + book;
             case "review_created" -> book.isBlank() ? "독후감 작성" : "독후감 작성: " + book;
             case "official_profile_applied" -> "공식 프로필 신청: " + stringMeta(meta, "displayName", "");
@@ -501,6 +506,15 @@ public class AdminUserActivityService {
         if (meta == null) return fallback;
         Object value = meta.get(key);
         return value != null && !value.toString().isBlank() ? value.toString() : fallback;
+    }
+
+    private String bookStatusLabel(String status) {
+        return switch (status) {
+            case "UPCOMING" -> "다음 책";
+            case "READING" -> "읽는 중";
+            case "COMPLETED" -> "완독";
+            default -> status;
+        };
     }
 
     private boolean isLoginEvent(MetricEvent event) {

@@ -266,6 +266,46 @@ public class ReadingGroupService {
     }
 
     @Transactional
+    public ReadingGroupResponse updateNotice(String slug, ReadingGroupNoticeUpdateRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        group.updateNotice(blankToNull(request.notice()));
+        metricEventService.recordCurrentRequestEvent("reading_group_notice_updated", userId,
+                "/groups/" + group.getSlug(), Map.of(
+                        "groupId", group.getId(),
+                        "groupSlug", group.getSlug(),
+                        "groupName", group.getName()
+                ));
+        return toResponse(group, userId);
+    }
+
+    @Transactional
+    public ReadingGroupResponse updateBookProgress(
+            String slug,
+            Long groupBookId,
+            ReadingGroupBookProgressUpdateRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        groupBook.updateProgress(request.status(), request.deadline());
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("groupId", group.getId());
+        meta.put("groupSlug", group.getSlug());
+        meta.put("groupName", group.getName());
+        meta.put("groupBookId", groupBook.getId());
+        meta.put("bookId", groupBook.getBook().getId());
+        meta.put("bookTitle", groupBook.getBook().getTitle());
+        meta.put("status", request.status().name());
+        if (request.deadline() != null) meta.put("deadline", request.deadline().toString());
+        metricEventService.recordCurrentRequestEvent("reading_group_book_progress_updated", userId,
+                "/groups/" + group.getSlug() + "/books/" + groupBookId, meta);
+        return toResponse(group, userId);
+    }
+
+    @Transactional
     public ReadingGroupReviewResponse attachReview(String slug, Long groupBookId, ReadingGroupReviewAttachRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
         ReadingGroup group = findBySlug(slug);

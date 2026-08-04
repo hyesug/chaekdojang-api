@@ -25,6 +25,8 @@ jobs:
       DEPLOY_COMMIT: ${{ github.sha }}
       GHCR_USERNAME: ${{ github.actor }}
       GHCR_TOKEN: ${{ github.token }}
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
       AWS_REGION: ap-northeast-2
       EC2_INSTANCE_ID: i-0b22c9c04390abada
     steps:
@@ -102,6 +104,8 @@ jobs:
           export DEPLOY_COMMIT="$DEPLOY_COMMIT"
           export GHCR_USERNAME="$GHCR_USERNAME"
           export GHCR_TOKEN="$GHCR_TOKEN"
+          export MAIL_USERNAME="$MAIL_USERNAME"
+          export MAIL_PASSWORD="$MAIL_PASSWORD"
 
           cd /home/ubuntu/chaekdojang-api
           git config --global --add safe.directory /home/ubuntu/chaekdojang-api
@@ -114,7 +118,7 @@ jobs:
 
           echo "\$GHCR_TOKEN" | sudo docker login ghcr.io -u "\$GHCR_USERNAME" --password-stdin
           sudo docker pull "\$APP_IMAGE"
-          sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --no-build redis-staging app-staging
+          sudo env APP_IMAGE="\$APP_IMAGE" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --no-build redis-staging app-staging
 
           for i in \$(seq 1 12); do
             code=\$(curl -s -o /tmp/chaekdojang-staging-health.txt -w "%{http_code}" http://localhost:8081/actuator/health/readiness || true)
@@ -125,7 +129,7 @@ jobs:
                 echo "commit=\$DEPLOY_COMMIT"
                 echo "image=\$APP_IMAGE"
               } | tee deploy_history/latest-staging.env
-              sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
+              sudo env APP_IMAGE="\$APP_IMAGE" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
               git log -1 --oneline
               exit 0
             fi
@@ -138,8 +142,8 @@ jobs:
             echo "image=\$APP_IMAGE"
             echo "health=pending"
           } | tee deploy_history/latest-staging.env
-          sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
-          sudo docker compose --env-file .env.staging -f docker-compose.staging.yml logs --tail=40 app-staging || true
+          sudo env APP_IMAGE="\$APP_IMAGE" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.staging -f docker-compose.staging.yml ps
+          sudo env MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.staging -f docker-compose.staging.yml logs --tail=40 app-staging || true
           git log -1 --oneline
           exit 0
           EOF

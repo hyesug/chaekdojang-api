@@ -78,6 +78,8 @@ jobs:
       DEPLOY_COMMIT: ${{ github.sha }}
       GHCR_USERNAME: ${{ github.actor }}
       GHCR_TOKEN: ${{ github.token }}
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
       AWS_REGION: ap-northeast-2
       EC2_INSTANCE_ID: i-0362f42382b67f52b
     steps:
@@ -99,6 +101,8 @@ jobs:
           export DEPLOY_COMMIT="$DEPLOY_COMMIT"
           export GHCR_USERNAME="$GHCR_USERNAME"
           export GHCR_TOKEN="$GHCR_TOKEN"
+          export MAIL_USERNAME="$MAIL_USERNAME"
+          export MAIL_PASSWORD="$MAIL_PASSWORD"
 
           cd /home/ubuntu/chaekdojang-api
           git config --global --add safe.directory /home/ubuntu/chaekdojang-api
@@ -123,8 +127,8 @@ jobs:
           sudo systemctl reset-failed chaekdojang || true
           sudo docker pull "\$APP_IMAGE"
           sudo docker tag "\$APP_IMAGE" chaekdojang-api:local
-          sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d redis
-          sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
+          sudo env MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml up -d redis
+          sudo env APP_IMAGE="\$APP_IMAGE" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
 
           for i in \$(seq 1 60); do
             code=\$(curl -s -o /tmp/chaekdojang-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
@@ -138,7 +142,7 @@ jobs:
                 echo "image=\$APP_IMAGE"
                 echo "previous_image=\$previous_image"
               } | tee deploy_history/latest.env
-              sudo env APP_IMAGE="\$APP_IMAGE" docker compose --env-file .env.production -f docker-compose.prod.yml ps
+              sudo env APP_IMAGE="\$APP_IMAGE" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml ps
               sudo docker builder prune -af --filter "until=24h" || true
               sudo docker image prune -f || true
               git log -1 --oneline
@@ -147,11 +151,11 @@ jobs:
             sleep 2
           done
 
-          sudo docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=160 app
+          sudo env MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml logs --tail=160 app
 
           if sudo docker image inspect chaekdojang-api:rollback >/dev/null 2>&1; then
             sudo docker tag chaekdojang-api:rollback chaekdojang-api:local
-            sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
+            sudo env APP_IMAGE="chaekdojang-api:local" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build app
 
             for i in \$(seq 1 60); do
               code=\$(curl -s -o /tmp/chaekdojang-rollback-health.txt -w "%{http_code}" http://localhost:8080/actuator/health || true)
@@ -164,7 +168,7 @@ jobs:
                   echo "rollback_image=chaekdojang-api:local"
                   echo "previous_image=\$previous_image"
                 } | tee deploy_history/latest_rollback.env
-                sudo env APP_IMAGE="chaekdojang-api:local" docker compose --env-file .env.production -f docker-compose.prod.yml ps
+                sudo env APP_IMAGE="chaekdojang-api:local" MAIL_USERNAME="\$MAIL_USERNAME" MAIL_PASSWORD="\$MAIL_PASSWORD" docker compose --env-file .env.production -f docker-compose.prod.yml ps
                 exit 1
               fi
               sleep 2

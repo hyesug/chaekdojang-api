@@ -25,9 +25,9 @@ public record OAuthUserInfo(
                 Map<String, Object> resp = (Map<String, Object>) attrs.get("response");
                 yield new OAuthUserInfo(
                         (String) resp.get("id"),
-                        (String) resp.get("email"),
-                        (String) resp.get("name"),
-                        (String) resp.get("profile_image"),
+                        null,
+                        null,
+                        null,
                         provider
                 );
             }

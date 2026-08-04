@@ -41,6 +41,9 @@ final class BookSlugGenerator {
                     .replaceAll("[^a-z0-9]+", "-")
                     .replaceAll("^-+|-+$", "");
         }
+        if (ascii.matches("\\d+")) {
+            ascii = "book-" + ascii;
+        }
         if (ascii.isBlank()) {
             ascii = isbn13 != null && !isbn13.isBlank() ? "book-" + isbn13 : "book-" + id;
         }

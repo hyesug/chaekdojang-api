@@ -40,7 +40,7 @@ public class AuthSessionService {
                 hash(refreshToken),
                 LocalDateTime.now().plusDays(refreshExpirationDays)
         ));
-        return new AuthTokens(jwtProvider.generate(userId), refreshToken);
+        return new AuthTokens(jwtProvider.generate(userId, user.getAuthVersion()), refreshToken);
     }
 
     @Transactional
@@ -63,6 +63,7 @@ public class AuthSessionService {
     @Transactional
     public void revokeAll(Long userId) {
         refreshTokenRepository.findAllByUserIdAndRevokedAtIsNull(userId).forEach(RefreshToken::revoke);
+        userRepository.findById(userId).ifPresent(User::invalidateAuthSessions);
     }
 
     private String randomToken() {

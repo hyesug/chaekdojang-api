@@ -35,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = jwtProvider.extractUserId(token);
             userRepository.findById(userId)
                     .filter(user -> user.getDeletedAt() == null)
+                    .filter(user -> user.getAuthVersion() == jwtProvider.extractAuthVersion(token))
                     .ifPresent(user -> {
                         request.setAttribute(AUTHENTICATED_USER_ID_ATTRIBUTE, userId);
                         UsernamePasswordAuthenticationToken auth =

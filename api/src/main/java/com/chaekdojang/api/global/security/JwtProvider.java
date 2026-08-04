@@ -23,9 +23,10 @@ public class JwtProvider {
         this.expirationMs = expirationMs;
     }
 
-    public String generate(Long userId) {
+    public String generate(Long userId, long authVersion) {
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("authVersion", authVersion)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(key)
@@ -34,6 +35,11 @@ public class JwtProvider {
 
     public Long extractUserId(String token) {
         return Long.parseLong(parseClaims(token).getSubject());
+    }
+
+    public long extractAuthVersion(String token) {
+        Object value = parseClaims(token).get("authVersion");
+        return value instanceof Number number ? number.longValue() : 0;
     }
 
     public boolean validate(String token) {

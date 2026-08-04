@@ -63,6 +63,9 @@ public class User {
     @Column(nullable = false, length = 15)
     private UserRole role = UserRole.USER;
 
+    @Column(nullable = false)
+    private long authVersion = 0;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "life_book_id")
     private Book lifeBook;
@@ -120,6 +123,10 @@ public class User {
 
     public void reactivate() {
         this.deletedAt = null;
+    }
+
+    public void invalidateAuthSessions() {
+        this.authVersion++;
     }
 
     public void promoteToAdmin() { this.role = UserRole.ADMIN; }

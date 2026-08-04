@@ -42,13 +42,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
               AND (:deviceId = '' OR EXISTS (
                     SELECT m.id FROM MetricEvent m
                     WHERE m.user = u AND m.deviceId LIKE CONCAT('%', :deviceId, '%')))
-              AND (:joinedFrom IS NULL OR u.createdAt >= :joinedFrom)
-              AND (:joinedTo IS NULL OR u.createdAt < :joinedTo)
-              AND ((:activeFrom IS NULL AND :activeTo IS NULL) OR EXISTS (
+              AND u.createdAt >= :joinedFrom
+              AND u.createdAt < :joinedTo
+              AND (:activeFilter = false OR EXISTS (
                     SELECT m.id FROM MetricEvent m
                     WHERE m.user = u
-                      AND (:activeFrom IS NULL OR m.createdAt >= :activeFrom)
-                      AND (:activeTo IS NULL OR m.createdAt < :activeTo)))
+                      AND m.createdAt >= :activeFrom
+                      AND m.createdAt < :activeTo))
               AND (:createdGroup IS NULL
                    OR (:createdGroup = true AND EXISTS (SELECT g.id FROM ReadingGroup g WHERE g.owner = u))
                    OR (:createdGroup = false AND NOT EXISTS (SELECT g.id FROM ReadingGroup g WHERE g.owner = u)))
@@ -85,6 +85,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("joinedTo") LocalDateTime joinedTo,
             @Param("activeFrom") LocalDateTime activeFrom,
             @Param("activeTo") LocalDateTime activeTo,
+            @Param("activeFilter") boolean activeFilter,
             @Param("relatedSince") LocalDateTime relatedSince,
             @Param("hasRelated") Boolean hasRelated,
             @Param("createdGroup") Boolean createdGroup,

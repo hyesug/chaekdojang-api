@@ -54,6 +54,8 @@ import java.util.stream.Collectors;
 public class AdminService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final LocalDateTime FILTER_MIN = LocalDateTime.of(2000, 1, 1, 0, 0);
+    private static final LocalDateTime FILTER_MAX = LocalDateTime.of(3000, 1, 1, 0, 0);
 
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
@@ -100,12 +102,14 @@ public class AdminService {
         Long qUserId = normalizedQ.matches("\\d+") ? Long.valueOf(normalizedQ) : null;
         LocalDateTime relatedSince = LocalDateTime.now(KST)
                 .minusDays(Math.max(userActivityRetentionDays, 1));
+        boolean activeFilter = activeFrom != null || activeTo != null;
         return userRepository.searchForAdmin(
                         normalizedQ, qUserId, normalize(ip), normalize(deviceId),
-                        joinedFrom != null ? joinedFrom.atStartOfDay() : null,
-                        joinedTo != null ? joinedTo.plusDays(1).atStartOfDay() : null,
-                        activeFrom != null ? activeFrom.atStartOfDay() : null,
-                        activeTo != null ? activeTo.plusDays(1).atStartOfDay() : null,
+                        joinedFrom != null ? joinedFrom.atStartOfDay() : FILTER_MIN,
+                        joinedTo != null ? joinedTo.plusDays(1).atStartOfDay() : FILTER_MAX,
+                        activeFrom != null ? activeFrom.atStartOfDay() : FILTER_MIN,
+                        activeTo != null ? activeTo.plusDays(1).atStartOfDay() : FILTER_MAX,
+                        activeFilter,
                         relatedSince, hasRelated, createdGroup, pageable)
                 .map(user -> {
                     MetricEvent recent = metricEventRepository.findFirstByUserIdOrderByCreatedAtDesc(user.getId()).orElse(null);

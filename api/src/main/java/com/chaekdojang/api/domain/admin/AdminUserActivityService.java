@@ -73,6 +73,7 @@ public class AdminUserActivityService {
             String eventType,
             LocalDate from,
             LocalDate to,
+            boolean includeTechnical,
             Pageable pageable
     ) {
         assertAdmin(adminId);
@@ -88,6 +89,7 @@ public class AdminUserActivityService {
                         normalize(eventType),
                         from != null ? from.atStartOfDay() : since,
                         to != null ? to.plusDays(1).atStartOfDay() : FILTER_MAX,
+                        includeTechnical,
                         pageable)
                 .map(this::toTimelineEvent);
 
@@ -311,7 +313,7 @@ public class AdminUserActivityService {
         Map<String, Object> meta = safeMeta(event.getMeta());
         return new AdminUserActivityResponse.TimelineEvent(
                 event.getId(), event.getEventType(), eventLabel(event.getEventType()),
-                eventDescription(event.getEventType(), meta), event.getCreatedAt(), event.getIp(),
+                eventDescription(event, meta), event.getPath(), event.getCreatedAt(), event.getIp(),
                 event.getDeviceId(), event.getDevice(), event.getBrowser(), event.getOperatingSystem(), meta);
     }
 
@@ -352,11 +354,14 @@ public class AdminUserActivityService {
             case "profile_updated" -> "프로필 수정";
             case "official_profile_applied" -> "공식 프로필 신청";
             case "page_view" -> "페이지 조회";
+            case "heartbeat" -> "체류 신호";
+            case "session_end" -> "세션 종료";
             default -> type;
         };
     }
 
-    private String eventDescription(String type, Map<String, Object> meta) {
+    private String eventDescription(MetricEvent event, Map<String, Object> meta) {
+        String type = event.getEventType();
         String group = stringMeta(meta, "groupName", stringMeta(meta, "groupSlug", ""));
         String book = stringMeta(meta, "bookTitle", "");
         return switch (type) {
@@ -368,8 +373,26 @@ public class AdminUserActivityService {
             case "reading_group_review_attached" -> "모임 책에 독후감 연결: " + book;
             case "review_created" -> book.isBlank() ? "독후감 작성" : "독후감 작성: " + book;
             case "official_profile_applied" -> "공식 프로필 신청: " + stringMeta(meta, "displayName", "");
+            case "page_view" -> pageViewDescription(event.getPath());
             default -> eventLabel(type);
         };
+    }
+
+    private String pageViewDescription(String value) {
+        String path = value == null ? "/" : value.split("[?#]", 2)[0];
+        if (path.isBlank() || "/".equals(path)) return "홈 피드 조회";
+        if (path.startsWith("/search")) return "책 검색 화면 조회";
+        if (path.matches("^/books/[^/]+/reviews/?$")) return "책별 독후감 조회";
+        if (path.matches("^/books/[^/]+/?$")) return "책 상세 조회";
+        if (path.matches("^/reviews/[^/]+/?$")) return "독후감 상세 조회";
+        if (path.matches("^/groups/[^/]+/books/[^/]+/result/?$")) return "독서모임 AI 결과 조회";
+        if (path.startsWith("/groups")) return "독서모임 조회";
+        if (path.startsWith("/library")) return "서재 조회";
+        if (path.startsWith("/profile") || path.startsWith("/users/")
+                || path.startsWith("/u/") || path.startsWith("/profiles/")) return "프로필 조회";
+        if (path.startsWith("/write")) return "독후감 작성 화면 조회";
+        if (path.startsWith("/notifications")) return "알림 조회";
+        return "페이지 조회";
     }
 
     private Map<String, Object> safeMeta(Map<String, Object> meta) {

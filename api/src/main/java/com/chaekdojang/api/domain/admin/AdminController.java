@@ -63,9 +63,10 @@ public class AdminController {
             @RequestParam(required = false) String eventType,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "false") boolean includeTechnical,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(adminUserActivityService.getUserActivity(
-                SecurityUtils.getCurrentUserId(), id, eventType, from, to, pageable)));
+                SecurityUtils.getCurrentUserId(), id, eventType, from, to, includeTechnical, pageable)));
     }
 
     @GetMapping("/security/public-read-alerts")

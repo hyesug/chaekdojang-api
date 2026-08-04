@@ -21,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -63,7 +64,7 @@ class AdminUserActivityServiceTest {
         ReflectionTestUtils.setField(service, "retentionDays", 90);
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         lenient().when(userRepository.findById(2L)).thenReturn(Optional.of(target));
-        lenient().when(metricEventRepository.findUserTimeline(eq(2L), anyString(), any(), any(), any()))
+        lenient().when(metricEventRepository.findUserTimeline(eq(2L), anyString(), any(), any(), eq(false), any()))
                 .thenReturn(Page.empty());
         lenient().when(authProviderRepository.findAllByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
     }
@@ -80,7 +81,7 @@ class AdminUserActivityServiceTest {
                 .thenReturn(List.of(candidateEvent));
 
         AdminUserActivityResponse response = service.getUserActivity(
-                1L, 2L, "", null, null, PageRequest.of(0, 20));
+                1L, 2L, "", null, null, false, PageRequest.of(0, 20));
 
         assertThat(response.relatedAccounts()).hasSize(1);
         assertThat(response.relatedAccounts().get(0).strength()).isEqualTo("높음");
@@ -100,7 +101,7 @@ class AdminUserActivityServiceTest {
                 .thenReturn(List.of(candidateEvent));
 
         AdminUserActivityResponse response = service.getUserActivity(
-                1L, 2L, "", null, null, PageRequest.of(0, 20));
+                1L, 2L, "", null, null, false, PageRequest.of(0, 20));
 
         assertThat(response.relatedAccounts()).hasSize(1);
         assertThat(response.relatedAccounts().get(0).strength()).isEqualTo("낮음");
@@ -122,7 +123,7 @@ class AdminUserActivityServiceTest {
                 .thenReturn(List.of(joined));
 
         AdminUserActivityResponse response = service.getUserActivity(
-                1L, 2L, "", null, null, PageRequest.of(0, 20));
+                1L, 2L, "", null, null, false, PageRequest.of(0, 20));
 
         assertThat(response.relatedAccounts()).hasSize(1);
         assertThat(response.relatedAccounts().get(0).score()).isEqualTo(10);
@@ -131,12 +132,29 @@ class AdminUserActivityServiceTest {
     }
 
     @Test
+    void pageViewTimelineShowsReadablePageAndPath() {
+        MetricEvent pageView = event(target, "page_view", "device-a", "203.0.113.10", "Chrome", LocalDateTime.now());
+        ReflectionTestUtils.setField(pageView, "path", "/books/123");
+        when(metricEventRepository.findAllByUserIdAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(eq(2L), any()))
+                .thenReturn(List.of(pageView));
+        when(metricEventRepository.findUserTimeline(eq(2L), anyString(), any(), any(), eq(false), any()))
+                .thenReturn(new PageImpl<>(List.of(pageView)));
+
+        AdminUserActivityResponse response = service.getUserActivity(
+                1L, 2L, "", null, null, false, PageRequest.of(0, 20));
+
+        assertThat(response.timeline().getTotalElements()).isEqualTo(1);
+        assertThat(response.timeline().getContent().get(0).description()).isEqualTo("책 상세 조회");
+        assertThat(response.timeline().getContent().get(0).path()).isEqualTo("/books/123");
+    }
+
+    @Test
     void nonAdminCannotReadActivity() {
         User normalUser = user(9L, "normal");
         when(userRepository.findById(9L)).thenReturn(Optional.of(normalUser));
 
         assertThatThrownBy(() -> service.getUserActivity(
-                9L, 2L, "", null, null, PageRequest.of(0, 20)))
+                9L, 2L, "", null, null, false, PageRequest.of(0, 20)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }

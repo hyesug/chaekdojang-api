@@ -40,6 +40,7 @@ public record AdminUserActivityResponse(
             String eventType,
             String label,
             String description,
+            String path,
             LocalDateTime createdAt,
             String ip,
             String deviceId,

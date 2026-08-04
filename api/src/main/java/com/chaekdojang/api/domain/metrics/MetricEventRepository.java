@@ -95,12 +95,14 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
               AND (:eventType = '' OR m.eventType = :eventType)
               AND m.createdAt >= :from
               AND m.createdAt < :to
+              AND (:includeTechnical = true OR m.eventType NOT IN ('heartbeat', 'session_end'))
             """)
     Page<MetricEvent> findUserTimeline(
             @Param("userId") Long userId,
             @Param("eventType") String eventType,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
+            @Param("includeTechnical") boolean includeTechnical,
             Pageable pageable
     );
 

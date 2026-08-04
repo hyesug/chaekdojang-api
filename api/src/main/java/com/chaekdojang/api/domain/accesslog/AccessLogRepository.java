@@ -43,4 +43,19 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM AccessLog a WHERE a.createdAt < :cutoff")
     int deleteCreatedBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("""
+            SELECT a FROM AccessLog a
+            LEFT JOIN FETCH a.user u
+            WHERE a.createdAt >= :since
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
+              AND a.method = 'GET'
+              AND a.status >= 200 AND a.status < 400
+              AND a.uri NOT LIKE '/api/users/me%'
+              AND (a.uri LIKE '/api/books/%'
+                   OR a.uri LIKE '/api/reviews/%'
+                   OR a.uri LIKE '/api/profiles/%'
+                   OR a.uri LIKE '/api/users/%')
+            """)
+    List<AccessLog> findRecentPublicReads(@Param("since") LocalDateTime since);
 }

@@ -6,16 +6,14 @@ public record UserRecommendationResponse(
         Long id,
         String nickname,
         String profileImage,
-        String bio,
-        int score
+        String bio
 ) {
-    public static UserRecommendationResponse from(User user, int score) {
+    public static UserRecommendationResponse from(User user) {
         return new UserRecommendationResponse(
                 user.getId(),
                 user.getNickname(),
                 user.getProfileImage(),
-                user.getBio(),
-                score
+                user.getBio()
         );
     }
 }

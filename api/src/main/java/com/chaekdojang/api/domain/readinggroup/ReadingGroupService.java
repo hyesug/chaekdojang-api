@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.readinggroup;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.notification.NotificationService;
 import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.readinggroup.dto.*;
@@ -43,6 +44,7 @@ public class ReadingGroupService {
     private final ReviewRepository reviewRepository;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final NotificationService notificationService;
+    private final MetricEventService metricEventService;
 
     public List<ReadingGroupResponse> getPublicGroups() {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
@@ -87,6 +89,12 @@ public class ReadingGroupService {
                 .joinPolicy(joinPolicy)
                 .build());
         memberRepository.save(ReadingGroupMember.owner(group, owner));
+        metricEventService.recordCurrentRequestEvent("reading_group_created", userId,
+                "/groups/" + group.getSlug(), Map.of(
+                        "groupId", group.getId(),
+                        "groupSlug", group.getSlug(),
+                        "groupName", group.getName()
+                ));
         return toResponse(group, userId);
     }
 
@@ -113,6 +121,7 @@ public class ReadingGroupService {
             if (existingMember.getStatus() == ReadingGroupMemberStatus.REJECTED) {
                 existingMember.requestAgain(status);
                 notifyOwnerAboutJoin(group, user, status);
+                recordJoinEvent(group, userId, status);
                 return toResponse(group, userId);
             }
             throw new CustomException(ErrorCode.INVALID_REQUEST);
@@ -123,7 +132,19 @@ public class ReadingGroupService {
         }
         memberRepository.save(ReadingGroupMember.join(group, user, status));
         notifyOwnerAboutJoin(group, user, status);
+        recordJoinEvent(group, userId, status);
         return toResponse(group, userId);
+    }
+
+    private void recordJoinEvent(ReadingGroup group, Long userId, ReadingGroupMemberStatus status) {
+        metricEventService.recordCurrentRequestEvent(
+                status == ReadingGroupMemberStatus.APPROVED
+                        ? "reading_group_joined"
+                        : "reading_group_join_requested",
+                userId,
+                "/groups/" + group.getSlug(),
+                Map.of("groupId", group.getId(), "groupSlug", group.getSlug(), "groupName", group.getName())
+        );
     }
 
     private void notifyOwnerAboutJoin(ReadingGroup group, User user, ReadingGroupMemberStatus status) {
@@ -186,6 +207,14 @@ public class ReadingGroupService {
         ReadingGroupMember member = findMemberInGroup(group, memberId);
         member.approve();
         notifyMemberAboutApproval(group, member);
+        metricEventService.recordCurrentRequestEvent("reading_group_member_approved", userId,
+                "/groups/" + group.getSlug(), Map.of(
+                        "groupId", group.getId(),
+                        "groupSlug", group.getSlug(),
+                        "groupName", group.getName(),
+                        "memberUserId", member.getUser().getId(),
+                        "memberNickname", member.getUser().getNickname()
+                ));
         return ReadingGroupMemberResponse.from(member);
     }
 
@@ -224,6 +253,14 @@ public class ReadingGroupService {
                 .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
         if (!groupBookRepository.existsByGroupIdAndBookId(group.getId(), book.getId())) {
             groupBookRepository.save(ReadingGroupBook.of(group, book, blankToNull(request.note())));
+            metricEventService.recordCurrentRequestEvent("reading_group_book_added", userId,
+                    "/groups/" + group.getSlug(), Map.of(
+                            "groupId", group.getId(),
+                            "groupSlug", group.getSlug(),
+                            "groupName", group.getName(),
+                            "bookId", book.getId(),
+                            "bookTitle", book.getTitle()
+                    ));
         }
         return toResponse(group, userId);
     }
@@ -245,7 +282,17 @@ public class ReadingGroupService {
         if (groupReviewRepository.existsByGroupBookIdAndReviewId(groupBookId, review.getId())) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-        return ReadingGroupReviewResponse.from(groupReviewRepository.save(ReadingGroupReview.of(group, groupBook, review)));
+        ReadingGroupReview saved = groupReviewRepository.save(ReadingGroupReview.of(group, groupBook, review));
+        metricEventService.recordCurrentRequestEvent("reading_group_review_attached", userId,
+                "/groups/" + group.getSlug() + "/books/" + groupBookId, Map.of(
+                        "groupId", group.getId(),
+                        "groupSlug", group.getSlug(),
+                        "groupName", group.getName(),
+                        "bookId", groupBook.getBook().getId(),
+                        "bookTitle", groupBook.getBook().getTitle(),
+                        "reviewId", review.getId()
+                ));
+        return ReadingGroupReviewResponse.from(saved);
     }
 
     @Transactional

@@ -20,6 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    public static final String AUTHENTICATED_USER_ID_ATTRIBUTE = "chaekdojang.authenticatedUserId";
+
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
     private final AuthCookieService authCookieService;
@@ -34,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             userRepository.findById(userId)
                     .filter(user -> user.getDeletedAt() == null)
                     .ifPresent(user -> {
+                        request.setAttribute(AUTHENTICATED_USER_ID_ATTRIBUTE, userId);
                         UsernamePasswordAuthenticationToken auth =
                                 new UsernamePasswordAuthenticationToken(userId, null, authoritiesOf(user));
                         SecurityContextHolder.getContext().setAuthentication(auth);

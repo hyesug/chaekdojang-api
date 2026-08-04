@@ -5,6 +5,7 @@ import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.notification.NotificationService;
 import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
@@ -53,6 +54,7 @@ public class ReviewService {
     private final NotificationService notificationService;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewAiSummaryService reviewAiSummaryService;
+    private final MetricEventService metricEventService;
 
     @Transactional
     public ReviewResponse create(ReviewCreateRequest request) {
@@ -90,6 +92,15 @@ public class ReviewService {
                 notifySameBookReaders(author, finalBook, review.getId());
             }
         }
+
+        Map<String, Object> activityMeta = new java.util.LinkedHashMap<>();
+        activityMeta.put("reviewId", saved.id());
+        if (finalBook != null) {
+            activityMeta.put("bookId", finalBook.getId());
+            activityMeta.put("bookTitle", finalBook.getTitle());
+        }
+        metricEventService.recordCurrentRequestEvent(
+                "review_created", userId, "/reviews/" + saved.id(), activityMeta);
 
         return saved;
     }

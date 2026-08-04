@@ -12,6 +12,7 @@ public record MetricEventRequest(
         @Size(max = 500) String referrer,
         long durationMs,
         @Size(max = 80) String device,
+        @Size(max = 80) String deviceId,
         Map<String, Object> meta
 ) {
 }

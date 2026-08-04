@@ -6,6 +6,7 @@ import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.notification.NotificationRepository;
 import com.chaekdojang.api.domain.readinggoal.ReadingGoal;
 import com.chaekdojang.api.domain.readinggoal.ReadingGoalRepository;
@@ -48,6 +49,7 @@ public class UserService {
     private final UserAuthProviderRepository userAuthProviderRepository;
     private final MetricEventRepository metricEventRepository;
     private final InquiryRepository inquiryRepository;
+    private final MetricEventService metricEventService;
 
     public UserProfileResponse getMyProfile() {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -86,6 +88,8 @@ public class UserService {
         }
 
         user.updateProfile(request.nickname(), request.bio(), request.profileImage());
+        metricEventService.recordCurrentRequestEvent(
+                "profile_updated", userId, "/profile", Map.of("userId", userId));
         return buildProfile(userId);
     }
 
@@ -220,7 +224,7 @@ public class UserService {
                 .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
                 .limit(5)
                 .map(entry -> userRepository.findById(entry.getKey())
-                        .map(user -> UserRecommendationResponse.from(user, entry.getValue()))
+                        .map(UserRecommendationResponse::from)
                         .orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
@@ -299,7 +303,7 @@ public class UserService {
                 .limit(5)
                 .map(candidate -> userRepository.findById(candidate.author().userId())
                         .filter(user -> user.getDeletedAt() == null)
-                        .map(user -> UserRecommendationResponse.from(user, candidate.score()))
+                        .map(UserRecommendationResponse::from)
                         .orElse(null))
                 .filter(Objects::nonNull)
                 .toList();

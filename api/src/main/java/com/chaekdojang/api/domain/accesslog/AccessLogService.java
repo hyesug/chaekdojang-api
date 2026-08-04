@@ -1,5 +1,8 @@
 package com.chaekdojang.api.domain.accesslog;
 
+import com.chaekdojang.api.domain.user.User;
+import com.chaekdojang.api.domain.user.UserRepository;
+import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -10,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccessLogService {
 
     private final AccessLogRepository accessLogRepository;
+    private final UserRepository userRepository;
+    private final AdminTrafficFilter adminTrafficFilter;
 
     /**
      * 비동기로 저장 — 요청 처리 지연 없음.
@@ -17,14 +22,26 @@ public class AccessLogService {
      */
     @Async
     @Transactional
-    public void save(String ip, String method, String uri, int status, long elapsedMs) {
+    public void save(String ip, Long userId, String method, String uri, int status, long elapsedMs,
+                     String userAgent, String deviceId) {
+        User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        if ((user != null && user.isAdmin()) || adminTrafficFilter.isExcludedIp(ip)) return;
         accessLogRepository.save(AccessLog.builder()
                 .ip(ip)
+                .user(user)
                 .method(method)
                 .uri(uri)
                 .status(status)
                 .elapsedMs(elapsedMs)
+                .userAgent(trim(userAgent, 1000))
+                .deviceId(trim(deviceId, 80))
                 .build());
+    }
+
+    private String trim(String value, int maxLength) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        return normalized.substring(0, Math.min(normalized.length(), maxLength));
     }
 
     @Transactional(readOnly = true)

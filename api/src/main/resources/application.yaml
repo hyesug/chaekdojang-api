@@ -110,6 +110,10 @@ app:
     from-email: ${NOTIFICATION_FROM_EMAIL:${SPRING_MAIL_USERNAME:}}
   admin:
     excluded-ips: ${ADMIN_EXCLUDED_IPS:}
+  user-activity:
+    retention-days: ${USER_ACTIVITY_LOG_RETENTION_DAYS:90}
+    public-read-alert-window-minutes: ${USER_ACTIVITY_PUBLIC_READ_ALERT_WINDOW_MINUTES:5}
+    public-read-alert-threshold: ${USER_ACTIVITY_PUBLIC_READ_ALERT_THRESHOLD:120}
   security:
     enforce-production-secrets: ${APP_SECURITY_ENFORCE_PRODUCTION_SECRETS:false}
   rate-limit:

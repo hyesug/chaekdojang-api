@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.review;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
@@ -40,6 +41,7 @@ class ReviewServiceTest {
     @Mock ReviewLikeRepository reviewLikeRepository;
     @Mock CommentRepository commentRepository;
     @Mock FollowRepository followRepository;
+    @Mock MetricEventService metricEventService;
 
     @InjectMocks ReviewService reviewService;
 
@@ -79,6 +81,11 @@ class ReviewServiceTest {
         assertThat(result.id()).isEqualTo(REVIEW_ID);
         assertThat(result.likeCount()).isZero();
         assertThat(result.commentCount()).isZero();
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("review_created"), eq(USER_ID), eq("/reviews/" + REVIEW_ID),
+                argThat(meta -> REVIEW_ID.equals(meta.get("reviewId"))
+                        && !meta.containsKey("content")
+                        && !meta.containsKey("body")));
     }
 
     @Test

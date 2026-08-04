@@ -18,7 +18,8 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(name = "metric_events", indexes = {
         @Index(name = "idx_metric_events_created_at", columnList = "created_at"),
         @Index(name = "idx_metric_events_session_id", columnList = "session_id"),
-        @Index(name = "idx_metric_events_user_id", columnList = "user_id")
+        @Index(name = "idx_metric_events_user_id", columnList = "user_id"),
+        @Index(name = "idx_metric_events_device_id", columnList = "device_id")
 })
 @Getter
 @NoArgsConstructor(access = PROTECTED)
@@ -51,6 +52,18 @@ public class MetricEvent {
     @Column(length = 80)
     private String device;
 
+    @Column(name = "device_id", length = 80)
+    private String deviceId;
+
+    @Column(name = "user_agent", length = 1000)
+    private String userAgent;
+
+    @Column(length = 80)
+    private String browser;
+
+    @Column(name = "operating_system", length = 80)
+    private String operatingSystem;
+
     @Column(length = 50)
     private String ip;
 
@@ -63,7 +76,9 @@ public class MetricEvent {
 
     @Builder
     private MetricEvent(User user, String eventType, String sessionId, String path,
-                        String referrer, long durationMs, String device, String ip, Map<String, Object> meta) {
+                        String referrer, long durationMs, String device, String deviceId,
+                        String userAgent, String browser, String operatingSystem,
+                        String ip, Map<String, Object> meta) {
         this.user = user;
         this.eventType = eventType;
         this.sessionId = sessionId;
@@ -71,6 +86,10 @@ public class MetricEvent {
         this.referrer = referrer;
         this.durationMs = durationMs;
         this.device = device;
+        this.deviceId = deviceId;
+        this.userAgent = userAgent;
+        this.browser = browser;
+        this.operatingSystem = operatingSystem;
         this.ip = ip;
         this.meta = meta;
         this.createdAt = LocalDateTime.now(KST);

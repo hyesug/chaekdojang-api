@@ -1,6 +1,8 @@
 package com.chaekdojang.api.global.filter;
 
 import com.chaekdojang.api.domain.accesslog.AccessLogService;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
+import com.chaekdojang.api.global.security.JwtAuthenticationFilter;
 import com.chaekdojang.api.global.util.ClientIpUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,6 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor
@@ -44,15 +47,26 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } finally {
             long elapsed = System.currentTimeMillis() - start;
-            String ip = maskIp(ClientIpUtils.getClientIp(request));
+            String ip = ClientIpUtils.getClientIp(request);
+            String maskedIp = maskIp(ip);
             String method = request.getMethod();
             String uri = request.getRequestURI();
             int status = response.getStatus();
 
-            log.info("[{}] {} | {} | {} | {}ms", method, uri, ip, status, elapsed);
+            log.info("[{}] {} | {} | {} | {}ms", method, uri, maskedIp, status, elapsed);
 
             if (shouldSave(request, method, uri)) {
-                accessLogService.save(ip, method, uri, status, elapsed);
+                Object userId = request.getAttribute(JwtAuthenticationFilter.AUTHENTICATED_USER_ID_ATTRIBUTE);
+                accessLogService.save(
+                        ip,
+                        userId instanceof Long id ? id : null,
+                        method,
+                        uri,
+                        status,
+                        elapsed,
+                        request.getHeader("User-Agent"),
+                        readCookie(request, MetricEventService.DEVICE_COOKIE)
+                );
             }
         }
     }
@@ -86,5 +100,15 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             return lastColon > 0 ? ip.substring(0, lastColon) + ":0000" : ip;
         }
         return ip;
+    }
+
+    private String readCookie(HttpServletRequest request, String name) {
+        if (request.getCookies() == null) return null;
+        return Arrays.stream(request.getCookies())
+                .filter(cookie -> name.equals(cookie.getName()))
+                .map(jakarta.servlet.http.Cookie::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
     }
 }

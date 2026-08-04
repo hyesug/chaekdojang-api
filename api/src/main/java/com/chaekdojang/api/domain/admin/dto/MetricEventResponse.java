@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.admin.dto;
 import com.chaekdojang.api.domain.metrics.MetricEvent;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public record MetricEventResponse(
         Long id,
@@ -14,7 +15,11 @@ public record MetricEventResponse(
         String referrer,
         long durationMs,
         String device,
+        String deviceId,
+        String browser,
+        String operatingSystem,
         String ip,
+        Map<String, Object> meta,
         LocalDateTime createdAt
 ) {
     public static MetricEventResponse from(MetricEvent event) {
@@ -28,7 +33,11 @@ public record MetricEventResponse(
                 event.getReferrer(),
                 event.getDurationMs(),
                 event.getDevice(),
+                event.getDeviceId(),
+                event.getBrowser(),
+                event.getOperatingSystem(),
                 event.getIp(),
+                event.getMeta(),
                 event.getCreatedAt()
         );
     }

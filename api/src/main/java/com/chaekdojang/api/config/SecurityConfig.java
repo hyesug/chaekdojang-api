@@ -145,7 +145,10 @@ public class SecurityConfig {
         }
         config.setAllowedOrigins(origins.stream().distinct().toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        config.setAllowedHeaders(List.of(
+                "Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With",
+                "X-Chaekdojang-Session-Id", "X-Chaekdojang-Device-Id"
+        ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

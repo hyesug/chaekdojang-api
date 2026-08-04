@@ -11,4 +11,5 @@ public interface ReadingGroupRepository extends JpaRepository<ReadingGroup, Long
     List<ReadingGroup> findAllByOrderByCreatedAtDesc();
     List<ReadingGroup> findAllByVisibilityOrderByCreatedAtDesc(ReadingGroupVisibility visibility);
     List<ReadingGroup> findAllByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    long countByOwnerId(Long ownerId);
 }

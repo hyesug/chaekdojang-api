@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.officialprofile;
 import com.chaekdojang.api.domain.admin.audit.AdminAuditLogService;
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.officialprofile.dto.*;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class OfficialProfileService {
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
     private final AdminAuditLogService adminAuditLogService;
+    private final MetricEventService metricEventService;
 
     @Transactional
     public OfficialProfileApplicationResponse apply(OfficialProfileApplicationRequest request) {
@@ -48,7 +51,14 @@ public class OfficialProfileService {
                 .contactEmail(trim(request.contactEmail()))
                 .proofUrl(blankToNull(request.proofUrl()))
                 .build();
-        return OfficialProfileApplicationResponse.from(applicationRepository.save(application));
+        OfficialProfileApplication saved = applicationRepository.save(application);
+        metricEventService.recordCurrentRequestEvent("official_profile_applied", userId,
+                "/profile-applications", Map.of(
+                        "applicationId", saved.getId(),
+                        "displayName", saved.getDisplayName(),
+                        "profileType", saved.getType().name()
+                ));
+        return OfficialProfileApplicationResponse.from(saved);
     }
 
     public List<OfficialProfileApplicationResponse> getMyApplications() {

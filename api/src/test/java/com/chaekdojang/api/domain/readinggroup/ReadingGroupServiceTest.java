@@ -4,8 +4,12 @@ import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.book.BookSource;
 import com.chaekdojang.api.domain.notification.NotificationService;
+import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupMyReviewResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupResponse;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupCreateRequest;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupBookAddRequest;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupReviewAttachRequest;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.user.User;
@@ -40,6 +44,7 @@ class ReadingGroupServiceTest {
     @Mock BookRepository bookRepository;
     @Mock ReviewRepository reviewRepository;
     @Mock NotificationService notificationService;
+    @Mock MetricEventService metricEventService;
 
     @InjectMocks ReadingGroupService readingGroupService;
 
@@ -139,6 +144,84 @@ class ReadingGroupServiceTest {
         assertThat(responses.get(0).hidden()).isFalse();
         verify(reviewRepository, never())
                 .findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("독서모임 생성 이벤트에 사용자와 모임 ID가 기록된다")
+    void create_recordsActivityEvent() {
+        User owner = user(USER_ID, "reader");
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(owner));
+        when(groupRepository.save(any())).thenAnswer(invocation -> {
+            ReadingGroup group = invocation.getArgument(0);
+            ReflectionTestUtils.setField(group, "id", GROUP_ID);
+            return group;
+        });
+        when(groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(GROUP_ID)).thenReturn(List.of());
+
+        readingGroupService.create(new ReadingGroupCreateRequest(
+                "Activity Group", null, null, ReadingGroupVisibility.PUBLIC, ReadingGroupJoinPolicy.OPEN));
+
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_created"), eq(USER_ID), eq("/groups/activity-group"),
+                argThat(meta -> GROUP_ID.equals(meta.get("groupId"))));
+    }
+
+    @Test
+    @DisplayName("공개 독서모임 가입 이벤트가 기록된다")
+    void join_recordsActivityEvent() {
+        User owner = user(OWNER_ID, "owner");
+        User applicant = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(applicant));
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(memberRepository.findByGroupIdAndUserId(GROUP_ID, USER_ID)).thenReturn(Optional.empty());
+        when(groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(GROUP_ID)).thenReturn(List.of());
+
+        readingGroupService.join("public-group");
+
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_joined"), eq(USER_ID), eq("/groups/public-group"),
+                argThat(meta -> GROUP_ID.equals(meta.get("groupId"))));
+    }
+
+    @Test
+    @DisplayName("독서모임 책 추가 이벤트에 책 ID만 기록되고 본문은 기록되지 않는다")
+    void addBook_recordsActivityEvent() {
+        User owner = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        Book book = book();
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(bookRepository.findById(30L)).thenReturn(Optional.of(book));
+        when(groupBookRepository.existsByGroupIdAndBookId(GROUP_ID, 30L)).thenReturn(false);
+        when(groupBookRepository.findAllByGroupIdOrderByCreatedAtDesc(GROUP_ID)).thenReturn(List.of());
+
+        readingGroupService.addBook("public-group", new ReadingGroupBookAddRequest(30L, "운영 메모"));
+
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_book_added"), eq(USER_ID), eq("/groups/public-group"),
+                argThat(meta -> Long.valueOf(30L).equals(meta.get("bookId")) && !meta.containsKey("note")));
+    }
+
+    @Test
+    @DisplayName("독서모임 독후감 연결 이벤트에는 대상 ID만 기록되고 독후감 본문은 기록되지 않는다")
+    void attachReview_recordsIdsWithoutContent() {
+        User owner = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        Book book = book();
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book, null);
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        Review review = review(book, owner, false);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+        when(reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(40L)).thenReturn(Optional.of(review));
+        when(groupReviewRepository.existsByGroupBookIdAndReviewId(20L, 40L)).thenReturn(false);
+        when(groupReviewRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        readingGroupService.attachReview("public-group", 20L, new ReadingGroupReviewAttachRequest(40L));
+
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_review_attached"), eq(USER_ID), eq("/groups/public-group/books/20"),
+                argThat(meta -> Long.valueOf(40L).equals(meta.get("reviewId")) && !meta.containsKey("content")));
     }
 
     private User user(Long id, String nickname) {

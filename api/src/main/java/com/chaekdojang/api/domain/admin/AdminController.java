@@ -5,11 +5,13 @@ import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsActionResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminAnalyticsPageResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminAuditLogResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminDashboardSummaryResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminPublicReadAlertResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReadingGroupDetailResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReadingGroupResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminReviewResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminSecuritySummaryResponse;
 import com.chaekdojang.api.domain.admin.dto.AdminUserResponse;
+import com.chaekdojang.api.domain.admin.dto.AdminUserActivityResponse;
 import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
 import com.chaekdojang.api.domain.admin.dto.ErrorLogResponse;
 import com.chaekdojang.api.domain.admin.dto.MetricEventResponse;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -34,13 +37,41 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AdminUserActivityService adminUserActivityService;
 
     // ── 회원 관리 ──────────────────────────────────────────
     @GetMapping("/users")
     public ResponseEntity<ApiResponse<Page<AdminUserResponse>>> getUsers(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String ip,
+            @RequestParam(required = false) String deviceId,
+            @RequestParam(required = false) LocalDate joinedFrom,
+            @RequestParam(required = false) LocalDate joinedTo,
+            @RequestParam(required = false) LocalDate activeFrom,
+            @RequestParam(required = false) LocalDate activeTo,
+            @RequestParam(required = false) Boolean hasRelated,
+            @RequestParam(required = false) Boolean createdGroup,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
-                adminService.getUsers(SecurityUtils.getCurrentUserId(), pageable)));
+                adminService.getUsers(SecurityUtils.getCurrentUserId(), q, ip, deviceId,
+                        joinedFrom, joinedTo, activeFrom, activeTo, hasRelated, createdGroup, pageable)));
+    }
+
+    @GetMapping("/users/{id}/activity")
+    public ResponseEntity<ApiResponse<AdminUserActivityResponse>> getUserActivity(
+            @PathVariable Long id,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(adminUserActivityService.getUserActivity(
+                SecurityUtils.getCurrentUserId(), id, eventType, from, to, pageable)));
+    }
+
+    @GetMapping("/security/public-read-alerts")
+    public ResponseEntity<ApiResponse<List<AdminPublicReadAlertResponse>>> getPublicReadAlerts() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                adminUserActivityService.getPublicReadAlerts(SecurityUtils.getCurrentUserId())));
     }
 
     @PatchMapping("/users/{id}/role")
@@ -143,9 +174,11 @@ public class AdminController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String eventType,
             @RequestParam(required = false) String userType,
+            @RequestParam(defaultValue = "false") boolean excludeBackground,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
-                adminService.getMetricEvents(SecurityUtils.getCurrentUserId(), q, eventType, userType, pageable)));
+                adminService.getMetricEvents(
+                        SecurityUtils.getCurrentUserId(), q, eventType, userType, excludeBackground, pageable)));
     }
 
     @GetMapping("/dashboard/summary")

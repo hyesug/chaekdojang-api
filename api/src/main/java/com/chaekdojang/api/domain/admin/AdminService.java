@@ -31,6 +31,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -71,6 +72,9 @@ public class AdminService {
     private final AdminAuditLogService adminAuditLogService;
     private final AdminTrafficFilter adminTrafficFilter;
 
+    @Value("${app.user-activity.retention-days:90}")
+    private int userActivityRetentionDays;
+
     // ── 권한 검증 ──────────────────────────────────────────
     private User assertAdmin(Long userId) {
         User user = userRepository.findById(userId)
@@ -86,10 +90,34 @@ public class AdminService {
     }
 
     // ── 회원 관리 ──────────────────────────────────────────
-    public Page<AdminUserResponse> getUsers(Long adminId, Pageable pageable) {
+    public Page<AdminUserResponse> getUsers(
+            Long adminId, String q, String ip, String deviceId,
+            LocalDate joinedFrom, LocalDate joinedTo,
+            LocalDate activeFrom, LocalDate activeTo,
+            Boolean hasRelated, Boolean createdGroup, Pageable pageable) {
         assertAdmin(adminId);
-        return userRepository.findAllByDeletedAtIsNull(pageable)
-                .map(AdminUserResponse::from);
+        String normalizedQ = normalize(q);
+        Long qUserId = normalizedQ.matches("\\d+") ? Long.valueOf(normalizedQ) : null;
+        LocalDateTime relatedSince = LocalDateTime.now(KST)
+                .minusDays(Math.max(userActivityRetentionDays, 1));
+        return userRepository.searchForAdmin(
+                        normalizedQ, qUserId, normalize(ip), normalize(deviceId),
+                        joinedFrom != null ? joinedFrom.atStartOfDay() : null,
+                        joinedTo != null ? joinedTo.plusDays(1).atStartOfDay() : null,
+                        activeFrom != null ? activeFrom.atStartOfDay() : null,
+                        activeTo != null ? activeTo.plusDays(1).atStartOfDay() : null,
+                        relatedSince, hasRelated, createdGroup, pageable)
+                .map(user -> {
+                    MetricEvent recent = metricEventRepository.findFirstByUserIdOrderByCreatedAtDesc(user.getId()).orElse(null);
+                    return new AdminUserResponse(
+                            user.getId(), user.getNickname(), user.getEmail(), user.getProfileImage(), user.getRole(),
+                            user.getCreatedAt(), recent != null ? recent.getCreatedAt() : null,
+                            recent != null ? recent.getIp() : null,
+                            recent != null ? recent.getDeviceId() : null,
+                            metricEventRepository.existsRelatedSignal(user.getId(), relatedSince),
+                            readingGroupRepository.countByOwnerId(user.getId())
+                    );
+                });
     }
 
     @Transactional
@@ -247,7 +275,7 @@ public class AdminService {
                         statusRange[1] > 0 ? statusRange[1] : -1,
                         excludedIps,
                         pageable)
-                .map(log -> AccessLogResponse.from(log, userByMaskedIp.get(log.getIp())));
+                .map(log -> AccessLogResponse.from(log, accessLogUserMatch(log, userByMaskedIp)));
     }
 
     public Page<MetricEventResponse> getMetricEvents(
@@ -255,6 +283,7 @@ public class AdminService {
             String q,
             String eventType,
             String userType,
+            boolean excludeBackground,
             Pageable pageable) {
         assertAdmin(adminId);
         List<String> excludedIps = excludedAdminIps();
@@ -262,6 +291,7 @@ public class AdminService {
                         normalize(q),
                         normalize(eventType),
                         normalizeUserType(userType),
+                        excludeBackground,
                         excludedIps,
                         adminTrafficFilter.primaryExcludedIpPrefix(excludedIps),
                         pageable)
@@ -551,6 +581,15 @@ public class AdminService {
         if (status >= 500) return "서버 오류";
         if (status >= 400) return "요청 오류";
         return "기타 이상 요청";
+    }
+
+    private AccessLogResponse.UserMatch accessLogUserMatch(
+            AccessLog log, Map<String, AccessLogResponse.UserMatch> userByMaskedIp) {
+        User directUser = log.getUser();
+        if (directUser != null && directUser.getDeletedAt() == null && !directUser.isAdmin()) {
+            return new AccessLogResponse.UserMatch(directUser.getId(), directUser.getNickname());
+        }
+        return userByMaskedIp.get(maskIp(log.getIp()));
     }
 
     private String securitySeverity(String method, String uri, int status) {

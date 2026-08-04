@@ -1,7 +1,6 @@
 package com.chaekdojang.api.domain.review.ai.dto;
 
 import com.chaekdojang.api.domain.review.ai.ReviewAiSummary;
-import com.chaekdojang.api.domain.review.ai.ReviewAiSummarySource;
 import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryStatus;
 
 import java.time.LocalDateTime;
@@ -14,13 +13,8 @@ public record ReviewAiSummaryResponse(
         String recommendedFor,
         String impressivePoint,
         ReviewAiSummaryStatus status,
-        int retryCount,
-        String errorMessage,
-        ReviewAiSummarySource summarySource,
         boolean userEdited,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
-        LocalDateTime completedAt
+        LocalDateTime updatedAt
 ) {
     public static ReviewAiSummaryResponse from(ReviewAiSummary summary) {
         return new ReviewAiSummaryResponse(
@@ -30,13 +24,8 @@ public record ReviewAiSummaryResponse(
                 summary.getRecommendedFor(),
                 summary.getImpressivePoint(),
                 summary.getStatus(),
-                summary.getRetryCount(),
-                summary.getErrorMessage(),
-                summary.getSummarySource(),
                 summary.isUserEdited(),
-                summary.getCreatedAt(),
-                summary.getUpdatedAt(),
-                summary.getCompletedAt()
+                summary.getUpdatedAt()
         );
     }
 }

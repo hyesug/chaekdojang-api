@@ -11,10 +11,15 @@ public record AdminUserResponse(
         String email,
         String profileImage,
         UserRole role,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime recentActivityAt,
+        String recentIp,
+        String recentDeviceId,
+        boolean relatedAccountExists,
+        long createdGroupCount
 ) {
     public static AdminUserResponse from(User u) {
         return new AdminUserResponse(u.getId(), u.getNickname(), u.getEmail(),
-                u.getProfileImage(), u.getRole(), u.getCreatedAt());
+                u.getProfileImage(), u.getRole(), u.getCreatedAt(), null, null, null, false, 0);
     }
 }

@@ -343,7 +343,10 @@ public class BookService {
         }
         if (book.isWebNovel()) {
             String description = normalizeDescription(webNovelService.findDescription(book));
-            if (description != null) {
+            if (description != null
+                    && (book.getDescription() == null
+                    || !looksTruncated(description)
+                    || description.length() > book.getDescription().length())) {
                 book.updateDescription(description);
                 return;
             }
@@ -384,14 +387,26 @@ public class BookService {
     }
 
     private String synopsis(Book book) {
-        return needsDescription(book) ? null : book.getDescription();
+        return isMissingDescription(book) ? null : book.getDescription();
     }
 
     private boolean needsDescription(Book book) {
         String description = book.getDescription();
+        return isMissingDescription(book)
+                || description.length() == 2000
+                || (book.isWebNovel() && looksTruncated(description));
+    }
+
+    private boolean isMissingDescription(Book book) {
+        String description = book.getDescription();
         return description == null || description.isBlank()
                 || description.contains("책도장에서 이 책을 읽은 사람들의 독후감")
                 || description.contains("책도장에서 이 작품을 읽은 사람들의 감상");
+    }
+
+    private boolean looksTruncated(String description) {
+        String normalized = description == null ? "" : description.trim();
+        return normalized.endsWith("...") || normalized.endsWith("…");
     }
 
     private String normalizeDescription(String value) {
@@ -399,7 +414,7 @@ public class BookService {
         String withoutTags = value.replaceAll("(?i)<br\\s*/?>", " ").replaceAll("<[^>]+>", " ");
         String normalized = HtmlUtils.htmlUnescape(withoutTags).replaceAll("\\s+", " ").trim();
         if (normalized.isBlank()) return null;
-        return normalized.substring(0, Math.min(normalized.length(), 2000));
+        return normalized;
     }
 
     private String normalizeIsbn13(String value) {

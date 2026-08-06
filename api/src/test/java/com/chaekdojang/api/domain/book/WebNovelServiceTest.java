@@ -88,7 +88,7 @@ class WebNovelServiceTest {
         ArgumentCaptor<Book> savedBook = ArgumentCaptor.forClass(Book.class);
         verify(bookRepository).save(savedBook.capture());
         assertThat(savedBook.getValue().getDescription())
-                .isEqualTo("말더듬이 공작 영애가 새로운 세상을 만나는 이야기");
+                .isEqualTo("기사단장 칼립스와 맥시밀리언의 이야기");
     }
 
     @Test

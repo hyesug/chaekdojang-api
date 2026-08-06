@@ -165,7 +165,7 @@ public class WebNovelService {
     public String findDescription(Book book) {
         WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                 book.getSource(), book.getSourceUrl());
-        String officialDescription = cleanText(metadata.description(), 2000);
+        String officialDescription = cleanDescription(metadata.description());
         if (!officialDescription.isBlank()) return officialDescription;
 
         return search(book.getTitle()).stream()
@@ -173,7 +173,7 @@ public class WebNovelService {
                 .filter(result -> java.util.Objects.equals(result.externalId(), book.getExternalId())
                         || normalizeTitle(result.title()).equals(normalizeTitle(book.getTitle())))
                 .map(WebNovelSearchResult::description)
-                .map(description -> cleanText(description, 2000))
+                .map(this::cleanDescription)
                 .filter(description -> !description.isBlank())
                 .findFirst()
                 .orElse("");
@@ -197,8 +197,8 @@ public class WebNovelService {
             WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                     request.platform(), resolved.canonicalUrl());
             book.updateThumbnailIfMissing(metadata.thumbnail());
-            String description = cleanText(request.description(), 2000);
-            if (description.isBlank()) description = cleanText(metadata.description(), 2000);
+            String description = cleanDescription(metadata.description());
+            if (description.isBlank()) description = cleanDescription(request.description());
             book.updateDescription(description);
         }
         long reviewCount = reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(book.getId());
@@ -214,8 +214,8 @@ public class WebNovelService {
         String title = cleanText(request.title(), 255);
         if (title.isBlank()) throw new CustomException(ErrorCode.INVALID_REQUEST);
         String author = cleanText(request.author(), 255);
-        String description = cleanText(request.description(), 2000);
-        if (description.isBlank()) description = cleanText(metadata.description(), 2000);
+        String description = cleanDescription(metadata.description());
+        if (description.isBlank()) description = cleanDescription(request.description());
         String slugKey = request.platform().name().toLowerCase(Locale.ROOT) + "-" + resolved.externalId();
         return bookRepository.save(
                 Book.builder()
@@ -239,6 +239,15 @@ public class WebNovelService {
                 .replaceAll("\\s+", " ")
                 .trim();
         return cleaned.length() <= maxLength ? cleaned : cleaned.substring(0, maxLength).trim();
+    }
+
+    private String cleanDescription(String value) {
+        if (value == null) return "";
+        return HtmlUtils.htmlUnescape(value
+                        .replaceAll("(?i)<br\\s*/?>", " ")
+                        .replaceAll("<[^>]+>", " "))
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private List<WebNovelSearchResult> readCache(String key) {

@@ -243,10 +243,9 @@ public class WebNovelMetadataClient {
     }
 
     private String cleanDescription(String value) {
-        String cleaned = cleanText(value == null ? "" : value
+        return cleanText(value == null ? "" : value
                 .replaceAll("(?i)<br\\s*/?>", " ")
                 .replaceAll("<[^>]+>", " "));
-        return cleaned.length() <= 2000 ? cleaned : cleaned.substring(0, 2000).trim();
     }
 
     public record Metadata(String author, String thumbnail, String description) {

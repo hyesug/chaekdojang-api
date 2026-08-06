@@ -107,6 +107,17 @@ class WebNovelMetadataClientTest {
     }
 
     @Test
+    void keepsCompleteOfficialDescriptionLongerThanTwoThousandCharacters() {
+        String description = "작품 소개 ".repeat(500);
+        String html = "<meta property=\"og:description\" content=\"" + description + "\">";
+
+        WebNovelMetadataClient.Metadata metadata = client.parseHtmlMetadata(BookSource.MUNPIA, html);
+
+        assertThat(metadata.description()).isEqualTo(description.trim());
+        assertThat(metadata.description()).hasSizeGreaterThan(2000);
+    }
+
+    @Test
     void ignoresImageFromUntrustedHost() {
         String html = """
                 <meta property="og:image" content="https://example.com/not-a-ridi-cover.jpg">

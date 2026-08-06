@@ -5,6 +5,7 @@ import java.util.List;
 public record ReadingGroupBookResultResponse(
         String groupName,
         String groupSlug,
+        boolean canManage,
         BookInfo book,
         long participantCount,
         long reviewCount,
@@ -15,6 +16,7 @@ public record ReadingGroupBookResultResponse(
         String impressivePointSummary,
         long publicReviewCount,
         long generatedCardCount,
+        ReadingGroupAnalysisResponse analysis,
         List<AiReadingCardInfo> cards
 ) {
     public record BookInfo(

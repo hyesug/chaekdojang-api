@@ -274,12 +274,12 @@ public class ReadingGroupQuestionService {
         int limit = feedbackProperties.getMemberDailyLimit();
         if (limit <= 0) return;
         var todayStart = LocalDate.now(KST).atStartOfDay();
-        long used = metricEventRepository.countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
-                userId, "feedback_succeeded", todayStart)
-                + metricEventRepository.countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
-                userId, "reflection_ai_succeeded", todayStart)
-                + metricEventRepository.countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
-                userId, "reading_group_ai_question_succeeded", todayStart);
+        long used = List.of("feedback_succeeded", "reflection_ai_succeeded",
+                        "reading_group_ai_question_succeeded", "reading_group_ai_analysis_succeeded")
+                .stream().mapToLong(eventType -> metricEventRepository
+                        .countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
+                                userId, eventType, todayStart))
+                .sum();
         if (used >= limit) throw new CustomException(ErrorCode.GROUP_QUESTION_AI_LIMIT_EXCEEDED);
     }
 

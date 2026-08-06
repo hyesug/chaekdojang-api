@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -95,11 +96,13 @@ public class FeedbackService {
             return;
         }
         LocalDateTime todayStart = LocalDate.now(KST).atStartOfDay();
-        long used = metricEventRepository.countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
-                userId,
-                "feedback_succeeded",
-                todayStart
-        );
+        long used = List.of("feedback_succeeded", "reflection_ai_succeeded",
+                        "reading_group_ai_question_succeeded", "reading_group_ai_analysis_succeeded")
+                .stream()
+                .mapToLong(eventType -> metricEventRepository
+                        .countByUserIdAndEventTypeAndCreatedAtGreaterThanEqual(
+                                userId, eventType, todayStart))
+                .sum();
         if (used >= limit) {
             throw new CustomException(ErrorCode.FEEDBACK_LIMIT_EXCEEDED);
         }

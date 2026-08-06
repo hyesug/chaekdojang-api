@@ -45,6 +45,7 @@ public class ReadingGroupService {
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final NotificationService notificationService;
     private final MetricEventService metricEventService;
+    private final ReadingGroupAnalysisService analysisService;
 
     public List<ReadingGroupResponse> getPublicGroups() {
         Long userId = SecurityUtils.getCurrentUserIdOrNull();
@@ -415,9 +416,11 @@ public class ReadingGroupService {
                 .limit(5)
                 .map(Map.Entry::getKey)
                 .toList();
+        ReadingGroupAnalysisResponse analysis = analysisService.find(groupBook, reviews);
         return new ReadingGroupBookResultResponse(
                 group.getName(),
                 group.getSlug(),
+                analysisService.canManage(group, userId),
                 new ReadingGroupBookResultResponse.BookInfo(
                         groupBook.getBook().getId(),
                         groupBook.getBook().getTitle(),
@@ -439,6 +442,7 @@ public class ReadingGroupService {
                 cards.isEmpty() ? null : cards.get(0).impressivePoint(),
                 reviews.size(),
                 cards.size(),
+                analysis,
                 cards
         );
     }

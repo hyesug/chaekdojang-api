@@ -53,6 +53,7 @@ class ReadingGroupServiceTest {
     @Mock ReviewAiSummaryRepository reviewAiSummaryRepository;
     @Mock NotificationService notificationService;
     @Mock MetricEventService metricEventService;
+    @Mock ReadingGroupAnalysisService analysisService;
 
     @InjectMocks ReadingGroupService readingGroupService;
 

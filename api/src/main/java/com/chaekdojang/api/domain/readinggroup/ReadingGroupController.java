@@ -15,6 +15,7 @@ public class ReadingGroupController {
 
     private final ReadingGroupService readingGroupService;
     private final ReadingGroupQuestionService readingGroupQuestionService;
+    private final ReadingGroupAnalysisService readingGroupAnalysisService;
 
     @GetMapping
     public ApiResponse<List<ReadingGroupResponse>> getPublicGroups() {
@@ -114,6 +115,13 @@ public class ReadingGroupController {
             @PathVariable String slug,
             @PathVariable Long groupBookId) {
         return ApiResponse.ok(readingGroupService.getGroupBookResult(slug, groupBookId));
+    }
+
+    @PostMapping("/{slug}/books/{groupBookId}/result/analysis")
+    public ApiResponse<ReadingGroupAnalysisResponse> generateGroupBookAnalysis(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId) {
+        return ApiResponse.ok(readingGroupAnalysisService.generate(slug, groupBookId));
     }
 
     @GetMapping("/{slug}/books/{groupBookId}/my-reviews")

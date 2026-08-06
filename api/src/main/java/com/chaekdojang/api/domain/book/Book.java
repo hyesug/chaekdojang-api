@@ -57,6 +57,9 @@ public class Book {
     @Column(length = 100)
     private String category;
 
+    @Column(nullable = false)
+    private boolean categoryVerified;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BookSource source;
@@ -118,6 +121,14 @@ public class Book {
 
     public void updateCategory(String category) {
         this.category = category;
+        this.categoryVerified = false;
+    }
+
+    public void updateVerifiedCategory(String category) {
+        if (category != null && !category.isBlank()) {
+            this.category = category;
+            this.categoryVerified = true;
+        }
     }
 
     public void updateSeoFields(String slug, String description, String seoTitle, String seoDescription) {

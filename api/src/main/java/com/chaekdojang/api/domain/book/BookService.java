@@ -46,6 +46,7 @@ public class BookService {
     private final GoogleBookClient googleBookClient;
     private final WebNovelService webNovelService;
     private final BookCategoryResolver bookCategoryResolver;
+    private final BookCategoryVerificationService bookCategoryVerificationService;
     private final ReviewRepository reviewRepository;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewLikeRepository reviewLikeRepository;
@@ -87,9 +88,11 @@ public class BookService {
         return responses;
     }
 
+    @Transactional
     public BookResponse findById(Long id) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
+        bookCategoryVerificationService.verifyIfNeeded(book);
         return toResponseWithReviewCount(book);
     }
 
@@ -196,6 +199,7 @@ public class BookService {
     public PublicBookDetailResponse findPublicBySlug(String slug) {
         Book book = findPublicBook(slug);
         refreshDescriptionIfNeeded(book);
+        bookCategoryVerificationService.verifyIfNeeded(book);
         ensureSeoFields(book);
 
         List<Review> reviews = reviewRepository.findTop5ByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(book.getId());
@@ -261,7 +265,7 @@ public class BookService {
     }
 
     private String bookSearchCacheKey(String title, String author, String publisher) {
-        return "book-search:v2:" + title + ":" + author + ":" + publisher;
+        return "book-search:v3:" + title + ":" + author + ":" + publisher;
     }
 
     private List<BookResponse> readBookSearchCache(String key) {

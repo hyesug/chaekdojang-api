@@ -44,6 +44,35 @@ class BookCategoryResolverTest {
         assertThat(resolver.resolve(target)).isEqualTo("인문");
     }
 
+    @Test
+    void sharesVerifiedCategoryAcrossFuzzyAuthorSpellings() {
+        Book target = book("숲의 기록", "헨리 데이비드 소로", BookSource.GOOGLE_BOOKS, "Art", null);
+        Book verifiedEdition = book("숲의 기록(특별판)", "헨리데이빗소로우", BookSource.KAKAO, null, null);
+        verifiedEdition.updateVerifiedCategory("시/에세이");
+        BookRepository repository = mock(BookRepository.class);
+        when(repository.findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc())
+                .thenReturn(List.of(target, verifiedEdition));
+
+        BookCategoryResolver resolver = new BookCategoryResolver(repository);
+
+        assertThat(resolver.resolve(target)).isEqualTo("시/에세이");
+    }
+
+    @Test
+    void doesNotMultiplyDuplicateExternalEditionErrors() {
+        Book target = book("사유의 숲", "어떤 작가", BookSource.KAKAO, null,
+                "삶을 돌아보는 철학서");
+        Book wrongFirst = book("사유의 숲(특별판)", "어떤작가", BookSource.GOOGLE_BOOKS, "Art", null);
+        Book wrongSecond = book("사유의 숲(양장본)", "어떤 작가", BookSource.GOOGLE_BOOKS, "Art", null);
+        BookRepository repository = mock(BookRepository.class);
+        when(repository.findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc())
+                .thenReturn(List.of(target, wrongFirst, wrongSecond));
+
+        BookCategoryResolver resolver = new BookCategoryResolver(repository);
+
+        assertThat(resolver.resolve(target)).isEqualTo("인문");
+    }
+
     private Book book(String title, String author, BookSource source, String category, String description) {
         return Book.builder()
                 .title(title)

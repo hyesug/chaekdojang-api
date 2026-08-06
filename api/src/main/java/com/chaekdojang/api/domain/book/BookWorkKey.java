@@ -18,6 +18,22 @@ final class BookWorkKey {
         return normalizeTitle(book.getTitle()) + "\u0000" + normalizeAuthor(book.getAuthor());
     }
 
+    static boolean sameWork(Book first, Book second) {
+        if (first == null || second == null) return false;
+        String firstTitle = normalizeTitle(first.getTitle());
+        String secondTitle = normalizeTitle(second.getTitle());
+        if (firstTitle.isBlank() || !firstTitle.equals(secondTitle)) return false;
+
+        String firstAuthor = normalizeAuthor(first.getAuthor());
+        String secondAuthor = normalizeAuthor(second.getAuthor());
+        if (firstAuthor.isBlank() || secondAuthor.isBlank()) return firstAuthor.equals(secondAuthor);
+        if (firstAuthor.equals(secondAuthor)) return true;
+        if (Math.min(firstAuthor.length(), secondAuthor.length()) < 5) return false;
+
+        int maximumDistance = (int) Math.ceil(Math.max(firstAuthor.length(), secondAuthor.length()) * 0.4);
+        return editDistance(firstAuthor, secondAuthor) <= maximumDistance;
+    }
+
     private static String normalizeTitle(String title) {
         if (title == null) return "";
         String withoutNotes = stripEditionNotes(title);
@@ -49,5 +65,22 @@ final class BookWorkKey {
         return author.split("[,;/·]")[0]
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[^가-힣a-z0-9]", "");
+    }
+
+    private static int editDistance(String first, String second) {
+        int[] previous = new int[second.length() + 1];
+        for (int index = 0; index <= second.length(); index++) previous[index] = index;
+        for (int firstIndex = 1; firstIndex <= first.length(); firstIndex++) {
+            int[] current = new int[second.length() + 1];
+            current[0] = firstIndex;
+            for (int secondIndex = 1; secondIndex <= second.length(); secondIndex++) {
+                int substitutionCost = first.charAt(firstIndex - 1) == second.charAt(secondIndex - 1) ? 0 : 1;
+                current[secondIndex] = Math.min(
+                        Math.min(current[secondIndex - 1] + 1, previous[secondIndex] + 1),
+                        previous[secondIndex - 1] + substitutionCost);
+            }
+            previous = current;
+        }
+        return previous[second.length()];
     }
 }

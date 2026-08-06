@@ -8,6 +8,7 @@ public final class BookGenreClassifier {
 
     public static String resolve(Book book) {
         if (book == null) return null;
+        if (book.isCategoryVerified()) return normalizeExplicitCategory(book.getCategory());
         return resolve(book.getCategory(), book.getSource(), book.getTitle(), book.getAuthor(), book.getDescription());
     }
 

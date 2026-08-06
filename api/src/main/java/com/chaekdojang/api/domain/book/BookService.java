@@ -26,6 +26,7 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -325,7 +326,7 @@ public class BookService {
 
     private Book updateDescriptionIfNeeded(Book book, String candidate) {
         String normalized = normalizeDescription(candidate);
-        if (needsDescription(book) && normalized != null) {
+        if (needsDescription(book) && isBetterDescription(book.getDescription(), normalized)) {
             book.updateDescription(normalized);
         }
         return book;
@@ -362,10 +363,12 @@ public class BookService {
         BookSearchResult matched = candidates.stream()
                 .filter(candidate -> normalizeDescription(candidate.description()) != null)
                 .filter(candidate -> sameBook(book, candidate))
-                .findFirst()
+                .max(Comparator.comparingInt(candidate ->
+                        BookDescriptionPolicy.qualityScore(normalizeDescription(candidate.description()))))
                 .orElse(null);
-        if (matched != null) {
-            book.updateDescription(normalizeDescription(matched.description()));
+        String refreshed = matched == null ? null : normalizeDescription(matched.description());
+        if (isBetterDescription(book.getDescription(), refreshed)) {
+            book.updateDescription(refreshed);
             return;
         }
         cacheDescriptionMiss(missKey);
@@ -387,14 +390,17 @@ public class BookService {
     }
 
     private String synopsis(Book book) {
-        return isMissingDescription(book) ? null : book.getDescription();
+        return isMissingDescription(book)
+                ? null
+                : BookDescriptionPolicy.displaySynopsis(book.getDescription(), book.isWebNovel());
     }
 
     private boolean needsDescription(Book book) {
         String description = book.getDescription();
         return isMissingDescription(book)
                 || description.length() == 2000
-                || (book.isWebNovel() && looksTruncated(description));
+                || (book.isWebNovel() && looksTruncated(description))
+                || (!book.isWebNovel() && BookDescriptionPolicy.looksAbruptlyTruncated(description));
     }
 
     private boolean isMissingDescription(Book book) {
@@ -407,6 +413,11 @@ public class BookService {
     private boolean looksTruncated(String description) {
         String normalized = description == null ? "" : description.trim();
         return normalized.endsWith("...") || normalized.endsWith("…");
+    }
+
+    private boolean isBetterDescription(String current, String candidate) {
+        return candidate != null
+                && BookDescriptionPolicy.qualityScore(candidate) > BookDescriptionPolicy.qualityScore(current);
     }
 
     private String normalizeDescription(String value) {

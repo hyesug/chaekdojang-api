@@ -3,6 +3,8 @@ set -euo pipefail
 
 API_BASE="${API_BASE:-https://api.chaekdojang.com}"
 WEB_BASE="${WEB_BASE:-https://www.chaekdojang.com}"
+MONITOR_HEADER="X-Chaekdojang-Internal-Request: codex-monitor"
+MONITOR_USER_AGENT="Chaekdojang-Codex-Monitor/1.0"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -13,7 +15,7 @@ check_json_status() {
   local file="$tmp_dir/$name.json"
   local code
 
-  code="$(curl -sS -o "$file" -w "%{http_code}" "$url")"
+  code="$(curl -sS -A "$MONITOR_USER_AGENT" -H "$MONITOR_HEADER" -o "$file" -w "%{http_code}" "$url")"
   if [ "$code" != "200" ]; then
     echo "FAIL $name: expected 200, got $code"
     cat "$file" || true
@@ -51,7 +53,7 @@ first_id = content[0].get("id") if isinstance(content[0], dict) else None
 print(f"OK web-reviews: {len(content)} reviews, first id {first_id}")
 PY
 
-home_code="$(curl -sS -o "$tmp_dir/home.html" -w "%{http_code}" "$WEB_BASE")"
+home_code="$(curl -sS -A "$MONITOR_USER_AGENT" -H "$MONITOR_HEADER" -o "$tmp_dir/home.html" -w "%{http_code}" "$WEB_BASE")"
 if [ "$home_code" != "200" ]; then
   echo "FAIL web-home: expected 200, got $home_code"
   exit 1

@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.metrics.dto.MetricEventRequest;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.global.util.ClientIpUtils;
+import com.chaekdojang.api.global.util.MonitoringRequestUtils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -95,6 +96,7 @@ public class MetricEventService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordRequestEvent(String eventType, Long userId, String path, Map<String, Object> meta,
                                    HttpServletRequest request) {
+        if (MonitoringRequestUtils.isCodexMonitor(request)) return;
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) return;
 

@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.metrics;
 import com.chaekdojang.api.domain.metrics.dto.MetricEventRequest;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
+import com.chaekdojang.api.global.util.MonitoringRequestUtils;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -69,6 +71,17 @@ class MetricEventServiceTest {
         ArgumentCaptor<MetricEvent> captor = ArgumentCaptor.forClass(MetricEvent.class);
         verify(metricEventRepository).save(captor.capture());
         assertThat(captor.getValue().getUser()).isEqualTo(admin);
+    }
+
+    @Test
+    void codexMonitorServerActivityIsNotStored() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(MonitoringRequestUtils.HEADER, MonitoringRequestUtils.CODEX_MONITOR);
+
+        metricEventService.recordRequestEvent(
+                "login_succeeded", 8L, "/auth/callback", Map.of(), request);
+
+        verifyNoInteractions(userRepository, metricEventRepository);
     }
 
     @Test

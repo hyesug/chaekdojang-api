@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.accesslog.AccessLogService;
 import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.global.security.JwtAuthenticationFilter;
 import com.chaekdojang.api.global.util.ClientIpUtils;
+import com.chaekdojang.api.global.util.MonitoringRequestUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -73,13 +74,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private boolean shouldSave(HttpServletRequest request, String method, String uri) {
         if ("OPTIONS".equals(method)) return false;
-        if (isInternalFrontendRequest(request)) return false;
+        if (MonitoringRequestUtils.isInternalAccess(request)) return false;
         if (shouldSkip(uri)) return false;
         return true;
-    }
-
-    private boolean isInternalFrontendRequest(HttpServletRequest request) {
-        return "web-ssr".equals(request.getHeader("X-Chaekdojang-Internal-Request"));
     }
 
     private boolean shouldSkip(String uri) {

@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.metrics.dto.MetricEventRequest;
 import com.chaekdojang.api.global.response.ApiResponse;
 import com.chaekdojang.api.global.security.SecurityUtils;
 import com.chaekdojang.api.global.util.ClientIpUtils;
+import com.chaekdojang.api.global.util.MonitoringRequestUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class MetricEventController {
     public ApiResponse<Void> record(
             @RequestBody @Valid MetricEventRequest request,
             HttpServletRequest servletRequest) {
+        if (MonitoringRequestUtils.isCodexMonitor(servletRequest)) return ApiResponse.ok(null);
         metricEventService.record(request, ClientIpUtils.getClientIp(servletRequest),
                 servletRequest.getHeader("User-Agent"), currentUserIdOrNull());
         return ApiResponse.ok(null);

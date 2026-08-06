@@ -6,6 +6,7 @@ import com.chaekdojang.api.domain.book.BookSource;
 import com.chaekdojang.api.domain.notification.NotificationService;
 import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupMyReviewResponse;
+import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupBookResultResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupResponse;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupCreateRequest;
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupBookAddRequest;
@@ -14,6 +15,7 @@ import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupNoticeUpdateReque
 import com.chaekdojang.api.domain.readinggroup.dto.ReadingGroupReviewAttachRequest;
 import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
+import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryRepository;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.global.exception.CustomException;
@@ -48,6 +50,7 @@ class ReadingGroupServiceTest {
     @Mock UserRepository userRepository;
     @Mock BookRepository bookRepository;
     @Mock ReviewRepository reviewRepository;
+    @Mock ReviewAiSummaryRepository reviewAiSummaryRepository;
     @Mock NotificationService notificationService;
     @Mock MetricEventService metricEventService;
 
@@ -261,6 +264,47 @@ class ReadingGroupServiceTest {
         assertThatThrownBy(() -> readingGroupService.updateBookProgress(
                 "public-group", 20L,
                 new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, null, null)))
+                .isInstanceOf(CustomException.class);
+
+        verify(groupBookRepository, never()).findByIdAndGroupId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("승인된 회원은 비공개 모임의 AI 결과를 조회할 수 있다")
+    void getGroupBookResult_privateGroup_allowsApprovedMember() {
+        User owner = user(OWNER_ID, "owner");
+        User member = user(USER_ID, "reader");
+        ReadingGroup group = privateGroup(owner);
+        Book book = book();
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book, null);
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        Review hiddenReview = review(book, member, true);
+        ReadingGroupReview groupReview = ReadingGroupReview.of(group, groupBook, hiddenReview);
+
+        when(groupRepository.findBySlug("private-group")).thenReturn(Optional.of(group));
+        when(memberRepository.existsByGroupIdAndUserIdAndStatus(
+                GROUP_ID, USER_ID, ReadingGroupMemberStatus.APPROVED)).thenReturn(true);
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+        when(groupReviewRepository.findAllByGroupBookIdOrderByCreatedAtDesc(20L))
+                .thenReturn(List.of(groupReview));
+        when(reviewAiSummaryRepository.findAllByReviewIdIn(List.of(40L))).thenReturn(List.of());
+
+        ReadingGroupBookResultResponse response =
+                readingGroupService.getGroupBookResult("private-group", 20L);
+
+        assertThat(response.reviewCount()).isEqualTo(1);
+        assertThat(response.participantCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("비회원은 비공개 모임의 AI 결과를 조회할 수 없다")
+    void getGroupBookResult_privateGroup_rejectsNonMember() {
+        ReadingGroup group = privateGroup(user(OWNER_ID, "owner"));
+        when(groupRepository.findBySlug("private-group")).thenReturn(Optional.of(group));
+        when(memberRepository.existsByGroupIdAndUserIdAndStatus(
+                GROUP_ID, USER_ID, ReadingGroupMemberStatus.APPROVED)).thenReturn(false);
+
+        assertThatThrownBy(() -> readingGroupService.getGroupBookResult("private-group", 20L))
                 .isInstanceOf(CustomException.class);
 
         verify(groupBookRepository, never()).findByIdAndGroupId(anyLong(), anyLong());

@@ -384,16 +384,16 @@ public class ReadingGroupService {
     }
 
     public ReadingGroupBookResultResponse getGroupBookResult(String slug, Long groupBookId) {
+        Long userId = SecurityUtils.getCurrentUserIdOrNull();
         ReadingGroup group = findBySlug(slug);
-        if (group.getVisibility() != ReadingGroupVisibility.PUBLIC) {
-            throw new CustomException(ErrorCode.FORBIDDEN);
-        }
+        assertContentReadable(group, userId);
         ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
         List<Review> reviews = groupReviewRepository.findAllByGroupBookIdOrderByCreatedAtDesc(groupBook.getId())
                 .stream()
                 .map(ReadingGroupReview::getReview)
-                .filter(review -> review.getDeletedAt() == null && !review.isHidden())
+                .filter(review -> review.getDeletedAt() == null
+                        && (group.getVisibility() == ReadingGroupVisibility.PRIVATE || !review.isHidden()))
                 .toList();
         List<Long> reviewIds = reviews.stream().map(Review::getId).toList();
         Map<Long, ReviewAiSummary> summaryMap = reviewIds.isEmpty()

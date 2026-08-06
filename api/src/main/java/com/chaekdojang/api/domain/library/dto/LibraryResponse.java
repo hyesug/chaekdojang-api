@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.library.dto;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.book.BookGenreClassifier;
 import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 
@@ -15,10 +16,17 @@ public record LibraryResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public record BookInfo(Long id, String isbn13, String title, String author, String thumbnail) {
+    public record BookInfo(
+            Long id,
+            String isbn13,
+            String title,
+            String author,
+            String thumbnail,
+            String category
+    ) {
         public static BookInfo from(Book book) {
             return new BookInfo(book.getId(), book.getIsbn13(), book.getTitle(),
-                    book.getAuthor(), book.getThumbnail());
+                    book.getAuthor(), book.getThumbnail(), BookGenreClassifier.resolve(book));
         }
     }
 

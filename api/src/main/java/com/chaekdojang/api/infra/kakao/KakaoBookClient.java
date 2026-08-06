@@ -50,7 +50,7 @@ public class KakaoBookClient {
                 ? String.join(", ", doc.authors()) : "";
 
         return new BookSearchResult(isbn13, doc.title(), author,
-                doc.publisher(), doc.thumbnail(), BookSource.KAKAO, doc.categoryName(), doc.contents());
+                doc.publisher(), doc.thumbnail(), BookSource.KAKAO, null, doc.contents());
     }
 
     private String extractIsbn13(String isbn) {

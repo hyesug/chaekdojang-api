@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.book.BookGenreClassifier;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.chat.ChatBlockRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
@@ -435,10 +436,8 @@ public class UserService {
                 Book book = review.getBook();
                 int year = review.getCreatedAt().getYear();
                 yearlyBookIds.computeIfAbsent(year, ignored -> new HashSet<>()).add(book.getId());
-                if (book.getCategory() != null && !book.getCategory().isBlank()) {
-                    String genre = book.getCategory().trim();
-                    genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
-                }
+                String genre = BookGenreClassifier.resolve(book);
+                genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
             }
             if (review.getKeywords() != null) {
                 java.util.Arrays.stream(review.getKeywords().split(","))

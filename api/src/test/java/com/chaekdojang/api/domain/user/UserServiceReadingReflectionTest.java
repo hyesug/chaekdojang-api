@@ -89,6 +89,30 @@ class UserServiceReadingReflectionTest {
         assertThat(result.longestRecordedBook().bookId()).isEqualTo(409L);
     }
 
+    @Test
+    void infersGenreTimelineWhenKakaoBooksHaveNoCategory() {
+        User author = User.create("reader@example.com", "reader", null);
+        ReflectionTestUtils.setField(author, "id", 7L);
+        Book novel = Book.builder()
+                .title("급류")
+                .author("정대건")
+                .description("두 인물의 사랑을 그린 두 번째 장편소설")
+                .source(BookSource.KAKAO)
+                .build();
+        ReflectionTestUtils.setField(novel, "id", 110L);
+        when(reviewRepository.findAllByAuthorIdAndDeletedAtIsNullOrderByCreatedAtAsc(7L))
+                .thenReturn(List.of(review(1L, author, novel, null,
+                        LocalDateTime.of(2026, 7, 1, 10, 0))));
+
+        ReadingReflectionResponse result = userService.getReadingReflection();
+
+        assertThat(result.genreTimeline()).singleElement().satisfies(genre -> {
+            assertThat(genre.year()).isEqualTo(2026);
+            assertThat(genre.genre()).isEqualTo("소설");
+            assertThat(genre.count()).isEqualTo(1);
+        });
+    }
+
     private Book book(Long id, String title) {
         Book book = Book.builder().title(title).author("작가").source(BookSource.KAKAO).build();
         ReflectionTestUtils.setField(book, "id", id);

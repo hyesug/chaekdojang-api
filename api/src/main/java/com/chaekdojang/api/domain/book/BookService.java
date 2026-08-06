@@ -317,7 +317,8 @@ public class BookService {
                         .description(normalizeDescription(result.description()))
                         .slug(BookSlugGenerator.create(result.title(), result.author(), isbn13, null))
                         .source(result.source())
-                        .category(result.category())
+                        .category(BookGenreClassifier.resolve(
+                                result.category(), result.source(), result.title(), result.description()))
                         .build()
         );
     }

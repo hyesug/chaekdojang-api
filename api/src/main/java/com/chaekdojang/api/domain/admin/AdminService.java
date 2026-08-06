@@ -29,7 +29,6 @@ import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.domain.user.UserRole;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
-import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -72,7 +71,6 @@ public class AdminService {
     private final ReadingGroupReviewRepository readingGroupReviewRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AdminAuditLogService adminAuditLogService;
-    private final AdminTrafficFilter adminTrafficFilter;
 
     @Value("${app.user-activity.retention-days:90}")
     private int userActivityRetentionDays;
@@ -258,14 +256,12 @@ public class AdminService {
         String normalizedQ = normalize(q);
         String normalizedMethod = normalize(method);
         int[] statusRange = statusRange(statusGroup);
-        List<String> excludedIps = excludedAdminIps();
         Map<String, AccessLogResponse.UserMatch> userByMaskedIp = metricEventRepository
                 .findTop1000ByUserIsNotNullAndIpIsNotNullOrderByCreatedAtDesc()
                 .stream()
                 .filter(event -> event.getUser() != null
                         && event.getUser().getDeletedAt() == null
                         && !event.getUser().isAdmin())
-                .filter(event -> !excludedIps.contains(event.getIp()))
                 .collect(Collectors.toMap(
                         event -> maskIp(event.getIp()),
                         this::toUserMatch,
@@ -277,7 +273,6 @@ public class AdminService {
                         normalizedMethod,
                         statusRange[0] > 0 ? statusRange[0] : -1,
                         statusRange[1] > 0 ? statusRange[1] : -1,
-                        excludedIps,
                         pageable)
                 .map(log -> AccessLogResponse.from(log, accessLogUserMatch(log, userByMaskedIp)));
     }
@@ -290,14 +285,11 @@ public class AdminService {
             boolean excludeBackground,
             Pageable pageable) {
         assertAdmin(adminId);
-        List<String> excludedIps = excludedAdminIps();
         return metricEventRepository.search(
                         normalize(q),
                         normalize(eventType),
                         normalizeUserType(userType),
                         excludeBackground,
-                        excludedIps,
-                        adminTrafficFilter.primaryExcludedIpPrefix(excludedIps),
                         pageable)
                 .map(MetricEventResponse::from);
     }
@@ -466,26 +458,12 @@ public class AdminService {
         return new AccessLogResponse.UserMatch(user.getId(), user.getNickname());
     }
 
-    private List<String> excludedAdminIps() {
-        List<String> ips = metricEventRepository.findAdminIps()
-                .stream()
-                .filter(ip -> ip != null && !ip.isBlank())
-                .distinct()
-                .toList();
-        return adminTrafficFilter.queryExcludedIps(ips);
-    }
-
     private List<MetricEvent> visibleMetricsSince(LocalDateTime since) {
-        List<String> excludedIps = excludedAdminIps();
-        return metricEventRepository.findVisibleSince(
-                since,
-                excludedIps,
-                adminTrafficFilter.primaryExcludedIpPrefix(excludedIps)
-        );
+        return metricEventRepository.findVisibleSince(since);
     }
 
     private List<AccessLog> visibleAccessLogsSince(LocalDateTime since) {
-        return accessLogRepository.findVisibleSince(since, excludedAdminIps());
+        return accessLogRepository.findVisibleSince(since);
     }
 
     private List<ErrorLog> visibleErrorsSince(LocalDateTime since) {

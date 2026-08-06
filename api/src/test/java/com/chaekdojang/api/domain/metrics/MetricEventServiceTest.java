@@ -3,7 +3,6 @@ package com.chaekdojang.api.domain.metrics;
 import com.chaekdojang.api.domain.metrics.dto.MetricEventRequest;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
-import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +27,6 @@ class MetricEventServiceTest {
 
     @Mock MetricEventRepository metricEventRepository;
     @Mock UserRepository userRepository;
-    @Mock AdminTrafficFilter adminTrafficFilter;
     @InjectMocks MetricEventService metricEventService;
 
     @Test

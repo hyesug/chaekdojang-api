@@ -108,8 +108,6 @@ app:
   notification:
     admin-email: ${NOTIFICATION_ADMIN_EMAIL:}
     from-email: ${NOTIFICATION_FROM_EMAIL:${SPRING_MAIL_USERNAME:}}
-  admin:
-    excluded-ips: ${ADMIN_EXCLUDED_IPS:}
   user-activity:
     retention-days: ${USER_ACTIVITY_LOG_RETENTION_DAYS:90}
     public-read-alert-window-minutes: ${USER_ACTIVITY_PUBLIC_READ_ALERT_WINDOW_MINUTES:5}

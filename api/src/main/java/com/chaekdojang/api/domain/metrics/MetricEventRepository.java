@@ -45,8 +45,6 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
                    OR LOWER(COALESCE(m.operatingSystem, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(u.nickname, '')) LIKE LOWER(CONCAT('%', :q, '%')))
               AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
-              AND m.ip NOT IN :excludedIps
-              AND (:excludedIpPrefix = '' OR m.ip IS NULL OR m.ip NOT LIKE CONCAT(:excludedIpPrefix, '%'))
               AND (:eventType = '' OR m.eventType = :eventType)
               AND (:excludeBackground = false OR m.eventType NOT IN ('heartbeat', 'session_end'))
               AND (:userType = ''
@@ -58,8 +56,6 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             @Param("eventType") String eventType,
             @Param("userType") String userType,
             @Param("excludeBackground") boolean excludeBackground,
-            @Param("excludedIps") List<String> excludedIps,
-            @Param("excludedIpPrefix") String excludedIpPrefix,
             Pageable pageable
     );
 
@@ -68,16 +64,10 @@ public interface MetricEventRepository extends JpaRepository<MetricEvent, Long> 
             LEFT JOIN FETCH m.user u
             WHERE m.createdAt >= :since
               AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
-              AND m.ip NOT IN :excludedIps
-              AND (:excludedIpPrefix = '' OR m.ip IS NULL OR m.ip NOT LIKE CONCAT(:excludedIpPrefix, '%'))
               AND m.path NOT LIKE '/admin%'
               AND m.path NOT LIKE '/api/admin%'
             """)
-    List<MetricEvent> findVisibleSince(
-            @Param("since") LocalDateTime since,
-            @Param("excludedIps") List<String> excludedIps,
-            @Param("excludedIpPrefix") String excludedIpPrefix
-    );
+    List<MetricEvent> findVisibleSince(@Param("since") LocalDateTime since);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE MetricEvent m SET m.user = null WHERE m.user.id = :userId")

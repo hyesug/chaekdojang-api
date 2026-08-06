@@ -2,7 +2,6 @@ package com.chaekdojang.api.domain.accesslog;
 
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
-import com.chaekdojang.api.global.traffic.AdminTrafficFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ public class AccessLogService {
 
     private final AccessLogRepository accessLogRepository;
     private final UserRepository userRepository;
-    private final AdminTrafficFilter adminTrafficFilter;
 
     /**
      * 비동기로 저장 — 요청 처리 지연 없음.
@@ -25,7 +23,7 @@ public class AccessLogService {
     public void save(String ip, Long userId, String method, String uri, int status, long elapsedMs,
                      String userAgent, String deviceId) {
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
-        if ((user != null && user.isAdmin()) || adminTrafficFilter.isExcludedIp(ip)) return;
+        if (user != null && user.isAdmin()) return;
         accessLogRepository.save(AccessLog.builder()
                 .ip(ip)
                 .user(user)
@@ -50,8 +48,7 @@ public class AccessLogService {
             String method,
             Integer statusMin,
             Integer statusMax,
-            java.util.List<String> excludedIps,
             org.springframework.data.domain.Pageable pageable) {
-        return accessLogRepository.search(q, method, statusMin, statusMax, excludedIps, pageable);
+        return accessLogRepository.search(q, method, statusMin, statusMax, pageable);
     }
 }

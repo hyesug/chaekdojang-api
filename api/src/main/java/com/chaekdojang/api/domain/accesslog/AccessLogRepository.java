@@ -13,9 +13,10 @@ import java.util.List;
 public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
     @Query("""
             SELECT a FROM AccessLog a
+            LEFT JOIN a.user u
             WHERE (:q = '' OR LOWER(a.uri) LIKE LOWER(CONCAT('%', :q, '%')) OR a.ip LIKE CONCAT('%', :q, '%'))
               AND a.uri NOT LIKE '/api/admin%'
-              AND a.ip NOT IN :excludedIps
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
               AND (:method = '' OR a.method = :method)
               AND (:statusMin < 0 OR a.status >= :statusMin)
               AND (:statusMax < 0 OR a.status < :statusMax)
@@ -25,20 +26,17 @@ public interface AccessLogRepository extends JpaRepository<AccessLog, Long> {
             @Param("method") String method,
             @Param("statusMin") Integer statusMin,
             @Param("statusMax") Integer statusMax,
-            @Param("excludedIps") java.util.List<String> excludedIps,
             Pageable pageable
     );
 
     @Query("""
             SELECT a FROM AccessLog a
+            LEFT JOIN FETCH a.user u
             WHERE a.createdAt >= :since
               AND a.uri NOT LIKE '/api/admin%'
-              AND a.ip NOT IN :excludedIps
+              AND (u IS NULL OR u.role = com.chaekdojang.api.domain.user.UserRole.USER)
             """)
-    List<AccessLog> findVisibleSince(
-            @Param("since") LocalDateTime since,
-            @Param("excludedIps") List<String> excludedIps
-    );
+    List<AccessLog> findVisibleSince(@Param("since") LocalDateTime since);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM AccessLog a WHERE a.createdAt < :cutoff")

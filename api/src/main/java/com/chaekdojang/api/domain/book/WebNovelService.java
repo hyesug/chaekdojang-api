@@ -162,6 +162,23 @@ public class WebNovelService {
         }
     }
 
+    public String findDescription(Book book) {
+        WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
+                book.getSource(), book.getSourceUrl());
+        String officialDescription = cleanText(metadata.description(), 2000);
+        if (!officialDescription.isBlank()) return officialDescription;
+
+        return search(book.getTitle()).stream()
+                .filter(result -> result.platform() == book.getSource())
+                .filter(result -> java.util.Objects.equals(result.externalId(), book.getExternalId())
+                        || normalizeTitle(result.title()).equals(normalizeTitle(book.getTitle())))
+                .map(WebNovelSearchResult::description)
+                .map(description -> cleanText(description, 2000))
+                .filter(description -> !description.isBlank())
+                .findFirst()
+                .orElse("");
+    }
+
     @Transactional
     public BookResponse register(WebNovelRegisterRequest request) {
         WebNovelPlatform platform = WebNovelPlatform.fromSource(request.platform())

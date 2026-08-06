@@ -15,7 +15,6 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.google.GoogleBookClient;
 import com.chaekdojang.api.infra.kakao.KakaoBookClient;
-import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.review.ReviewLikeRepository;
 import com.chaekdojang.api.domain.review.CommentRepository;
@@ -44,7 +43,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final KakaoBookClient kakaoBookClient;
     private final GoogleBookClient googleBookClient;
-    private final WebNovelMetadataClient webNovelMetadataClient;
+    private final WebNovelService webNovelService;
     private final ReviewRepository reviewRepository;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewLikeRepository reviewLikeRepository;
@@ -333,16 +332,16 @@ public class BookService {
 
     private void refreshDescriptionIfNeeded(Book book) {
         if (!needsDescription(book)) return;
-        String missKey = "book:description:miss:" + book.getId();
+        String missKey = book.isWebNovel()
+                ? "book:web-novel-description:miss:v2:" + book.getId()
+                : "book:description:miss:" + book.getId();
         try {
             if (Boolean.TRUE.equals(redisTemplate.hasKey(missKey))) return;
         } catch (RuntimeException ignored) {
             // Redis 장애가 책 상세 조회를 막지 않도록 외부 도서 API 조회를 계속한다.
         }
         if (book.isWebNovel()) {
-            WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
-                    book.getSource(), book.getSourceUrl());
-            String description = normalizeDescription(metadata.description());
+            String description = normalizeDescription(webNovelService.findDescription(book));
             if (description != null) {
                 book.updateDescription(description);
                 return;

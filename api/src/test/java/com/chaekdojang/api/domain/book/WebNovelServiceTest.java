@@ -198,6 +198,32 @@ class WebNovelServiceTest {
         });
     }
 
+    @Test
+    void findsExistingBookDescriptionFromSearchWhenOfficialMetadataIsEmpty() {
+        Book book = Book.builder()
+                .title("은행원도 용꿈을 꾸나요 - 판타지 웹소설")
+                .author("연산호")
+                .source(BookSource.RIDI)
+                .externalId("6188000001")
+                .sourceUrl("https://ridibooks.com/books/6188000001")
+                .build();
+        WebNovelSearchResult searchResult = new WebNovelSearchResult(
+                "은행원도 용꿈을 꾸나요 - 판타지 웹소설",
+                "연산호",
+                BookSource.RIDI,
+                "리디",
+                "https://ridibooks.com/books/6188000001",
+                "6188000001",
+                "세계 곳곳의 미스터리를 해결하며 성장하는 은행원의 이야기",
+                "https://img.ridicdn.net/cover/6188000001/large"
+        );
+        when(ridiWebNovelClient.search(book.getTitle())).thenReturn(List.of(searchResult));
+
+        String description = webNovelService.findDescription(book);
+
+        assertThat(description).isEqualTo("세계 곳곳의 미스터리를 해결하며 성장하는 은행원의 이야기");
+    }
+
     private WebNovelSearchResult result(String title, BookSource platform, String externalId) {
         return new WebNovelSearchResult(
                 title,

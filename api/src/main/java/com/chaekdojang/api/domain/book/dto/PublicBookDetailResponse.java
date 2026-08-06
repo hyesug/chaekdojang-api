@@ -9,6 +9,7 @@ import java.util.List;
 public record PublicBookDetailResponse(
         Long id,
         String isbn13,
+        String contentType,
         String title,
         String author,
         String publisher,
@@ -58,6 +59,7 @@ public record PublicBookDetailResponse(
         return new PublicBookDetailResponse(
                 book.getId(),
                 book.getIsbn13(),
+                book.isWebNovel() ? "WEB_NOVEL" : "BOOK",
                 book.getTitle(),
                 book.getAuthor(),
                 book.getPublisher(),

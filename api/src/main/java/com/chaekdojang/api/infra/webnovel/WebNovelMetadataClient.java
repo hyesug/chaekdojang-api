@@ -85,7 +85,7 @@ public class WebNovelMetadataClient {
                     .body(String.class);
             return parseHtmlMetadata(source, html);
         } catch (Exception e) {
-            log.warn("웹소설 표지 조회 실패: platform={} externalId={} message={}",
+            log.warn("웹소설 메타데이터 조회 실패: platform={} externalId={} message={}",
                     source.name(), work.externalId(), e.getMessage());
             return Metadata.empty();
         }
@@ -102,7 +102,9 @@ public class WebNovelMetadataClient {
         if (thumbnail.isBlank()) thumbnail = openGraphImage(html);
 
         String author = source == BookSource.RIDI ? ridiAuthor(html) : "";
-        return new Metadata(author, sanitizeThumbnail(source, thumbnail));
+        String description = jsonLdDescription(html);
+        if (description.isBlank()) description = metaDescription(html);
+        return new Metadata(author, sanitizeThumbnail(source, thumbnail), description);
     }
 
     Metadata parseKakaoMetadata(JsonNode response) {
@@ -111,7 +113,29 @@ public class WebNovelMetadataClient {
         String author = cleanText(content.path("authors").asText(""));
         String thumbnailKey = cleanText(content.path("thumbnail").asText(""));
         String thumbnail = thumbnailKey.isBlank() ? "" : KAKAO_IMAGE_PREFIX + thumbnailKey;
-        return new Metadata(author, sanitizeThumbnail(BookSource.KAKAO_PAGE, thumbnail));
+        String description = cleanDescription(content.path("description").asText(""));
+        return new Metadata(author, sanitizeThumbnail(BookSource.KAKAO_PAGE, thumbnail), description);
+    }
+
+    private String metaDescription(String html) {
+        Matcher tagMatcher = META_TAG_PATTERN.matcher(html);
+        while (tagMatcher.find()) {
+            Matcher attributeMatcher = ATTRIBUTE_PATTERN.matcher(tagMatcher.group());
+            String property = "";
+            String content = "";
+            while (attributeMatcher.find()) {
+                String name = attributeMatcher.group(1).toLowerCase(Locale.ROOT);
+                String value = attributeMatcher.group(3);
+                if (name.equals("property") || name.equals("name")) property = value;
+                if (name.equals("content")) content = value;
+            }
+            if ((property.equalsIgnoreCase("description")
+                    || property.equalsIgnoreCase("og:description")
+                    || property.equalsIgnoreCase("twitter:description")) && !content.isBlank()) {
+                return cleanDescription(content);
+            }
+        }
+        return "";
     }
 
     private String openGraphImage(String html) {
@@ -142,6 +166,21 @@ public class WebNovelMetadataClient {
                 JsonNode book = objectMapper.readTree(matcher.group(1));
                 if (!"Book".equals(book.path("@type").asText())) continue;
                 return authorNames(book.path("author"));
+            } catch (Exception ignored) {
+                // 다른 JSON-LD 블록이 파싱되지 않아도 다음 블록을 확인한다.
+            }
+        }
+        return "";
+    }
+
+    private String jsonLdDescription(String html) {
+        Matcher matcher = JSON_LD_PATTERN.matcher(html);
+        while (matcher.find()) {
+            try {
+                JsonNode book = objectMapper.readTree(matcher.group(1));
+                if (!"Book".equals(book.path("@type").asText())) continue;
+                String description = cleanDescription(book.path("description").asText(""));
+                if (!description.isBlank()) return description;
             } catch (Exception ignored) {
                 // 다른 JSON-LD 블록이 파싱되지 않아도 다음 블록을 확인한다.
             }
@@ -203,14 +242,22 @@ public class WebNovelMetadataClient {
                 .trim();
     }
 
-    public record Metadata(String author, String thumbnail) {
+    private String cleanDescription(String value) {
+        String cleaned = cleanText(value == null ? "" : value
+                .replaceAll("(?i)<br\\s*/?>", " ")
+                .replaceAll("<[^>]+>", " "));
+        return cleaned.length() <= 2000 ? cleaned : cleaned.substring(0, 2000).trim();
+    }
+
+    public record Metadata(String author, String thumbnail, String description) {
         public Metadata {
             author = author == null ? "" : author;
             thumbnail = thumbnail == null ? "" : thumbnail;
+            description = description == null ? "" : description;
         }
 
         public static Metadata empty() {
-            return new Metadata("", "");
+            return new Metadata("", "", "");
         }
     }
 }

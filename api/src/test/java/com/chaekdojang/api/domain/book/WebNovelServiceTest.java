@@ -12,6 +12,7 @@ import com.chaekdojang.api.infra.ridi.RidiWebNovelClient;
 import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.List;
@@ -66,14 +67,16 @@ class WebNovelServiceTest {
         when(webNovelMetadataClient.findMetadata(BookSource.RIDI, "https://ridibooks.com/books/4362000001"))
                 .thenReturn(new WebNovelMetadataClient.Metadata(
                         "김수지",
-                        "https://img.ridicdn.net/cover/4362000001/large"
+                        "https://img.ridicdn.net/cover/4362000001/large",
+                        "기사단장 칼립스와 맥시밀리언의 이야기"
                 ));
 
         BookResponse response = webNovelService.register(new WebNovelRegisterRequest(
                 "상수리나무 아래",
                 "김수지",
                 BookSource.RIDI,
-                "https://ridibooks.com/books/4362000001?_s=search"
+                "https://ridibooks.com/books/4362000001?_s=search",
+                "말더듬이 공작 영애가 새로운 세상을 만나는 이야기"
         ));
 
         assertThat(response.title()).isEqualTo("상수리나무 아래");
@@ -82,7 +85,10 @@ class WebNovelServiceTest {
         assertThat(response.externalId()).isEqualTo("4362000001");
         assertThat(response.sourceUrl()).isEqualTo("https://ridibooks.com/books/4362000001");
         assertThat(response.thumbnail()).isEqualTo("https://img.ridicdn.net/cover/4362000001/large");
-        verify(bookRepository).save(any(Book.class));
+        ArgumentCaptor<Book> savedBook = ArgumentCaptor.forClass(Book.class);
+        verify(bookRepository).save(savedBook.capture());
+        assertThat(savedBook.getValue().getDescription())
+                .isEqualTo("말더듬이 공작 영애가 새로운 세상을 만나는 이야기");
     }
 
     @Test
@@ -96,7 +102,8 @@ class WebNovelServiceTest {
                 "착한 오빠, 나쁜 오빠",
                 "봉자까",
                 BookSource.NAVER_SERIES,
-                "https://novel.naver.com/best/list?OSType=pc&novelId=1159312&page=7"
+                "https://novel.naver.com/best/list?OSType=pc&novelId=1159312&page=7",
+                "두 오빠 사이에서 펼쳐지는 로맨스"
         ));
 
         assertThat(response.publisher()).isEqualTo("네이버 웹소설");
@@ -112,7 +119,8 @@ class WebNovelServiceTest {
                 "상수리나무 아래",
                 "김수지",
                 BookSource.RIDI,
-                "https://page.kakao.com/content/56566288"
+                "https://page.kakao.com/content/56566288",
+                null
         ))).isInstanceOf(CustomException.class);
     }
 
@@ -157,7 +165,8 @@ class WebNovelServiceTest {
         when(webNovelMetadataClient.findMetadata(BookSource.RIDI, ridi.sourceUrl()))
                 .thenReturn(new WebNovelMetadataClient.Metadata(
                         "조앤 플루크",
-                        "https://img.ridicdn.net/cover/2089000054/large"
+                        "https://img.ridicdn.net/cover/2089000054/large",
+                        "웨딩케이크를 둘러싼 미스터리"
                 ));
 
         List<WebNovelSearchResult> results = webNovelService.search("웨딩케이크");
@@ -177,7 +186,8 @@ class WebNovelServiceTest {
         when(webNovelMetadataClient.findMetadata(any(), any()))
                 .thenReturn(new WebNovelMetadataClient.Metadata(
                         "연산호",
-                        "https://img.ridicdn.net/cover/6188000001/large"
+                        "https://img.ridicdn.net/cover/6188000001/large",
+                        "은행원이 새로운 꿈을 향해 나아가는 이야기"
                 ));
 
         List<WebNovelSearchResult> results = webNovelService.search("은행원도 용꿈을 꾸나요");

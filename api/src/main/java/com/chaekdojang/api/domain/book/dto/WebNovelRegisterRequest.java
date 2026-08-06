@@ -9,6 +9,7 @@ public record WebNovelRegisterRequest(
         @NotBlank @Size(max = 255) String title,
         @Size(max = 255) String author,
         @NotNull BookSource platform,
-        @NotBlank @Size(max = 1000) String sourceUrl
+        @NotBlank @Size(max = 1000) String sourceUrl,
+        @Size(max = 2000) String description
 ) {
 }

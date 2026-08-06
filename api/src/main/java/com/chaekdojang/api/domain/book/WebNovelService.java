@@ -108,14 +108,20 @@ public class WebNovelService {
 
     private WebNovelSearchResult enrichMetadata(WebNovelSearchResult result) {
         if (!result.author().isBlank()
-                && result.thumbnail() != null && !result.thumbnail().isBlank()) {
+                && result.thumbnail() != null && !result.thumbnail().isBlank()
+                && result.description() != null && !result.description().isBlank()) {
             return result;
         }
         WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                 result.platform(), result.sourceUrl());
         String author = result.author().isBlank() ? metadata.author() : result.author();
         String thumbnail = metadata.thumbnail().isBlank() ? result.thumbnail() : metadata.thumbnail();
-        if (author.equals(result.author()) && java.util.Objects.equals(thumbnail, result.thumbnail())) {
+        String description = result.description() == null || result.description().isBlank()
+                ? metadata.description()
+                : result.description();
+        if (author.equals(result.author())
+                && java.util.Objects.equals(thumbnail, result.thumbnail())
+                && java.util.Objects.equals(description, result.description())) {
             return result;
         }
         return new WebNovelSearchResult(
@@ -125,7 +131,7 @@ public class WebNovelService {
                 result.platformLabel(),
                 result.sourceUrl(),
                 result.externalId(),
-                result.description(),
+                description,
                 thumbnail
         );
     }
@@ -168,11 +174,15 @@ public class WebNovelService {
         if (book == null) {
             WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                     request.platform(), resolved.canonicalUrl());
-            book = createBook(request, platform, resolved, metadata.thumbnail());
-        } else if (book.getThumbnail() == null || book.getThumbnail().isBlank()) {
+            book = createBook(request, platform, resolved, metadata);
+        } else if (book.getThumbnail() == null || book.getThumbnail().isBlank()
+                || book.getDescription() == null || book.getDescription().isBlank()) {
             WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
                     request.platform(), resolved.canonicalUrl());
             book.updateThumbnailIfMissing(metadata.thumbnail());
+            String description = cleanText(request.description(), 2000);
+            if (description.isBlank()) description = cleanText(metadata.description(), 2000);
+            book.updateDescription(description);
         }
         long reviewCount = reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(book.getId());
         return BookResponse.from(book, reviewCount);
@@ -182,18 +192,21 @@ public class WebNovelService {
             WebNovelRegisterRequest request,
             WebNovelPlatform platform,
             WebNovelPlatform.ResolvedWork resolved,
-            String thumbnail
+            WebNovelMetadataClient.Metadata metadata
     ) {
         String title = cleanText(request.title(), 255);
         if (title.isBlank()) throw new CustomException(ErrorCode.INVALID_REQUEST);
         String author = cleanText(request.author(), 255);
+        String description = cleanText(request.description(), 2000);
+        if (description.isBlank()) description = cleanText(metadata.description(), 2000);
         String slugKey = request.platform().name().toLowerCase(Locale.ROOT) + "-" + resolved.externalId();
         return bookRepository.save(
                 Book.builder()
                         .title(title)
                         .author(author)
                         .publisher(platform.labelFor(resolved))
-                        .thumbnail(thumbnail)
+                        .thumbnail(metadata.thumbnail())
+                        .description(description.isBlank() ? null : description)
                         .slug(BookSlugGenerator.create(title, author, slugKey, null))
                         .source(request.platform())
                         .externalId(resolved.externalId())

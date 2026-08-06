@@ -15,6 +15,7 @@ import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.infra.google.GoogleBookClient;
 import com.chaekdojang.api.infra.kakao.KakaoBookClient;
+import com.chaekdojang.api.infra.webnovel.WebNovelMetadataClient;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.review.ReviewLikeRepository;
 import com.chaekdojang.api.domain.review.CommentRepository;
@@ -43,6 +44,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final KakaoBookClient kakaoBookClient;
     private final GoogleBookClient googleBookClient;
+    private final WebNovelMetadataClient webNovelMetadataClient;
     private final ReviewRepository reviewRepository;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewLikeRepository reviewLikeRepository;
@@ -337,6 +339,17 @@ public class BookService {
         } catch (RuntimeException ignored) {
             // Redis 장애가 책 상세 조회를 막지 않도록 외부 도서 API 조회를 계속한다.
         }
+        if (book.isWebNovel()) {
+            WebNovelMetadataClient.Metadata metadata = webNovelMetadataClient.findMetadata(
+                    book.getSource(), book.getSourceUrl());
+            String description = normalizeDescription(metadata.description());
+            if (description != null) {
+                book.updateDescription(description);
+                return;
+            }
+            cacheDescriptionMiss(missKey);
+            return;
+        }
         String query = book.getIsbn13() != null && !book.getIsbn13().isBlank()
                 ? book.getIsbn13()
                 : book.getTitle() + " " + book.getAuthor();
@@ -352,6 +365,10 @@ public class BookService {
             book.updateDescription(normalizeDescription(matched.description()));
             return;
         }
+        cacheDescriptionMiss(missKey);
+    }
+
+    private void cacheDescriptionMiss(String missKey) {
         try {
             redisTemplate.opsForValue().set(missKey, "1", Duration.ofHours(12));
         } catch (RuntimeException ignored) {

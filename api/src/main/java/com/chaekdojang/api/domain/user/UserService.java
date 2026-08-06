@@ -416,17 +416,25 @@ public class UserService {
         Map<Integer, Set<Long>> yearlyBookIds = new TreeMap<>();
         Map<String, Integer> genreByYear = new HashMap<>();
         Map<String, Integer> keywordCounts = new HashMap<>();
-        Map<Long, List<Review>> reviewsByBook = new LinkedHashMap<>();
+        Map<Long, Review> activeReviewById = reviews.stream()
+                .collect(java.util.stream.Collectors.toMap(Review::getId, review -> review));
+        Map<Long, Map<Long, Review>> rereadReviewsByBook = new LinkedHashMap<>();
         int rereadCount = 0;
 
         for (Review review : reviews) {
             monthlyCounts.merge(YearMonth.from(review.getCreatedAt()), 1, Integer::sum);
-            if (review.getPreviousReview() != null) rereadCount++;
+            if (review.getPreviousReview() != null && review.getBook() != null) {
+                rereadCount++;
+                Map<Long, Review> chain = rereadReviewsByBook.computeIfAbsent(
+                        review.getBook().getId(), ignored -> new LinkedHashMap<>());
+                Review previous = activeReviewById.get(review.getPreviousReview().getId());
+                if (previous != null) chain.put(previous.getId(), previous);
+                chain.put(review.getId(), review);
+            }
             if (review.getBook() != null) {
                 Book book = review.getBook();
                 int year = review.getCreatedAt().getYear();
                 yearlyBookIds.computeIfAbsent(year, ignored -> new HashSet<>()).add(book.getId());
-                reviewsByBook.computeIfAbsent(book.getId(), ignored -> new ArrayList<>()).add(review);
                 if (book.getCategory() != null && !book.getCategory().isBlank()) {
                     String genre = book.getCategory().trim();
                     genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
@@ -465,16 +473,21 @@ public class UserService {
                 .map(entry -> new ReadingReflectionResponse.KeywordCount(entry.getKey(), entry.getValue()))
                 .toList();
 
-        List<ReadingReflectionResponse.RereadBook> rereadBooks = reviewsByBook.values().stream()
+        List<List<Review>> rereadChains = rereadReviewsByBook.values().stream()
+                .map(values -> values.values().stream()
+                        .sorted(Comparator.comparing(Review::getCreatedAt))
+                        .toList())
                 .filter(values -> values.size() > 1)
+                .toList();
+
+        List<ReadingReflectionResponse.RereadBook> rereadBooks = rereadChains.stream()
                 .map(values -> new ReadingReflectionResponse.RereadBook(
                         values.getFirst().getBook().getId(), values.getFirst().getBook().getTitle(), values.size(),
                         values.getFirst().getCreatedAt(), values.getLast().getCreatedAt()))
                 .sorted(Comparator.comparing(ReadingReflectionResponse.RereadBook::latestAt).reversed())
                 .toList();
 
-        ReadingReflectionResponse.LongestRecordedBook longestBook = reviewsByBook.values().stream()
-                .filter(values -> values.size() > 1)
+        ReadingReflectionResponse.LongestRecordedBook longestBook = rereadChains.stream()
                 .map(values -> new ReadingReflectionResponse.LongestRecordedBook(
                         values.getFirst().getBook().getId(), values.getFirst().getBook().getTitle(),
                         ChronoUnit.DAYS.between(values.getFirst().getCreatedAt(), values.getLast().getCreatedAt()),

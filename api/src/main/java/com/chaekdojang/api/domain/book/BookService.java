@@ -301,7 +301,7 @@ public class BookService {
         String isbn13 = normalizeIsbn13(result.isbn13());
         if (isbn13 != null) {
             return bookRepository.findByIsbn13(isbn13)
-                    .map(book -> updateDescriptionIfNeeded(book, result.description()))
+                    .map(book -> updateBookMetadata(book, result))
                     .orElseGet(() -> createBook(result, isbn13));
         }
         return createBook(result, null);
@@ -328,6 +328,18 @@ public class BookService {
         String normalized = normalizeDescription(candidate);
         if (needsDescription(book) && isBetterDescription(book.getDescription(), normalized)) {
             book.updateDescription(normalized);
+        }
+        return book;
+    }
+
+    private Book updateBookMetadata(Book book, BookSearchResult result) {
+        updateDescriptionIfNeeded(book, result.description());
+        if (result.category() != null && !result.category().isBlank()) {
+            String category = BookGenreClassifier.resolve(
+                    result.category(), result.source(), result.title(), result.description());
+            if (category != null && !category.equals(BookGenreClassifier.resolve(book))) {
+                book.updateCategory(category);
+            }
         }
         return book;
     }

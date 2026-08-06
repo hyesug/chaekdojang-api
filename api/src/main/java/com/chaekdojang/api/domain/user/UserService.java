@@ -437,7 +437,9 @@ public class UserService {
                 int year = review.getCreatedAt().getYear();
                 yearlyBookIds.computeIfAbsent(year, ignored -> new HashSet<>()).add(book.getId());
                 String genre = BookGenreClassifier.resolve(book);
-                genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
+                if (genre != null) {
+                    genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
+                }
             }
             if (review.getKeywords() != null) {
                 java.util.Arrays.stream(review.getKeywords().split(","))

@@ -116,6 +116,10 @@ public class Book {
         }
     }
 
+    public void updateCategory(String category) {
+        this.category = category;
+    }
+
     public void updateSeoFields(String slug, String description, String seoTitle, String seoDescription) {
         if (slug != null && !slug.isBlank()) this.slug = slug;
         if (description != null && !description.isBlank()) this.description = description;

@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.book.dto;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.book.BookGenreClassifier;
 
 public record BookResponse(
         Long id,
@@ -34,7 +35,7 @@ public record BookResponse(
                 book.isWebNovel() ? "WEB_NOVEL" : "BOOK",
                 book.getExternalId(),
                 book.getSourceUrl(),
-                book.getCategory(),
+                BookGenreClassifier.resolve(book),
                 reviewCount
         );
     }

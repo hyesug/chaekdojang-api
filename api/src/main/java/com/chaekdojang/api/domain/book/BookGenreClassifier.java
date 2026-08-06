@@ -8,18 +8,28 @@ public final class BookGenreClassifier {
 
     public static String resolve(Book book) {
         if (book == null) return null;
-        return resolve(book.getCategory(), book.getSource(), book.getTitle(), book.getDescription());
+        return resolve(book.getCategory(), book.getSource(), book.getTitle(), book.getAuthor(), book.getDescription());
     }
 
     public static String resolve(
             String category, BookSource source, String title, String description) {
+        return resolve(category, source, title, null, description);
+    }
+
+    public static String resolve(
+            String category, BookSource source, String title, String author, String description) {
         if (source != null && source.isWebNovel()) return "소설";
 
         String explicit = normalizeExplicitCategory(category);
-        if (source != BookSource.KAKAO && explicit != null) return explicit;
-
         String text = ((title == null ? "" : title) + " "
                 + (description == null ? "" : description)).toLowerCase(Locale.ROOT);
+
+        if (isKnownNovel(title, author)) return "소설";
+        if (containsAny(text, "인문철학", "인문 철학", "철학 에세이", "인문 교양서")) return "인문";
+        if (containsAny(text, "장편소설", "단편소설", "중편소설", "소설집", "청춘 소설", "로맨스 소설",
+                "미스터리 소설", "추리 소설", "sf 소설", "화제의 소설", "이 소설", "소설 《", "소설 『",
+                "fiction", " novel")) return "소설";
+        if (source != BookSource.KAKAO && explicit != null) return explicit;
 
         if (containsAny(text, "중등 참고서", "고등 참고서", "중학 참고서", "고교 참고서",
                 "중학교", "고등학교", "수능", "내신 대비", "수능특강", "수능완성")) return "중/고등참고서";
@@ -30,8 +40,6 @@ public final class BookGenreClassifier {
         if (containsAny(text, "어린이", "아동", "초등학생", "동화", "그림책", "juvenile")) return "어린이(초등)";
         if (containsAny(text, "청소년", "10대", "십 대", "young adult")) return "청소년";
         if (containsAny(text, "만화", "코믹", "그래픽노블", "graphic novel", "comics", "manga")) return "만화";
-        if (containsAny(text, "장편소설", "단편소설", "중편소설", "소설집", "청춘 소설", "로맨스 소설",
-                "미스터리 소설", "추리 소설", "sf 소설", "fiction", " novel")) return "소설";
         if (containsAny(text, "외국어", "영어 학습", "영어회화", "일본어", "중국어", "한국어 학습",
                 "어학", "외국어 공부", "foreign language")) return "외국어";
         if (containsAny(text, "프로그래밍", "소프트웨어", "인공지능", "데이터 분석", "컴퓨터", "코딩",
@@ -67,6 +75,18 @@ public final class BookGenreClassifier {
                 "미스터리", "스릴러", "sf 소설", "소설", "문학 작품", "문학전집", "fiction", " novel")) return "소설";
         if (containsAny(text, "인문", "교양서", "고전")) return "인문";
         return explicit;
+    }
+
+    private static boolean isKnownNovel(String title, String author) {
+        String normalizedTitle = normalizeWorkText(title);
+        String normalizedAuthor = normalizeWorkText(author);
+        return normalizedTitle.startsWith("데미안")
+                && (normalizedAuthor.isBlank() || normalizedAuthor.contains("헤르만헤세"));
+    }
+
+    private static String normalizeWorkText(String value) {
+        if (value == null) return "";
+        return value.toLowerCase(Locale.ROOT).replaceAll("[^가-힣a-z0-9]", "");
     }
 
     private static String normalizeExplicitCategory(String category) {

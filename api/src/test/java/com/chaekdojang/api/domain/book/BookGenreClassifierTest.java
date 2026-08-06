@@ -7,9 +7,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BookGenreClassifierTest {
 
     @Test
-    void keepsExternalCategoryBeforeInferring() {
+    void prioritizesExplicitBookTypeOverExternalTopicCategory() {
         assertThat(BookGenreClassifier.resolve(
                 "History", BookSource.GOOGLE_BOOKS, "어떤 소설", "장편소설 소개"))
+                .isEqualTo("소설");
+    }
+
+    @Test
+    void keepsExternalCategoryWhenBookTypeIsNotExplicit() {
+        assertThat(BookGenreClassifier.resolve(
+                "History", BookSource.GOOGLE_BOOKS, "세계의 흐름", "시대의 변화를 살펴본다"))
                 .isEqualTo("역사/문화");
     }
 
@@ -59,6 +66,26 @@ class BookGenreClassifierTest {
     void reclassifiesLegacyKakaoCategoryFromCurrentBookText() {
         assertThat(BookGenreClassifier.resolve(
                 "역사", BookSource.KAKAO, "체호프 단편선", "러시아 문학을 대표하는 단편소설 모음"))
+                .isEqualTo("소설");
+    }
+
+    @Test
+    void prioritizesBookTypeOverIncidentalTopicWords() {
+        assertThat(BookGenreClassifier.resolve(
+                "과학", BookSource.KAKAO, "불안(리커버:K)", "알랭 드 보통",
+                "알랭 드 보통의 인문철학 에세이. 천문학자 등 유명인이 추천했다."))
+                .isEqualTo("인문");
+        assertThat(BookGenreClassifier.resolve(
+                "예술/대중문화", BookSource.KAKAO, "프로젝트 헤일메리", "앤디 위어",
+                "전 세계 SF 팬들을 사로잡은 화제의 소설이 영화로 향한다."))
+                .isEqualTo("소설");
+    }
+
+    @Test
+    void classifiesDemianWithoutExternalDescription() {
+        assertThat(BookGenreClassifier.resolve(
+                null, BookSource.KAKAO, "데미안", "헤르만 헤세",
+                "데미안은 헤르만 헤세의 책입니다."))
                 .isEqualTo("소설");
     }
 }

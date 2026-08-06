@@ -319,7 +319,7 @@ public class BookService {
                         .slug(BookSlugGenerator.create(result.title(), result.author(), isbn13, null))
                         .source(result.source())
                         .category(BookGenreClassifier.resolve(
-                                result.category(), result.source(), result.title(), result.description()))
+                                result.category(), result.source(), result.title(), result.author(), result.description()))
                         .build()
         );
     }
@@ -336,7 +336,7 @@ public class BookService {
         updateDescriptionIfNeeded(book, result.description());
         if (result.category() != null && !result.category().isBlank()) {
             String category = BookGenreClassifier.resolve(
-                    result.category(), result.source(), result.title(), result.description());
+                    result.category(), result.source(), result.title(), result.author(), result.description());
             if (category != null && !category.equals(BookGenreClassifier.resolve(book))) {
                 book.updateCategory(category);
             }

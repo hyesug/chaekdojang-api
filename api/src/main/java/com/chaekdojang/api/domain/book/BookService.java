@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
+import com.chaekdojang.api.domain.book.dto.BookConnectionResponse;
 import com.chaekdojang.api.domain.book.dto.BookSearchResult;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
 import com.chaekdojang.api.domain.review.Review;
@@ -28,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -111,17 +113,78 @@ public class BookService {
                 .map(value -> Math.round(value * 10.0) / 10.0)
                 .findFirst()
                 .orElse(0.0);
+        long participantCount = reviews.stream().map(review -> review.getAuthor().getId()).distinct().count();
+        int minimumAggregateReviewCount = 3;
+        boolean aggregateAvailable = reviews.size() >= minimumAggregateReviewCount
+                && participantCount >= minimumAggregateReviewCount;
+        Map<String, Long> reviewKeywordCounts = reviews.stream()
+                .filter(review -> review.getKeywords() != null)
+                .flatMap(review -> java.util.Arrays.stream(review.getKeywords().split(",")))
+                .map(String::trim)
+                .filter(keyword -> !keyword.isBlank())
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        List<BookReactionReportResponse.KeywordStat> commonReviewKeywords = aggregateAvailable
+                ? reviewKeywordCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() >= 2)
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(8)
+                .map(entry -> new BookReactionReportResponse.KeywordStat(entry.getKey(), entry.getValue()))
+                .toList()
+                : List.of();
+        long positive = reviews.stream().filter(review -> review.getRating() >= 4).count();
+        long negative = reviews.stream().filter(review -> review.getRating() <= 2).count();
+        long neutral = reviews.size() - positive - negative;
+        List<String> perspectiveNotes = new ArrayList<>();
+        if (aggregateAvailable) {
+            commonReviewKeywords.forEach(keyword -> perspectiveNotes.add(
+                    "등록된 독후감 중 " + keyword.count() + "개에서 #" + keyword.keyword() + " 키워드가 선택되었습니다."));
+            if (positive > 0 && negative > 0) {
+                perspectiveNotes.add("높은 별점과 낮은 별점이 함께 있어 독자들의 반응이 한쪽으로만 모이지 않았습니다.");
+            }
+        }
         return new BookReactionReportResponse(
                 BookReactionReportResponse.BookInfo.from(book),
                 reviews.size(),
-                reviews.stream().map(review -> review.getAuthor().getId()).distinct().count(),
+                participantCount,
                 averageRating,
-                commonEmotionKeywords(cards),
+                aggregateAvailable ? commonEmotionKeywords(cards) : List.of(),
                 cards.isEmpty() ? null : cards.get(0).oneLineReview(),
                 cards.isEmpty() ? null : cards.get(0).recommendedFor(),
                 cards.isEmpty() ? null : cards.get(0).impressivePoint(),
-                cards
+                cards,
+                aggregateAvailable,
+                minimumAggregateReviewCount,
+                commonReviewKeywords,
+                aggregateAvailable
+                        ? new BookReactionReportResponse.RatingDistribution(positive, neutral, negative)
+                        : new BookReactionReportResponse.RatingDistribution(0, 0, 0),
+                perspectiveNotes
         );
+    }
+
+    public List<BookConnectionResponse> getConnections(Long bookId) {
+        if (!bookRepository.existsById(bookId)) {
+            throw new CustomException(ErrorCode.BOOK_NOT_FOUND);
+        }
+        List<Object[]> stats = reviewRepository.findConnectedBookStats(bookId);
+        if (stats.isEmpty()) return List.of();
+        Map<Long, Book> books = bookRepository.findAllById(
+                        stats.stream().map(row -> toLong(row[0])).toList())
+                .stream()
+                .filter(book -> book.getDeletedAt() == null && book.isPublic())
+                .collect(Collectors.toMap(Book::getId, Function.identity()));
+        return stats.stream()
+                .map(row -> {
+                    Long connectedBookId = toLong(row[0]);
+                    long sharedReaders = toLong(row[1]);
+                    Book book = books.get(connectedBookId);
+                    if (book == null) return null;
+                    return new BookConnectionResponse(
+                            book.getId(), book.getTitle(), book.getAuthor(), book.getThumbnail(), sharedReaders,
+                            "이 책을 기록한 독자 " + sharedReaders + "명이 함께 기록했습니다.");
+                })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Transactional

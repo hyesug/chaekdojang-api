@@ -15,8 +15,15 @@ public record BookReactionReportResponse(
         String representativeOneLineReview,
         String recommendedForSummary,
         String impressivePointSummary,
-        List<ReviewCardInfo> cards
+        List<ReviewCardInfo> cards,
+        boolean aggregateAvailable,
+        int minimumAggregateReviewCount,
+        List<KeywordStat> commonReviewKeywords,
+        RatingDistribution ratingDistribution,
+        List<String> perspectiveNotes
 ) {
+    public record KeywordStat(String keyword, long count) {}
+    public record RatingDistribution(long positive, long neutral, long negative) {}
     public record BookInfo(
             Long id,
             String title,

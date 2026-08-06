@@ -561,6 +561,8 @@ public class AdminService {
 
     private String referrerLabel(String referrer) {
         if (referrer == null || referrer.isBlank()) return "직접 방문";
+        if (referrer.equals("chaekdojang://invite/kakao-reading-group")) return "카카오 독서모임 초대 유입";
+        if (referrer.equals("chaekdojang://invite/reading-group-link")) return "독서모임 초대 링크 유입";
         String value = referrer.toLowerCase();
         if (value.contains("brunch")) return "브런치";
         if (value.contains("google")) return "구글";

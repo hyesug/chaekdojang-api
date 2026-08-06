@@ -15,6 +15,8 @@ public class ReviewAiSummaryProperties {
     private int batchSize = 5;
     private int maxRetries = 3;
     private Duration timeout = Duration.ofSeconds(30);
+    private double inputCostPerMillionTokens = 0;
+    private double outputCostPerMillionTokens = 0;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -30,4 +32,8 @@ public class ReviewAiSummaryProperties {
     public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
     public Duration getTimeout() { return timeout; }
     public void setTimeout(Duration timeout) { this.timeout = timeout; }
+    public double getInputCostPerMillionTokens() { return inputCostPerMillionTokens; }
+    public void setInputCostPerMillionTokens(double value) { this.inputCostPerMillionTokens = value; }
+    public double getOutputCostPerMillionTokens() { return outputCostPerMillionTokens; }
+    public void setOutputCostPerMillionTokens(double value) { this.outputCostPerMillionTokens = value; }
 }

@@ -14,6 +14,7 @@ import java.util.List;
 public class ReadingGroupController {
 
     private final ReadingGroupService readingGroupService;
+    private final ReadingGroupQuestionService readingGroupQuestionService;
 
     @GetMapping
     public ApiResponse<List<ReadingGroupResponse>> getPublicGroups() {
@@ -128,6 +129,74 @@ public class ReadingGroupController {
             @PathVariable Long groupBookId,
             @PathVariable Long reviewId) {
         readingGroupService.detachReview(slug, groupBookId, reviewId);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/{slug}/books/{groupBookId}/questions")
+    public ApiResponse<ReadingGroupQuestionListResponse> getQuestions(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId) {
+        return ApiResponse.ok(readingGroupQuestionService.getQuestions(slug, groupBookId));
+    }
+
+    @PostMapping("/{slug}/books/{groupBookId}/questions")
+    public ApiResponse<ReadingGroupQuestionItemResponse> createQuestion(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @RequestBody @Valid ReadingGroupQuestionCreateRequest request) {
+        return ApiResponse.ok(readingGroupQuestionService.createQuestion(slug, groupBookId, request));
+    }
+
+    @PostMapping("/{slug}/books/{groupBookId}/questions/ai-draft")
+    public ApiResponse<ReadingGroupQuestionItemResponse> generateQuestionDraft(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId) {
+        return ApiResponse.ok(readingGroupQuestionService.generateAiDraft(slug, groupBookId));
+    }
+
+    @PatchMapping("/{slug}/books/{groupBookId}/questions/{questionId}")
+    public ApiResponse<ReadingGroupQuestionItemResponse> updateQuestion(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long questionId,
+            @RequestBody @Valid ReadingGroupQuestionUpdateRequest request) {
+        return ApiResponse.ok(readingGroupQuestionService.updateQuestion(
+                slug, groupBookId, questionId, request));
+    }
+
+    @PostMapping("/{slug}/books/{groupBookId}/questions/{questionId}/publish")
+    public ApiResponse<ReadingGroupQuestionItemResponse> publishQuestion(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long questionId) {
+        return ApiResponse.ok(readingGroupQuestionService.publishQuestion(slug, groupBookId, questionId));
+    }
+
+    @DeleteMapping("/{slug}/books/{groupBookId}/questions/{questionId}")
+    public ApiResponse<Void> deleteQuestion(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long questionId) {
+        readingGroupQuestionService.deleteQuestion(slug, groupBookId, questionId);
+        return ApiResponse.ok(null);
+    }
+
+    @PutMapping("/{slug}/books/{groupBookId}/questions/{questionId}/response")
+    public ApiResponse<ReadingGroupQuestionAnswerResponse> saveQuestionAnswer(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long questionId,
+            @RequestBody @Valid ReadingGroupQuestionAnswerRequest request) {
+        return ApiResponse.ok(readingGroupQuestionService.saveAnswer(
+                slug, groupBookId, questionId, request));
+    }
+
+    @DeleteMapping("/{slug}/books/{groupBookId}/questions/{questionId}/response")
+    public ApiResponse<Void> deleteQuestionAnswer(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId,
+            @PathVariable Long questionId) {
+        readingGroupQuestionService.deleteAnswer(slug, groupBookId, questionId);
         return ApiResponse.ok(null);
     }
 }

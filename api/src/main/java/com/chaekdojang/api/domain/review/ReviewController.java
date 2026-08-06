@@ -1,7 +1,9 @@
 package com.chaekdojang.api.domain.review;
 
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
+import com.chaekdojang.api.domain.review.dto.ReviewContinuationResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
+import com.chaekdojang.api.domain.review.dto.ReviewRereadHistoryResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewVisibilityRequest;
 import com.chaekdojang.api.domain.user.UserService;
@@ -46,6 +48,18 @@ public class ReviewController {
     @GetMapping("/{id}")
     public ApiResponse<ReviewResponse> getOne(@PathVariable Long id) {
         return ApiResponse.ok(reviewService.getOne(id));
+    }
+
+    @Operation(summary = "재독 기록 조회", description = "현재 독후감과 연결된 재독 기록을 공개 범위에 맞게 반환합니다.")
+    @GetMapping("/{id}/reread-history")
+    public ApiResponse<ReviewRereadHistoryResponse> getRereadHistory(@PathVariable Long id) {
+        return ApiResponse.ok(reviewService.getRereadHistory(id));
+    }
+
+    @Operation(summary = "이어진 독후감 조회", description = "원문과 이 독후감을 읽고 이어서 작성한 공개 기록을 반환합니다.")
+    @GetMapping("/{id}/continuations")
+    public ApiResponse<ReviewContinuationResponse> getContinuations(@PathVariable Long id) {
+        return ApiResponse.ok(reviewService.getContinuations(id));
     }
 
     @Operation(summary = "독후감 조회수 기록", description = "공개 독후감 상세 진입을 조회수로 기록합니다. 인증 불필요.")

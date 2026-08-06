@@ -4,8 +4,11 @@ import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +21,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Page<Review> findAllByDeletedAtIsNull(Pageable pageable);
 
     Optional<Review> findByIdAndDeletedAtIsNull(Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Review r WHERE r.id = :id AND r.deletedAt IS NULL")
+    Optional<Review> findForUpdateByIdAndDeletedAtIsNull(@Param("id") Long id);
 
     Optional<Review> findByIdAndDeletedAtIsNullAndHiddenFalse(Long id);
 
@@ -59,6 +66,25 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findAllByAuthorIdAndBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long authorId, Long bookId);
 
     List<Review> findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long authorId, Long bookId);
+
+    List<Review> findAllByAuthorIdAndDeletedAtIsNullOrderByCreatedAtAsc(Long authorId);
+
+    List<Review> findAllByAuthorIdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(
+            Long authorId, LocalDateTime start, LocalDateTime end);
+
+    List<Review> findAllByAuthorIdInAndDeletedAtIsNullAndHiddenFalseAndCreatedAtBetweenOrderByCreatedAtDesc(
+            List<Long> authorIds, LocalDateTime start, LocalDateTime end);
+
+    List<Review> findAllBySourceReview_Author_IdAndDeletedAtIsNullAndHiddenFalseAndCreatedAtBetweenOrderByCreatedAtDesc(
+            Long authorId, LocalDateTime start, LocalDateTime end);
+
+    List<Review> findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtAsc(Long authorId, Long bookId);
+
+    boolean existsByPreviousReviewIdAndDeletedAtIsNull(Long previousReviewId);
+
+    List<Review> findAllBySourceReviewIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(Long sourceReviewId);
+
+    boolean existsBySourceReviewIdAndDeletedAtIsNull(Long sourceReviewId);
 
     List<Review> findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByRatingDescCreatedAtDesc(Long bookId);
 
@@ -110,6 +136,22 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             GROUP BY r2.author.id
             """)
     List<Object[]> findRatingSimilarity(@Param("myId") Long myId, @Param("excludeIds") List<Long> excludeIds);
+
+    @Query(value = """
+            SELECT r2.book_id, COUNT(DISTINCT r2.author_id) AS shared_readers
+            FROM reviews r1
+            JOIN reviews r2 ON r2.author_id = r1.author_id
+            WHERE r1.book_id = :bookId
+              AND r2.book_id IS NOT NULL
+              AND r2.book_id <> :bookId
+              AND r1.deleted_at IS NULL AND r2.deleted_at IS NULL
+              AND r1.hidden = FALSE AND r2.hidden = FALSE
+            GROUP BY r2.book_id
+            HAVING COUNT(DISTINCT r2.author_id) >= 2
+            ORDER BY shared_readers DESC, r2.book_id ASC
+            LIMIT 6
+            """, nativeQuery = true)
+    List<Object[]> findConnectedBookStats(@Param("bookId") Long bookId);
 
     // 내 독후감 페이징 + 키워드 검색 (내용 또는 책 제목)
     // CAST(:q AS string) — null 시 PostgreSQL이 bytea로 추론하는 문제 방지

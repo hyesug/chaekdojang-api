@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.review;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.chat.ChatBlockRepository;
 import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
@@ -9,6 +10,8 @@ import com.chaekdojang.api.domain.metrics.MetricEventService;
 import com.chaekdojang.api.domain.notification.NotificationService;
 import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
+import com.chaekdojang.api.domain.review.dto.ReviewContinuationResponse;
+import com.chaekdojang.api.domain.review.dto.ReviewRereadHistoryResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewResponse;
 import com.chaekdojang.api.domain.review.dto.ReviewUpdateRequest;
 import com.chaekdojang.api.domain.review.dto.ReviewVisibilityRequest;
@@ -25,12 +28,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,6 +57,7 @@ public class ReviewService {
     private final ReviewLikeRepository reviewLikeRepository;
     private final CommentRepository commentRepository;
     private final FollowRepository followRepository;
+    private final ChatBlockRepository chatBlockRepository;
     private final LibraryRepository libraryRepository;
     private final NotificationService notificationService;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
@@ -66,14 +74,20 @@ public class ReviewService {
             book = bookRepository.findById(request.bookId())
                     .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
         }
+        if (request.previousReviewId() != null && request.sourceReviewId() != null) {
+            throw new CustomException(ErrorCode.INVALID_REVIEW_LINK);
+        }
+        Review previousReview = resolvePreviousReview(request.previousReviewId(), userId, book);
+        Review sourceReview = resolveSourceReview(request.sourceReviewId(), userId, book);
         Review review = Review.builder()
-                .author(author).book(book)
+                .author(author).book(book).previousReview(previousReview).sourceReview(sourceReview)
                 .content(request.content()).rating(request.rating())
+                .keywords(normalizeKeywords(request.keywords())).spoiler(request.hasSpoiler())
                 .build();
         if (request.shouldHide()) {
             review.hide();
         }
-        ReviewResponse saved = ReviewResponse.from(reviewRepository.save(review), 0L, 0L);
+        ReviewResponse saved = ReviewResponse.from(saveReview(review), 0L, 0L);
         if (request.shouldGenerateAiSummary()) {
             reviewAiSummaryService.enqueueForReview(review);
         }
@@ -89,8 +103,13 @@ public class ReviewService {
                             )
                     );
             if (!review.isHidden()) {
-                notifySameBookReaders(author, finalBook, review.getId());
+                notifySameBookReaders(author, finalBook, review.getId(),
+                        sourceReview != null ? sourceReview.getAuthor().getId() : null);
             }
+        }
+        if (sourceReview != null && !review.isHidden()) {
+            notificationService.send(
+                    sourceReview.getAuthor(), author, NotificationType.REVIEW_CONTINUED, review.getId());
         }
 
         Map<String, Object> activityMeta = new java.util.LinkedHashMap<>();
@@ -99,18 +118,25 @@ public class ReviewService {
             activityMeta.put("bookId", finalBook.getId());
             activityMeta.put("bookTitle", finalBook.getTitle());
         }
+        if (previousReview != null) {
+            activityMeta.put("previousReviewId", previousReview.getId());
+        }
+        if (sourceReview != null) {
+            activityMeta.put("sourceReviewId", sourceReview.getId());
+        }
         metricEventService.recordCurrentRequestEvent(
                 "review_created", userId, "/reviews/" + saved.id(), activityMeta);
 
         return saved;
     }
 
-    private void notifySameBookReaders(User author, Book book, Long reviewId) {
+    private void notifySameBookReaders(User author, Book book, Long reviewId, Long excludedReaderId) {
         reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(book.getId())
                 .stream()
                 .map(Review::getAuthor)
                 .filter(reader -> reader != null && reader.getDeletedAt() == null)
                 .filter(reader -> !reader.getId().equals(author.getId()))
+                .filter(reader -> excludedReaderId == null || !reader.getId().equals(excludedReaderId))
                 .collect(Collectors.toMap(User::getId, reader -> reader, (first, ignored) -> first))
                 .values()
                 .stream()
@@ -154,6 +180,83 @@ public class ReviewService {
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));
     }
 
+    public ReviewRereadHistoryResponse getRereadHistory(Long id) {
+        Review current = findActiveReview(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrNull();
+        boolean canSeePrivate = current.isAuthor(currentUserId)
+                || SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN");
+        if (current.isHidden() && !canSeePrivate) {
+            throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
+        }
+
+        List<Review> candidates = current.getBook() == null
+                ? List.of(current)
+                : reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtAsc(
+                        current.getAuthor().getId(), current.getBook().getId());
+        Long rootId = rootReviewId(current);
+        List<Review> chain = candidates.stream()
+                .filter(review -> rootId.equals(rootReviewId(review)))
+                .sorted(Comparator.comparing(Review::getCreatedAt).thenComparing(Review::getId))
+                .toList();
+        List<Review> visibleChain = canSeePrivate
+                ? chain
+                : chain.stream().filter(review -> !review.isHidden()).toList();
+        Review latest = chain.stream()
+                .max(Comparator.comparing(Review::getCreatedAt).thenComparing(Review::getId))
+                .orElse(current);
+
+        List<ReviewRereadHistoryResponse.HistoryItem> records = visibleChain.stream()
+                .map(review -> new ReviewRereadHistoryResponse.HistoryItem(
+                        review.getId(), rereadSequence(review), review.getRating(), review.isHidden(),
+                        review.getId().equals(current.getId()), review.getCreatedAt()))
+                .toList();
+        return new ReviewRereadHistoryResponse(
+                records,
+                latest.getId(),
+                current.isAuthor(currentUserId));
+    }
+
+    public ReviewContinuationResponse getContinuations(Long id) {
+        Review current = findActiveReview(id);
+        Long currentUserId = SecurityUtils.getCurrentUserIdOrNull();
+        boolean canSeePrivate = current.isAuthor(currentUserId)
+                || SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN");
+        if (current.isHidden() && !canSeePrivate) {
+            throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
+        }
+
+        Review source = current.getSourceReview();
+        boolean sourceVisible = source != null
+                && source.getDeletedAt() == null
+                && !source.isHidden()
+                && source.getAuthor().getDeletedAt() == null
+                && !isBlockedBetween(currentUserId, source.getAuthor().getId());
+        ReviewContinuationResponse.SourceReview sourceResponse = sourceVisible
+                ? new ReviewContinuationResponse.SourceReview(
+                        source.getId(), source.getAuthor().getId(), source.getAuthor().getNickname(), source.getCreatedAt())
+                : null;
+
+        List<ReviewContinuationResponse.ContinuationItem> continuations =
+                reviewRepository.findAllBySourceReviewIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(id)
+                        .stream()
+                        .filter(review -> review.getAuthor().getDeletedAt() == null)
+                        .filter(review -> !isBlockedBetween(currentUserId, review.getAuthor().getId()))
+                        .map(review -> new ReviewContinuationResponse.ContinuationItem(
+                                review.getId(), review.getAuthor().getId(), review.getAuthor().getNickname(),
+                                excerpt(review.getContent()), review.getCreatedAt()))
+                        .toList();
+
+        boolean canContinue = currentUserId != null
+                && !current.isHidden()
+                && !current.isAuthor(currentUserId)
+                && current.getBook() != null
+                && current.getAuthor().getDeletedAt() == null
+                && !isBlockedBetween(currentUserId, current.getAuthor().getId());
+        return new ReviewContinuationResponse(
+                sourceResponse, source != null && !sourceVisible,
+                continuations, continuations.size(), canContinue);
+    }
+
     @Transactional
     public ReviewResponse update(Long id, ReviewUpdateRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -164,7 +267,9 @@ public class ReviewService {
             book = bookRepository.findById(request.bookId())
                     .orElseThrow(() -> new CustomException(ErrorCode.BOOK_NOT_FOUND));
         }
+        validateRereadBookChange(review, book);
         review.update(request.content(), request.rating(), book);
+        review.updateDiscoveryMetadata(normalizeKeywords(request.keywords()), request.hasSpoiler());
         if (request.shouldHide()) review.hide(); else review.unhide();
         if (request.shouldGenerateAiSummary()) {
             reviewAiSummaryService.enqueueForReview(review);
@@ -234,6 +339,11 @@ public class ReviewService {
     }
 
     public List<ReviewResponse> getByBook(Long bookId, String sort) {
+        return getByBook(bookId, sort, "all", "all", null);
+    }
+
+    public List<ReviewResponse> getByBook(
+            Long bookId, String sort, String length, String spoiler, String keyword) {
         List<Review> reviews;
         if ("popular".equals(sort)) {
             LocalDateTime now = LocalDateTime.now();
@@ -246,7 +356,28 @@ public class ReviewService {
         } else {
             reviews = reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(bookId);
         }
-        return toResponseList(reviews);
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        return toResponseList(reviews.stream()
+                .filter(review -> switch (length) {
+                    case "short" -> review.getContent().length() < 300;
+                    case "long" -> review.getContent().length() >= 300;
+                    default -> true;
+                })
+                .filter(review -> switch (spoiler) {
+                    case "exclude" -> !review.isSpoiler();
+                    case "only" -> review.isSpoiler();
+                    default -> true;
+                })
+                .filter(review -> normalizedKeyword.isBlank()
+                        || containsKeyword(review.getKeywords(), normalizedKeyword))
+                .toList());
+    }
+
+    private boolean containsKeyword(String storedKeywords, String keyword) {
+        if (storedKeywords == null || storedKeywords.isBlank()) return false;
+        return java.util.Arrays.stream(storedKeywords.split(","))
+                .map(String::trim)
+                .anyMatch(value -> value.equalsIgnoreCase(keyword));
     }
 
     public List<ReviewResponse> getByBookWork(String title, String author) {
@@ -318,6 +449,126 @@ public class ReviewService {
     private Review findVisibleReview(Long id) {
         return reviewRepository.findByIdAndDeletedAtIsNullAndHiddenFalse(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+    }
+
+    private Review resolvePreviousReview(Long previousReviewId, Long userId, Book book) {
+        if (previousReviewId == null) return null;
+        Review previous = findActiveReview(previousReviewId);
+        if (!previous.isAuthor(userId)
+                || previous.getBook() == null
+                || book == null
+                || !previous.getBook().getId().equals(book.getId())) {
+            throw new CustomException(ErrorCode.INVALID_REREAD_SOURCE);
+        }
+        if (reviewRepository.existsByPreviousReviewIdAndDeletedAtIsNull(previousReviewId)
+                || hasActiveDescendant(previous, book)) {
+            throw new CustomException(ErrorCode.REREAD_ALREADY_EXISTS);
+        }
+        return previous;
+    }
+
+    private Review resolveSourceReview(Long sourceReviewId, Long userId, Book book) {
+        if (sourceReviewId == null) return null;
+        Review source = findActiveReview(sourceReviewId);
+        if (source.isHidden()
+                || source.isAuthor(userId)
+                || source.getBook() == null
+                || book == null
+                || !source.getBook().getId().equals(book.getId())
+                || source.getAuthor().getDeletedAt() != null) {
+            throw new CustomException(ErrorCode.INVALID_CONTINUATION_SOURCE);
+        }
+        if (isBlockedBetween(userId, source.getAuthor().getId())) {
+            throw new CustomException(ErrorCode.BLOCKED_REVIEW_CONNECTION);
+        }
+        return source;
+    }
+
+    private void validateRereadBookChange(Review review, Book newBook) {
+        Long currentBookId = review.getBook() != null ? review.getBook().getId() : null;
+        Long newBookId = newBook != null ? newBook.getId() : null;
+        if (java.util.Objects.equals(currentBookId, newBookId)) return;
+        if (review.getPreviousReview() != null
+                || review.getSourceReview() != null
+                || reviewRepository.existsByPreviousReviewIdAndDeletedAtIsNull(review.getId())
+                || hasActiveDescendant(review, review.getBook())
+                || reviewRepository.existsBySourceReviewIdAndDeletedAtIsNull(review.getId())) {
+            throw new CustomException(ErrorCode.CONNECTED_REVIEW_BOOK_CHANGE_NOT_ALLOWED);
+        }
+    }
+
+    private boolean isBlockedBetween(Long firstUserId, Long secondUserId) {
+        if (firstUserId == null || secondUserId == null || firstUserId.equals(secondUserId)) return false;
+        return chatBlockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(
+                firstUserId, secondUserId, secondUserId, firstUserId);
+    }
+
+    private String excerpt(String content) {
+        if (content == null) return "";
+        String normalized = content.replaceAll("\\s+", " ").trim();
+        return normalized.substring(0, Math.min(normalized.length(), 120));
+    }
+
+    private String normalizeKeywords(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) return null;
+        String value = keywords.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(keyword -> !keyword.isBlank())
+                .map(keyword -> keyword.replace(",", ""))
+                .filter(keyword -> !keyword.isBlank())
+                .distinct()
+                .limit(10)
+                .map(keyword -> keyword.substring(0, Math.min(keyword.length(), 30)))
+                .collect(Collectors.joining(","));
+        return value.isBlank() ? null : value;
+    }
+
+    private boolean hasActiveDescendant(Review source, Book book) {
+        if (book == null) return false;
+        return reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtAsc(
+                        source.getAuthor().getId(), book.getId()).stream()
+                .anyMatch(candidate -> !candidate.getId().equals(source.getId())
+                        && hasAncestor(candidate, source.getId()));
+    }
+
+    private boolean hasAncestor(Review review, Long ancestorId) {
+        Review cursor = review.getPreviousReview();
+        Set<Long> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor.getId())) {
+            if (cursor.getId().equals(ancestorId)) return true;
+            cursor = cursor.getPreviousReview();
+        }
+        return false;
+    }
+
+    private Review saveReview(Review review) {
+        if (review.getPreviousReview() == null) return reviewRepository.save(review);
+        try {
+            return reviewRepository.saveAndFlush(review);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.REREAD_ALREADY_EXISTS);
+        }
+    }
+
+    private Long rootReviewId(Review review) {
+        Review cursor = review;
+        Set<Long> visited = new HashSet<>();
+        while (cursor.getPreviousReview() != null && visited.add(cursor.getId())) {
+            cursor = cursor.getPreviousReview();
+        }
+        return cursor.getId();
+    }
+
+    private int rereadSequence(Review review) {
+        int sequence = 1;
+        Review cursor = review;
+        Set<Long> visited = new HashSet<>();
+        while (cursor.getPreviousReview() != null && visited.add(cursor.getId())) {
+            sequence++;
+            cursor = cursor.getPreviousReview();
+        }
+        return sequence;
     }
 
     private String normalizeWorkTitle(String title) {

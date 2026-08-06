@@ -7,6 +7,7 @@ import com.chaekdojang.api.domain.review.ai.ReviewAiSummaryStatus;
 import com.chaekdojang.api.domain.user.User;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 public record ReviewResponse(
@@ -21,7 +22,11 @@ public record ReviewResponse(
         long likeCount,
         long commentCount,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        Long previousReviewId,
+        Long sourceReviewId,
+        List<String> keywords,
+        boolean spoiler
 ) {
     public record AuthorInfo(Long id, String nickname, String profileImage) {
         public static AuthorInfo from(User user) {
@@ -71,8 +76,20 @@ public record ReviewResponse(
                 likeCount,
                 commentCount,
                 review.getCreatedAt(),
-                review.getUpdatedAt()
+                review.getUpdatedAt(),
+                review.getPreviousReview() != null ? review.getPreviousReview().getId() : null,
+                review.getSourceReview() != null ? review.getSourceReview().getId() : null,
+                parseKeywords(review.getKeywords()),
+                review.isSpoiler()
         );
+    }
+
+    private static List<String> parseKeywords(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(keyword -> !keyword.isBlank())
+                .toList();
     }
 
     public record AiSummaryInfo(

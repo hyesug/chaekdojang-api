@@ -144,6 +144,8 @@ app:
     batch-size: ${AI_SUMMARY_BATCH_SIZE:5}
     max-retries: ${AI_SUMMARY_MAX_RETRIES:3}
     timeout: ${AI_SUMMARY_TIMEOUT:30s}
+    input-cost-per-million-tokens: ${OPENAI_INPUT_COST_PER_MILLION_TOKENS:0}
+    output-cost-per-million-tokens: ${OPENAI_OUTPUT_COST_PER_MILLION_TOKENS:0}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
   feedback:
     enabled: ${FEEDBACK_ENABLED:true}

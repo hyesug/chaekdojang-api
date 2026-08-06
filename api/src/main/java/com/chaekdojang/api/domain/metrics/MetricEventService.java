@@ -26,6 +26,10 @@ public class MetricEventService {
 
     public static final String DEVICE_COOKIE = "chaekdojang_device_id";
     public static final String SESSION_COOKIE = "chaekdojang_session_id";
+    private static final String KAKAO_GROUP_INVITE_SOURCE = "kakao_reading_group";
+    private static final String COPY_GROUP_INVITE_SOURCE = "reading_group_link";
+    private static final String KAKAO_GROUP_INVITE_REFERRER = "chaekdojang://invite/kakao-reading-group";
+    private static final String COPY_GROUP_INVITE_REFERRER = "chaekdojang://invite/reading-group-link";
     private static final Set<String> CLIENT_EVENT_TYPES = Set.of(
             "page_view", "review_write_click", "book_search", "book_click_search",
             "web_novel_search", "share_click", "heartbeat", "session_end", "revision_saved"
@@ -53,7 +57,7 @@ public class MetricEventService {
                 .eventType(request.eventType())
                 .sessionId(request.sessionId())
                 .path(request.path())
-                .referrer(request.referrer())
+                .referrer(resolveClientReferrer(request))
                 .durationMs(Math.max(request.durationMs(), 0))
                 .device(normalize(request.device(), agent.device(), 80))
                 .deviceId(normalize(request.deviceId(), null, 80))
@@ -140,6 +144,17 @@ public class MetricEventService {
             }
         });
         return Map.copyOf(sanitized);
+    }
+
+    private String resolveClientReferrer(MetricEventRequest request) {
+        Object inviteSource = request.meta() != null ? request.meta().get("inviteSource") : null;
+        if (request.path().startsWith("/groups/") && KAKAO_GROUP_INVITE_SOURCE.equals(inviteSource)) {
+            return KAKAO_GROUP_INVITE_REFERRER;
+        }
+        if (request.path().startsWith("/groups/") && COPY_GROUP_INVITE_SOURCE.equals(inviteSource)) {
+            return COPY_GROUP_INVITE_REFERRER;
+        }
+        return normalize(request.referrer(), null, 500);
     }
 
     private String cookieOrHeader(HttpServletRequest request, String cookieName, String headerName, String fallback) {

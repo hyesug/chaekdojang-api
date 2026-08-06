@@ -81,6 +81,23 @@ class MetricEventServiceTest {
         assertThat(captor.getValue().getMeta()).containsOnlyKeys("reviewId");
     }
 
+    @Test
+    void kakaoGroupInviteUsesTrustedAttributionMarker() {
+        MetricEventRequest request = new MetricEventRequest(
+                "page_view", "session", "/groups/morning-read?invite_source=kakao_reading_group",
+                "https://talk.kakao.com/", 0, "mobile", "device",
+                Map.of("inviteSource", "kakao_reading_group"));
+
+        metricEventService.record(request, "203.0.113.10", "test", null);
+
+        ArgumentCaptor<MetricEvent> captor = ArgumentCaptor.forClass(MetricEvent.class);
+        verify(metricEventRepository).save(captor.capture());
+        assertThat(captor.getValue().getReferrer())
+                .isEqualTo("chaekdojang://invite/kakao-reading-group");
+        assertThat(captor.getValue().getMeta())
+                .containsEntry("inviteSource", "kakao_reading_group");
+    }
+
     private User user(Long id, String nickname) {
         User user = User.create(nickname + "@example.com", nickname, null);
         ReflectionTestUtils.setField(user, "id", id);

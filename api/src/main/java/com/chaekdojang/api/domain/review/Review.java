@@ -33,6 +33,14 @@ public class Review {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "previous_review_id")
+    private Review previousReview;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_review_id")
+    private Review sourceReview;
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
@@ -58,18 +66,34 @@ public class Review {
     @Column
     private long viewCount = 0;
 
+    @Column(length = 500)
+    private String keywords;
+
+    @Column(nullable = false)
+    private boolean spoiler = false;
+
     @Builder
-    private Review(Book book, User author, String content, int rating) {
+    private Review(Book book, User author, Review previousReview, Review sourceReview,
+                   String content, int rating, String keywords, boolean spoiler) {
         this.book = book;
         this.author = author;
+        this.previousReview = previousReview;
+        this.sourceReview = sourceReview;
         this.content = content;
         this.rating = rating;
+        this.keywords = keywords;
+        this.spoiler = spoiler;
     }
 
     public void update(String content, int rating, Book book) {
         this.content = content;
         this.rating = rating;
         this.book = book;
+    }
+
+    public void updateDiscoveryMetadata(String keywords, boolean spoiler) {
+        this.keywords = keywords;
+        this.spoiler = spoiler;
     }
 
     public void softDelete() {

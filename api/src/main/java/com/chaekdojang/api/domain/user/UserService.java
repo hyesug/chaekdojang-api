@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookRepository;
+import com.chaekdojang.api.domain.chat.ChatBlockRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.LibraryRepository;
@@ -12,6 +13,7 @@ import com.chaekdojang.api.domain.readinggoal.ReadingGoal;
 import com.chaekdojang.api.domain.readinggoal.ReadingGoalRepository;
 import com.chaekdojang.api.domain.review.ReviewBookmarkRepository;
 import com.chaekdojang.api.domain.review.ReviewLikeRepository;
+import com.chaekdojang.api.domain.review.Review;
 import com.chaekdojang.api.domain.review.ReviewRepository;
 import com.chaekdojang.api.domain.subscription.SubscriptionRepository;
 import com.chaekdojang.api.domain.user.dto.*;
@@ -23,13 +25,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Year;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +47,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final ChatBlockRepository chatBlockRepository;
     private final ReviewRepository reviewRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewBookmarkRepository reviewBookmarkRepository;
@@ -186,16 +196,21 @@ public class UserService {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(myId);
         List<Long> excludeIds = new ArrayList<>(followingIds);
         excludeIds.add(myId);
+        excludeIds.addAll(chatBlockRepository.findBlockedUserIds(myId));
 
         Map<Long, Integer> scoreMap = new HashMap<>();
+        Map<Long, Integer> overlapMap = new HashMap<>();
+        Map<Long, Integer> ratingMap = new HashMap<>();
+        Set<Long> lifeBookMatchedIds = new HashSet<>();
 
         // 1. 공통으로 읽은 책: +1점/권
-        List<Long> myBookIds = libraryRepository.findBookIdsByUserId(myId);
+        List<Long> myBookIds = libraryRepository.findBookIdsByUserIdAndStatus(myId, LibraryStatus.FINISHED);
         if (!myBookIds.isEmpty()) {
             libraryRepository.findUsersWithMostBookOverlap(myBookIds, excludeIds)
                     .forEach(row -> {
                         Long userId = ((Number) row[0]).longValue();
                         int overlap = ((Number) row[1]).intValue();
+                        overlapMap.put(userId, overlap);
                         scoreMap.merge(userId, overlap, Integer::sum);
                     });
         }
@@ -205,6 +220,7 @@ public class UserService {
                 .forEach(row -> {
                     Long userId = ((Number) row[0]).longValue();
                     int ratingScore = ((Number) row[1]).intValue();
+                    ratingMap.put(userId, ratingScore);
                     scoreMap.merge(userId, ratingScore, Integer::sum);
                 });
 
@@ -213,6 +229,7 @@ public class UserService {
             userRepository.findAllByLifeBook_IdAndDeletedAtIsNull(me.getLifeBook().getId())
                     .forEach(user -> {
                         if (!excludeIds.contains(user.getId())) {
+                            lifeBookMatchedIds.add(user.getId());
                             scoreMap.merge(user.getId(), 5, Integer::sum);
                         }
                     });
@@ -224,7 +241,12 @@ public class UserService {
                 .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
                 .limit(5)
                 .map(entry -> userRepository.findById(entry.getKey())
-                        .map(UserRecommendationResponse::from)
+                        .filter(user -> user.getDeletedAt() == null)
+                        .map(user -> UserRecommendationResponse.from(
+                                user,
+                                overlapMap.getOrDefault(user.getId(), 0),
+                                ratingMap.getOrDefault(user.getId(), 0),
+                                lifeBookMatchedIds.contains(user.getId())))
                         .orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
@@ -244,6 +266,7 @@ public class UserService {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(myId);
         List<Long> excludeIds = new ArrayList<>(followingIds);
         excludeIds.add(myId);
+        excludeIds.addAll(chatBlockRepository.findBlockedUserIds(myId));
 
         List<AuthorActivityScore> authorScores = reviewRepository.findTopAuthorStatsByReviewCount(excludeIds)
                 .stream()
@@ -267,7 +290,7 @@ public class UserService {
                 ));
 
         Map<Long, Integer> overlapByUserId = new HashMap<>();
-        List<Long> myBookIds = libraryRepository.findBookIdsByUserId(myId);
+        List<Long> myBookIds = libraryRepository.findBookIdsByUserIdAndStatus(myId, LibraryStatus.FINISHED);
         if (!myBookIds.isEmpty()) {
             libraryRepository.findUsersWithMostBookOverlap(myBookIds, excludeIds)
                     .forEach(row -> overlapByUserId.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue()));
@@ -382,6 +405,140 @@ public class UserService {
         int totalFinished = monthly.stream().mapToInt(ReadingStatsResponse.MonthlyCount::count).sum();
 
         return new ReadingStatsResponse(totalFinished, monthly, genres);
+    }
+
+    public ReadingReflectionResponse getReadingReflection() {
+        Long myId = SecurityUtils.getCurrentUserId();
+        List<Review> reviews = reviewRepository.findAllByAuthorIdAndDeletedAtIsNullOrderByCreatedAtAsc(myId);
+        int currentYear = Year.now().getValue();
+
+        Map<YearMonth, Integer> monthlyCounts = new TreeMap<>();
+        Map<Integer, Set<Long>> yearlyBookIds = new TreeMap<>();
+        Map<String, Integer> genreByYear = new HashMap<>();
+        Map<String, Integer> keywordCounts = new HashMap<>();
+        Map<Long, List<Review>> reviewsByBook = new LinkedHashMap<>();
+        int rereadCount = 0;
+
+        for (Review review : reviews) {
+            monthlyCounts.merge(YearMonth.from(review.getCreatedAt()), 1, Integer::sum);
+            if (review.getPreviousReview() != null) rereadCount++;
+            if (review.getBook() != null) {
+                Book book = review.getBook();
+                int year = review.getCreatedAt().getYear();
+                yearlyBookIds.computeIfAbsent(year, ignored -> new HashSet<>()).add(book.getId());
+                reviewsByBook.computeIfAbsent(book.getId(), ignored -> new ArrayList<>()).add(review);
+                if (book.getCategory() != null && !book.getCategory().isBlank()) {
+                    String genre = book.getCategory().trim();
+                    genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
+                }
+            }
+            if (review.getKeywords() != null) {
+                java.util.Arrays.stream(review.getKeywords().split(","))
+                        .map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .forEach(value -> keywordCounts.merge(value, 1, Integer::sum));
+            }
+        }
+
+        List<ReadingReflectionResponse.MonthlyReviewCount> monthly = monthlyCounts.entrySet().stream()
+                .sorted(Map.Entry.<YearMonth, Integer>comparingByKey().reversed())
+                .limit(24)
+                .map(entry -> new ReadingReflectionResponse.MonthlyReviewCount(
+                        entry.getKey().getYear(), entry.getKey().getMonthValue(), entry.getValue()))
+                .toList();
+        List<ReadingReflectionResponse.YearlyBookCount> yearly = yearlyBookIds.entrySet().stream()
+                .sorted(Map.Entry.<Integer, Set<Long>>comparingByKey().reversed())
+                .map(entry -> new ReadingReflectionResponse.YearlyBookCount(entry.getKey(), entry.getValue().size()))
+                .toList();
+        List<ReadingReflectionResponse.GenreByYear> genres = genreByYear.entrySet().stream()
+                .map(entry -> {
+                    String[] key = entry.getKey().split("\u0000", 2);
+                    return new ReadingReflectionResponse.GenreByYear(
+                            Integer.parseInt(key[0]), key[1], entry.getValue());
+                })
+                .sorted(Comparator.comparingInt(ReadingReflectionResponse.GenreByYear::year).reversed()
+                        .thenComparing(ReadingReflectionResponse.GenreByYear::count, Comparator.reverseOrder()))
+                .toList();
+        List<ReadingReflectionResponse.KeywordCount> keywords = keywordCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(10)
+                .map(entry -> new ReadingReflectionResponse.KeywordCount(entry.getKey(), entry.getValue()))
+                .toList();
+
+        List<ReadingReflectionResponse.RereadBook> rereadBooks = reviewsByBook.values().stream()
+                .filter(values -> values.size() > 1)
+                .map(values -> new ReadingReflectionResponse.RereadBook(
+                        values.getFirst().getBook().getId(), values.getFirst().getBook().getTitle(), values.size(),
+                        values.getFirst().getCreatedAt(), values.getLast().getCreatedAt()))
+                .sorted(Comparator.comparing(ReadingReflectionResponse.RereadBook::latestAt).reversed())
+                .toList();
+
+        ReadingReflectionResponse.LongestRecordedBook longestBook = reviewsByBook.values().stream()
+                .filter(values -> values.size() > 1)
+                .map(values -> new ReadingReflectionResponse.LongestRecordedBook(
+                        values.getFirst().getBook().getId(), values.getFirst().getBook().getTitle(),
+                        ChronoUnit.DAYS.between(values.getFirst().getCreatedAt(), values.getLast().getCreatedAt()),
+                        values.getFirst().getCreatedAt(), values.getLast().getCreatedAt()))
+                .max(Comparator.comparingLong(ReadingReflectionResponse.LongestRecordedBook::days))
+                .orElse(null);
+
+        LocalDate memoryTarget = LocalDate.now().minusYears(1);
+        List<ReadingReflectionResponse.MemoryReview> memories = reviews.stream()
+                .filter(review -> Math.abs(ChronoUnit.DAYS.between(
+                        memoryTarget, review.getCreatedAt().toLocalDate())) <= 7)
+                .sorted(Comparator.comparing(Review::getCreatedAt).reversed())
+                .limit(5)
+                .map(review -> new ReadingReflectionResponse.MemoryReview(
+                        review.getId(), review.getBook() != null ? review.getBook().getId() : null,
+                        review.getBook() != null ? review.getBook().getTitle() : "책 정보 없는 기록",
+                        review.getRating(), review.getCreatedAt()))
+                .toList();
+
+        double averageInterval = averageReviewIntervalDays(reviews);
+        int currentYearBookCount = yearlyBookIds.getOrDefault(currentYear, Set.of()).size();
+        List<String> messages = buildReflectionMessages(
+                currentYear, currentYearBookCount, genres, rereadBooks, memories, averageInterval);
+        return new ReadingReflectionResponse(
+                reviews.size(), rereadCount, currentYearBookCount, averageInterval,
+                monthly, yearly, genres, keywords, rereadBooks, longestBook, memories, messages);
+    }
+
+    private double averageReviewIntervalDays(List<Review> reviews) {
+        if (reviews.size() < 2) return 0;
+        long totalDays = 0;
+        for (int index = 1; index < reviews.size(); index++) {
+            totalDays += Math.max(0, ChronoUnit.DAYS.between(
+                    reviews.get(index - 1).getCreatedAt(), reviews.get(index).getCreatedAt()));
+        }
+        return Math.round((double) totalDays / (reviews.size() - 1) * 10.0) / 10.0;
+    }
+
+    private List<String> buildReflectionMessages(
+            int currentYear,
+            int currentYearBookCount,
+            List<ReadingReflectionResponse.GenreByYear> genres,
+            List<ReadingReflectionResponse.RereadBook> rereadBooks,
+            List<ReadingReflectionResponse.MemoryReview> memories,
+            double averageInterval) {
+        List<String> messages = new ArrayList<>();
+        if (currentYearBookCount > 0) {
+            messages.add("올해는 " + currentYearBookCount + "권의 책에 기록을 남겼습니다.");
+        }
+        genres.stream().filter(item -> item.year() == currentYear).findFirst()
+                .ifPresent(item -> messages.add("최근에는 " + item.genre() + " 분야의 기록이 가장 자주 남았습니다."));
+        if (!rereadBooks.isEmpty()) {
+            messages.add("다시 기록한 책이 " + rereadBooks.size() + "권 있습니다. 당시의 생각과 지금을 나란히 볼 수 있어요.");
+        }
+        if (!memories.isEmpty()) {
+            messages.add("1년 전 이맘때 남긴 기록이 있습니다. 지금의 눈으로 다시 읽어보세요.");
+        }
+        if (averageInterval > 0) {
+            messages.add("독후감은 평균 " + averageInterval + "일 간격으로 남겼습니다.");
+        }
+        if (messages.isEmpty()) {
+            messages.add("첫 기록부터 천천히 쌓아가면 시간에 따른 생각의 흐름을 볼 수 있어요.");
+        }
+        return messages;
     }
 
     private User findUser(Long userId) {

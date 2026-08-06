@@ -61,10 +61,16 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
     @Query("SELECT l.book.id FROM Library l WHERE l.user.id = :userId")
     List<Long> findBookIdsByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT l.book.id FROM Library l WHERE l.user.id = :userId AND l.status = :status")
+    List<Long> findBookIdsByUserIdAndStatus(
+            @Param("userId") Long userId,
+            @Param("status") LibraryStatus status);
+
     @Query("""
             SELECT l.user.id, COUNT(l) as overlapCount
             FROM Library l
             WHERE l.book.id IN :bookIds
+            AND l.status = com.chaekdojang.api.domain.library.LibraryStatus.FINISHED
             AND l.user.id NOT IN :excludeUserIds
             GROUP BY l.user.id
             ORDER BY COUNT(l) DESC

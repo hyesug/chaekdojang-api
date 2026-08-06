@@ -84,6 +84,12 @@ public class UserController {
         return ApiResponse.ok(userService.getReadingStats());
     }
 
+    @Operation(summary = "개인 독서 회고", description = "독후감의 시간 흐름, 재독, 키워드와 과거 기록을 경쟁 없이 회고합니다.")
+    @GetMapping("/me/reading-reflection")
+    public ApiResponse<ReadingReflectionResponse> getReadingReflection() {
+        return ApiResponse.ok(userService.getReadingReflection());
+    }
+
     @Operation(summary = "내 독후감 목록 (페이징+검색)", description = "내가 쓴 독후감을 페이지 단위로 반환합니다. q로 책 제목·내용 검색. JWT 필요.")
     @GetMapping("/me/reviews")
     public ApiResponse<Page<ReviewResponse>> getMyReviews(

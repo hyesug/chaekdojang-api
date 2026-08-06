@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.book;
 
 import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
+import com.chaekdojang.api.domain.book.dto.BookConnectionResponse;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
 import com.chaekdojang.api.domain.book.dto.WebNovelRegisterRequest;
 import com.chaekdojang.api.domain.book.dto.WebNovelSearchResult;
@@ -84,13 +85,22 @@ public class BookController {
         return ApiResponse.ok(bookService.getReactionReport(id));
     }
 
+    @Operation(summary = "실제 독서 기록 기반 연결 책", description = "같은 독자들이 함께 기록한 책만 최소 2명 기준으로 반환합니다.")
+    @GetMapping("/{id:\\d+}/connections")
+    public ApiResponse<List<BookConnectionResponse>> getConnections(@PathVariable Long id) {
+        return ApiResponse.ok(bookService.getConnections(id));
+    }
+
     @Operation(summary = "책별 독후감 목록", description = "특정 책에 대해 작성된 독후감 목록을 반환합니다. 인증 불필요.")
     @GetMapping("/{id:\\d+}/reviews")
     public ApiResponse<List<ReviewResponse>> getReviewsByBook(
             @Parameter(description = "책 ID", required = true)
             @PathVariable Long id,
-            @RequestParam(defaultValue = "recent") String sort) {
-        return ApiResponse.ok(reviewService.getByBook(id, sort));
+            @RequestParam(defaultValue = "recent") String sort,
+            @RequestParam(defaultValue = "all") String length,
+            @RequestParam(defaultValue = "all") String spoiler,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(reviewService.getByBook(id, sort, length, spoiler, keyword));
     }
 
     @Operation(summary = "작품별 독후감 목록", description = "제목과 저자가 같은 작품의 여러 판본 독후감을 함께 반환합니다. 인증 불필요.")

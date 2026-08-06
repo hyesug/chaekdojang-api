@@ -57,6 +57,21 @@ class MetricEventServiceTest {
     }
 
     @Test
+    void adminEventIsStoredForIndividualActivityDetail() {
+        User admin = user(8L, "admin");
+        admin.promoteToAdmin();
+        when(userRepository.findById(8L)).thenReturn(Optional.of(admin));
+
+        metricEventService.recordRequestEvent(
+                "login_succeeded", 8L, "/auth/callback", Map.of("oauthProvider", "KAKAO"),
+                new MockHttpServletRequest());
+
+        ArgumentCaptor<MetricEvent> captor = ArgumentCaptor.forClass(MetricEvent.class);
+        verify(metricEventRepository).save(captor.capture());
+        assertThat(captor.getValue().getUser()).isEqualTo(admin);
+    }
+
+    @Test
     void clientMetricRejectsServerEventAndSensitiveMeta() {
         MetricEventRequest forged = new MetricEventRequest(
                 "reading_group_created", "session", "/groups/fake", null, 0,

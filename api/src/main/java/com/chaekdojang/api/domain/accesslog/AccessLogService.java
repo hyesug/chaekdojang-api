@@ -23,7 +23,6 @@ public class AccessLogService {
     public void save(String ip, Long userId, String method, String uri, int status, long elapsedMs,
                      String userAgent, String deviceId) {
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
-        if (user != null && user.isAdmin()) return;
         accessLogRepository.save(AccessLog.builder()
                 .ip(ip)
                 .user(user)

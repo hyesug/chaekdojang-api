@@ -45,9 +45,6 @@ public class MetricEventService {
     public void record(MetricEventRequest request, String ip, String userAgent, Long userId) {
         if (!CLIENT_EVENT_TYPES.contains(request.eventType())) return;
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
-        if (user != null && user.isAdmin()) {
-            return;
-        }
 
         UserAgentInfo agent = UserAgentInfo.parse(userAgent);
         metricEventRepository.save(MetricEvent.builder()
@@ -70,9 +67,6 @@ public class MetricEventService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSystemEvent(String eventType, String sessionId, String path, String ip, Long userId, Map<String, Object> meta) {
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
-        if (user != null && user.isAdmin()) {
-            return;
-        }
 
         metricEventRepository.save(MetricEvent.builder()
                 .user(user)
@@ -102,7 +96,7 @@ public class MetricEventService {
     public void recordRequestEvent(String eventType, Long userId, String path, Map<String, Object> meta,
                                    HttpServletRequest request) {
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null || user.isAdmin()) return;
+        if (user == null) return;
 
         String ip = request != null ? ClientIpUtils.getClientIp(request) : null;
         String userAgent = request != null ? request.getHeader("User-Agent") : null;

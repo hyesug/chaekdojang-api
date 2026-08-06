@@ -94,6 +94,14 @@ public class ReadingGroupController {
         return ApiResponse.ok(readingGroupService.updateBookProgress(slug, groupBookId, request));
     }
 
+    @DeleteMapping("/{slug}/books/{groupBookId}")
+    public ApiResponse<Void> removeBook(
+            @PathVariable String slug,
+            @PathVariable Long groupBookId) {
+        readingGroupService.removeBook(slug, groupBookId);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/{slug}/books/{groupBookId}/reviews")
     public ApiResponse<List<ReadingGroupReviewResponse>> getGroupBookReviews(
             @PathVariable String slug,

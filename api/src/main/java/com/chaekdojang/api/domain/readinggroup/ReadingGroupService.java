@@ -290,7 +290,7 @@ public class ReadingGroupService {
         assertManager(group, userId);
         ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
-        groupBook.updateProgress(request.status(), request.deadline());
+        groupBook.updateProgress(request.status(), request.deadline(), blankToNull(request.note()));
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("groupId", group.getId());
         meta.put("groupSlug", group.getSlug());
@@ -303,6 +303,25 @@ public class ReadingGroupService {
         metricEventService.recordCurrentRequestEvent("reading_group_book_progress_updated", userId,
                 "/groups/" + group.getSlug() + "/books/" + groupBookId, meta);
         return toResponse(group, userId);
+    }
+
+    @Transactional
+    public void removeBook(String slug, Long groupBookId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReadingGroup group = findBySlug(slug);
+        assertManager(group, userId);
+        ReadingGroupBook groupBook = groupBookRepository.findByIdAndGroupId(groupBookId, group.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("groupId", group.getId());
+        meta.put("groupSlug", group.getSlug());
+        meta.put("groupName", group.getName());
+        meta.put("groupBookId", groupBook.getId());
+        meta.put("bookId", groupBook.getBook().getId());
+        meta.put("bookTitle", groupBook.getBook().getTitle());
+        groupBookRepository.delete(groupBook);
+        metricEventService.recordCurrentRequestEvent("reading_group_book_removed", userId,
+                "/groups/" + group.getSlug(), meta);
     }
 
     @Transactional

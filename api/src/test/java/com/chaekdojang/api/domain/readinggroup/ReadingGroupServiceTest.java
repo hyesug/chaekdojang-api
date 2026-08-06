@@ -227,7 +227,7 @@ class ReadingGroupServiceTest {
     }
 
     @Test
-    @DisplayName("모임장은 선정 책의 진행 상태와 마감일을 수정할 수 있다")
+    @DisplayName("모임장은 선정 책의 진행 상태와 마감일 및 메모를 수정할 수 있다")
     void updateBookProgress_owner_updatesStatusAndDeadline() {
         User owner = user(USER_ID, "reader");
         ReadingGroup group = publicGroup(owner);
@@ -240,10 +240,11 @@ class ReadingGroupServiceTest {
 
         ReadingGroupResponse response = readingGroupService.updateBookProgress(
                 "public-group", 20L,
-                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, deadline));
+                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, deadline, "2회차 · 8월"));
 
         assertThat(response.books().get(0).status()).isEqualTo(ReadingGroupBookStatus.READING);
         assertThat(response.books().get(0).deadline()).isEqualTo(deadline);
+        assertThat(response.books().get(0).note()).isEqualTo("2회차 · 8월");
         verify(metricEventService).recordCurrentRequestEvent(
                 eq("reading_group_book_progress_updated"), eq(USER_ID),
                 eq("/groups/public-group/books/20"),
@@ -259,10 +260,42 @@ class ReadingGroupServiceTest {
 
         assertThatThrownBy(() -> readingGroupService.updateBookProgress(
                 "public-group", 20L,
-                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, null)))
+                new ReadingGroupBookProgressUpdateRequest(ReadingGroupBookStatus.READING, null, null)))
                 .isInstanceOf(CustomException.class);
 
         verify(groupBookRepository, never()).findByIdAndGroupId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("모임장은 선정 책 연결을 끊을 수 있다")
+    void removeBook_owner_deletesGroupBook() {
+        User owner = user(USER_ID, "reader");
+        ReadingGroup group = publicGroup(owner);
+        ReadingGroupBook groupBook = ReadingGroupBook.of(group, book(), "1회차");
+        ReflectionTestUtils.setField(groupBook, "id", 20L);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+        when(groupBookRepository.findByIdAndGroupId(20L, GROUP_ID)).thenReturn(Optional.of(groupBook));
+
+        readingGroupService.removeBook("public-group", 20L);
+
+        verify(groupBookRepository).delete(groupBook);
+        verify(metricEventService).recordCurrentRequestEvent(
+                eq("reading_group_book_removed"), eq(USER_ID), eq("/groups/public-group"),
+                argThat(meta -> Long.valueOf(20L).equals(meta.get("groupBookId"))
+                        && Long.valueOf(30L).equals(meta.get("bookId"))));
+    }
+
+    @Test
+    @DisplayName("일반 회원은 선정 책 연결을 끊을 수 없다")
+    void removeBook_nonManager_isForbidden() {
+        User owner = user(OWNER_ID, "owner");
+        ReadingGroup group = publicGroup(owner);
+        when(groupRepository.findBySlug("public-group")).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> readingGroupService.removeBook("public-group", 20L))
+                .isInstanceOf(CustomException.class);
+
+        verify(groupBookRepository, never()).delete(any());
     }
 
     @Test

@@ -51,8 +51,9 @@ public class ReadingGroupBook {
         return item;
     }
 
-    public void updateProgress(ReadingGroupBookStatus status, LocalDate deadline) {
+    public void updateProgress(ReadingGroupBookStatus status, LocalDate deadline, String note) {
         this.status = status;
         this.deadline = deadline;
+        this.note = note;
     }
 }

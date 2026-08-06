@@ -105,7 +105,7 @@ class ReadingGroupQuestionServiceTest {
         User owner = user(OWNER_ID, "owner");
         ReadingGroup group = group(owner);
         ReadingGroupBook groupBook = groupBook(group);
-        groupBook.updateProgress(ReadingGroupBookStatus.COMPLETED, null);
+        groupBook.updateProgress(ReadingGroupBookStatus.COMPLETED, null, null);
         ReadingGroupQuestion question = ReadingGroupQuestion.manual(groupBook, owner, "질문");
         ReflectionTestUtils.setField(question, "id", 30L);
         when(groupRepository.findBySlug("book-club")).thenReturn(Optional.of(group));

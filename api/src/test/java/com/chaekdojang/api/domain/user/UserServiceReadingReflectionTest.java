@@ -1,6 +1,8 @@
 package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.book.BookCategoryResolver;
+import com.chaekdojang.api.domain.book.BookGenreClassifier;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.book.BookSource;
 import com.chaekdojang.api.domain.chat.ChatBlockRepository;
@@ -29,9 +31,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.IdentityHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyCollection;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceReadingReflectionTest {
@@ -44,6 +48,7 @@ class UserServiceReadingReflectionTest {
     @Mock ReviewBookmarkRepository reviewBookmarkRepository;
     @Mock LibraryRepository libraryRepository;
     @Mock BookRepository bookRepository;
+    @Mock BookCategoryResolver bookCategoryResolver;
     @Mock ReadingGoalRepository readingGoalRepository;
     @Mock NotificationRepository notificationRepository;
     @Mock SubscriptionRepository subscriptionRepository;
@@ -57,6 +62,13 @@ class UserServiceReadingReflectionTest {
     void authenticate() {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(7L, null, List.of()));
+        when(bookCategoryResolver.resolveAll(anyCollection())).thenAnswer(invocation -> {
+            IdentityHashMap<Book, String> resolved = new IdentityHashMap<>();
+            for (Book book : invocation.<java.util.Collection<Book>>getArgument(0)) {
+                resolved.put(book, BookGenreClassifier.resolve(book));
+            }
+            return resolved;
+        });
     }
 
     @AfterEach

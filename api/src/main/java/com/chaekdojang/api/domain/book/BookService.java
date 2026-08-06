@@ -45,6 +45,7 @@ public class BookService {
     private final KakaoBookClient kakaoBookClient;
     private final GoogleBookClient googleBookClient;
     private final WebNovelService webNovelService;
+    private final BookCategoryResolver bookCategoryResolver;
     private final ReviewRepository reviewRepository;
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewLikeRepository reviewLikeRepository;
@@ -78,8 +79,9 @@ public class BookService {
             books.putIfAbsent(bookKey(book), book);
         }
 
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(books.values());
         List<BookResponse> responses = books.values().stream()
-                .map(this::toResponseWithReviewCount)
+                .map(book -> toResponseWithReviewCount(book, categories.get(book)))
                 .toList();
         writeBookSearchCache(cacheKey, responses);
         return responses;
@@ -219,24 +221,33 @@ public class BookService {
     @Transactional
     public List<BookResponse> findPublicBooksForSitemap() {
         Set<String> seen = new LinkedHashSet<>();
-        return bookRepository.findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc()
+        List<Book> books = bookRepository.findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc()
                 .stream()
                 .filter(book -> seen.add(publicSlug(book)))
                 .peek(this::ensureSeoFields)
-                .map(this::toResponseWithReviewCount)
+                .toList();
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(books);
+        return books.stream()
+                .map(book -> toResponseWithReviewCount(book, categories.get(book)))
                 .toList();
     }
 
     public List<BookResponse> findByCategory(String category) {
-        return bookRepository.findAllByCategoryContainingIgnoreCase(category)
-                .stream()
-                .map(this::toResponseWithReviewCount)
+        List<Book> books = bookRepository.findTop1000ByDeletedAtIsNullAndIsPublicTrueOrderByUpdatedAtDesc();
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(books);
+        return books.stream()
+                .filter(book -> category.equalsIgnoreCase(categories.get(book)))
+                .map(book -> toResponseWithReviewCount(book, categories.get(book)))
                 .toList();
     }
 
     private BookResponse toResponseWithReviewCount(Book book) {
+        return toResponseWithReviewCount(book, bookCategoryResolver.resolve(book));
+    }
+
+    private BookResponse toResponseWithReviewCount(Book book, String category) {
         long reviewCount = reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(book.getId());
-        return BookResponse.from(book, reviewCount);
+        return BookResponse.from(book, reviewCount, category);
     }
 
     private String buildSearchQuery(String query, String author, String publisher) {
@@ -250,7 +261,7 @@ public class BookService {
     }
 
     private String bookSearchCacheKey(String title, String author, String publisher) {
-        return "book-search:v1:" + title + ":" + author + ":" + publisher;
+        return "book-search:v2:" + title + ":" + author + ":" + publisher;
     }
 
     private List<BookResponse> readBookSearchCache(String key) {

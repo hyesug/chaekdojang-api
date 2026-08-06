@@ -23,6 +23,10 @@ public record BookResponse(
     }
 
     public static BookResponse from(Book book, long reviewCount) {
+        return from(book, reviewCount, BookGenreClassifier.resolve(book));
+    }
+
+    public static BookResponse from(Book book, long reviewCount, String category) {
         return new BookResponse(
                 book.getId(),
                 book.getIsbn13(),
@@ -35,7 +39,7 @@ public record BookResponse(
                 book.isWebNovel() ? "WEB_NOVEL" : "BOOK",
                 book.getExternalId(),
                 book.getSourceUrl(),
-                BookGenreClassifier.resolve(book),
+                category,
                 reviewCount
         );
     }

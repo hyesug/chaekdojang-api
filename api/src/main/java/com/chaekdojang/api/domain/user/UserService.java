@@ -1,11 +1,12 @@
 package com.chaekdojang.api.domain.user;
 
 import com.chaekdojang.api.domain.book.Book;
-import com.chaekdojang.api.domain.book.BookGenreClassifier;
+import com.chaekdojang.api.domain.book.BookCategoryResolver;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.chat.ChatBlockRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
+import com.chaekdojang.api.domain.library.Library;
 import com.chaekdojang.api.domain.library.LibraryRepository;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import com.chaekdojang.api.domain.metrics.MetricEventService;
@@ -54,6 +55,7 @@ public class UserService {
     private final ReviewBookmarkRepository reviewBookmarkRepository;
     private final LibraryRepository libraryRepository;
     private final BookRepository bookRepository;
+    private final BookCategoryResolver bookCategoryResolver;
     private final ReadingGoalRepository readingGoalRepository;
     private final NotificationRepository notificationRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -395,12 +397,20 @@ public class UserService {
                 ))
                 .toList();
 
-        List<Object[]> genreData = libraryRepository.findGenreStats(myId);
-        List<ReadingStatsResponse.GenreCount> genres = genreData.stream()
-                .map(row -> new ReadingStatsResponse.GenreCount(
-                        (String) row[0],
-                        ((Number) row[1]).intValue()
-                ))
+        List<Library> finished = libraryRepository.findAllByUserIdAndStatusOrderByUpdatedAtDesc(
+                myId, LibraryStatus.FINISHED);
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(
+                finished.stream().map(Library::getBook).toList());
+        List<ReadingStatsResponse.GenreCount> genres = finished.stream()
+                .map(library -> categories.get(library.getBook()))
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        value -> value, java.util.stream.Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(5)
+                .map(entry -> new ReadingStatsResponse.GenreCount(entry.getKey(), entry.getValue().intValue()))
                 .toList();
 
         int totalFinished = monthly.stream().mapToInt(ReadingStatsResponse.MonthlyCount::count).sum();
@@ -420,6 +430,8 @@ public class UserService {
         Map<Long, Review> activeReviewById = reviews.stream()
                 .collect(java.util.stream.Collectors.toMap(Review::getId, review -> review));
         Map<Long, Map<Long, Review>> rereadReviewsByBook = new LinkedHashMap<>();
+        Map<Book, String> resolvedCategories = bookCategoryResolver.resolveAll(
+                reviews.stream().map(Review::getBook).filter(Objects::nonNull).distinct().toList());
         int rereadCount = 0;
 
         for (Review review : reviews) {
@@ -436,7 +448,7 @@ public class UserService {
                 Book book = review.getBook();
                 int year = review.getCreatedAt().getYear();
                 yearlyBookIds.computeIfAbsent(year, ignored -> new HashSet<>()).add(book.getId());
-                String genre = BookGenreClassifier.resolve(book);
+                String genre = resolvedCategories.get(book);
                 if (genre != null) {
                     genreByYear.merge(year + "\u0000" + genre, 1, Integer::sum);
                 }

@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.library;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.book.BookCategoryResolver;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.library.dto.LibraryAddRequest;
 import com.chaekdojang.api.domain.library.dto.LibraryBookStatusResponse;
@@ -27,6 +28,7 @@ public class LibraryService {
     private final LibraryRepository libraryRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    private final BookCategoryResolver bookCategoryResolver;
 
     @Transactional
     public LibraryResponse add(LibraryAddRequest request) {
@@ -41,7 +43,8 @@ public class LibraryService {
         Library library = Library.builder()
                 .user(user).book(book).status(request.status()).completedAt(request.completedAt())
                 .build();
-        return LibraryResponse.from(libraryRepository.save(library));
+        Library saved = libraryRepository.save(library);
+        return LibraryResponse.from(saved, bookCategoryResolver.resolve(saved.getBook()));
     }
 
     public List<LibraryResponse> getMyLibrary(LibraryStatus status) {
@@ -49,21 +52,29 @@ public class LibraryService {
         List<Library> result = (status != null)
                 ? libraryRepository.findAllByUserIdAndStatusOrderByUpdatedAtDesc(userId, status)
                 : libraryRepository.findAllByUserIdOrderByUpdatedAtDesc(userId);
-        return result.stream().limit(200).map(LibraryResponse::from).toList();
+        List<Library> limited = result.stream().limit(200).toList();
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(
+                limited.stream().map(Library::getBook).toList());
+        return limited.stream()
+                .map(library -> LibraryResponse.from(library, categories.get(library.getBook())))
+                .toList();
     }
 
     public List<LibraryResponse> getPublicFinishedLibrary(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
+        List<Library> libraries = libraryRepository.findAllByUserIdOrderByUpdatedAtDesc(userId);
+        List<Book> reviewBooks = libraryRepository.findPublicReviewBooksByUserId(userId);
+        List<Book> books = new java.util.ArrayList<>(libraries.stream().map(Library::getBook).toList());
+        books.addAll(reviewBooks);
+        Map<Book, String> categories = bookCategoryResolver.resolveAll(books);
         Map<Long, LibraryResponse> responses = new LinkedHashMap<>();
-        libraryRepository.findAllByUserIdOrderByUpdatedAtDesc(userId)
-                .stream()
-                .map(LibraryResponse::from)
+        libraries.stream()
+                .map(library -> LibraryResponse.from(library, categories.get(library.getBook())))
                 .forEach(response -> responses.putIfAbsent(response.book().id(), response));
-        libraryRepository.findPublicReviewBooksByUserId(userId)
-                .stream()
-                .map(LibraryResponse::fromPublicReviewBook)
+        reviewBooks.stream()
+                .map(book -> LibraryResponse.fromPublicReviewBook(book, categories.get(book)))
                 .forEach(response -> responses.putIfAbsent(response.book().id(), response));
         return responses.values().stream().limit(200).toList();
     }
@@ -74,7 +85,7 @@ public class LibraryService {
         Library library = libraryRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.LIBRARY_NOT_FOUND));
         library.updateStatus(request.status(), request.completedAt());
-        return LibraryResponse.from(library);
+        return LibraryResponse.from(library, bookCategoryResolver.resolve(library.getBook()));
     }
 
     @Transactional

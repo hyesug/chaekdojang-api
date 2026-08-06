@@ -53,7 +53,8 @@ class BookGenreClassifierTest {
         assertThat(BookGenreClassifier.resolve(
                 "Health & Fitness", BookSource.GOOGLE_BOOKS, "건강책", null)).isEqualTo("건강");
         assertThat(BookGenreClassifier.resolve(
-                "사회·정치", BookSource.KAKAO, "사회책", null)).isEqualTo("정치/사회");
+                "사회·정치", BookSource.KAKAO, "사회책", "현대 사회 문제와 정치의 관계"))
+                .isEqualTo("정치/사회");
         assertThat(BookGenreClassifier.resolve(
                 "Computers", BookSource.GOOGLE_BOOKS, "개발책", null)).isEqualTo("컴퓨터/IT");
         assertThat(BookGenreClassifier.resolve(
@@ -82,10 +83,18 @@ class BookGenreClassifierTest {
     }
 
     @Test
-    void classifiesDemianWithoutExternalDescription() {
+    void leavesMissingDescriptionForWorkLevelConsensus() {
         assertThat(BookGenreClassifier.resolve(
-                null, BookSource.KAKAO, "데미안", "헤르만 헤세",
-                "데미안은 헤르만 헤세의 책입니다."))
-                .isEqualTo("소설");
+                null, BookSource.KAKAO, "소개 없는 고전", "어떤 작가",
+                "이 책은 어떤 작가의 책입니다."))
+                .isNull();
+    }
+
+    @Test
+    void usesMultiplePhilosophySignalsBeforeEssayForm() {
+        assertThat(BookGenreClassifier.resolve(
+                "시/에세이", BookSource.KAKAO, "사색의 기록", "어떤 철학자",
+                "스토아적 철인의 사상과 이성, 삶에 대한 성찰을 담은 에세이"))
+                .isEqualTo("인문");
     }
 }

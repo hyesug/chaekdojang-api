@@ -24,11 +24,14 @@ public final class BookGenreClassifier {
         String text = ((title == null ? "" : title) + " "
                 + (description == null ? "" : description)).toLowerCase(Locale.ROOT);
 
-        if (isKnownNovel(title, author)) return "소설";
         if (containsAny(text, "인문철학", "인문 철학", "철학 에세이", "인문 교양서")) return "인문";
+        if (containsAtLeast(text, 2, "철학", "철학자", "철인", "스토아", "사상", "이성", "윤리",
+                "성찰", "인간 본성", "삶과 죽음")) return "인문";
         if (containsAny(text, "장편소설", "단편소설", "중편소설", "소설집", "청춘 소설", "로맨스 소설",
                 "미스터리 소설", "추리 소설", "sf 소설", "화제의 소설", "이 소설", "소설 《", "소설 『",
                 "fiction", " novel")) return "소설";
+        if (containsAtLeast(text, 3, "주인공", "그는", "그녀는", "소년", "소녀", "그러던 중", "사건",
+                "인물", "여정", "거짓말", "두려움", "이야기가 시작")) return "소설";
         if (source != BookSource.KAKAO && explicit != null) return explicit;
 
         if (containsAny(text, "중등 참고서", "고등 참고서", "중학 참고서", "고교 참고서",
@@ -73,20 +76,8 @@ public final class BookGenreClassifier {
                 "poetry", "essay")) return "시/에세이";
         if (containsAny(text, "장편소설", "단편소설", "중편소설", "소설집", "청춘 소설", "로맨스",
                 "미스터리", "스릴러", "sf 소설", "소설", "문학 작품", "문학전집", "fiction", " novel")) return "소설";
-        if (containsAny(text, "인문", "교양서", "고전")) return "인문";
-        return explicit;
-    }
-
-    private static boolean isKnownNovel(String title, String author) {
-        String normalizedTitle = normalizeWorkText(title);
-        String normalizedAuthor = normalizeWorkText(author);
-        return normalizedTitle.startsWith("데미안")
-                && (normalizedAuthor.isBlank() || normalizedAuthor.contains("헤르만헤세"));
-    }
-
-    private static String normalizeWorkText(String value) {
-        if (value == null) return "";
-        return value.toLowerCase(Locale.ROOT).replaceAll("[^가-힣a-z0-9]", "");
+        if (containsAny(text, "인문", "교양서")) return "인문";
+        return source == BookSource.KAKAO ? null : explicit;
     }
 
     private static String normalizeExplicitCategory(String category) {
@@ -127,6 +118,14 @@ public final class BookGenreClassifier {
     private static boolean containsAny(String value, String... keywords) {
         for (String keyword : keywords) {
             if (value.contains(keyword)) return true;
+        }
+        return false;
+    }
+
+    private static boolean containsAtLeast(String value, int minimum, String... keywords) {
+        int matches = 0;
+        for (String keyword : keywords) {
+            if (value.contains(keyword) && ++matches >= minimum) return true;
         }
         return false;
     }

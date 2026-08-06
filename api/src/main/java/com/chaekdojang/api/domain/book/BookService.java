@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -190,6 +191,7 @@ public class BookService {
     @Transactional
     public PublicBookDetailResponse findPublicBySlug(String slug) {
         Book book = findPublicBook(slug);
+        refreshDescriptionIfNeeded(book);
         ensureSeoFields(book);
 
         List<Review> reviews = reviewRepository.findTop5ByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(book.getId());
@@ -205,6 +207,7 @@ public class BookService {
 
         return PublicBookDetailResponse.from(
                 book,
+                synopsis(book),
                 reviewRepository.countByBookIdAndDeletedAtIsNullAndHiddenFalse(book.getId()),
                 reviewRepository.countReadersByBookId(book.getId()),
                 excerpts,
@@ -296,6 +299,7 @@ public class BookService {
         String isbn13 = normalizeIsbn13(result.isbn13());
         if (isbn13 != null) {
             return bookRepository.findByIsbn13(isbn13)
+                    .map(book -> updateDescriptionIfNeeded(book, result.description()))
                     .orElseGet(() -> createBook(result, isbn13));
         }
         return createBook(result, null);
@@ -309,11 +313,76 @@ public class BookService {
                         .author(result.author())
                         .publisher(result.publisher())
                         .thumbnail(result.thumbnail())
+                        .description(normalizeDescription(result.description()))
                         .slug(BookSlugGenerator.create(result.title(), result.author(), isbn13, null))
                         .source(result.source())
                         .category(result.category())
                         .build()
         );
+    }
+
+    private Book updateDescriptionIfNeeded(Book book, String candidate) {
+        String normalized = normalizeDescription(candidate);
+        if (needsDescription(book) && normalized != null) {
+            book.updateDescription(normalized);
+        }
+        return book;
+    }
+
+    private void refreshDescriptionIfNeeded(Book book) {
+        if (!needsDescription(book)) return;
+        String missKey = "book:description:miss:" + book.getId();
+        try {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(missKey))) return;
+        } catch (RuntimeException ignored) {
+            // Redis 장애가 책 상세 조회를 막지 않도록 외부 도서 API 조회를 계속한다.
+        }
+        String query = book.getIsbn13() != null && !book.getIsbn13().isBlank()
+                ? book.getIsbn13()
+                : book.getTitle() + " " + book.getAuthor();
+        List<BookSearchResult> candidates = new ArrayList<>();
+        candidates.addAll(kakaoBookClient.search(query));
+        candidates.addAll(googleBookClient.search(query));
+        BookSearchResult matched = candidates.stream()
+                .filter(candidate -> normalizeDescription(candidate.description()) != null)
+                .filter(candidate -> sameBook(book, candidate))
+                .findFirst()
+                .orElse(null);
+        if (matched != null) {
+            book.updateDescription(normalizeDescription(matched.description()));
+            return;
+        }
+        try {
+            redisTemplate.opsForValue().set(missKey, "1", Duration.ofHours(12));
+        } catch (RuntimeException ignored) {
+            // 조회 실패 캐시는 선택 사항이다.
+        }
+    }
+
+    private boolean sameBook(Book book, BookSearchResult candidate) {
+        String bookIsbn = normalizeIsbn13(book.getIsbn13());
+        String candidateIsbn = normalizeIsbn13(candidate.isbn13());
+        if (bookIsbn != null && candidateIsbn != null) return bookIsbn.equals(candidateIsbn);
+        return normalizeSearchText(book.getTitle()).equals(normalizeSearchText(candidate.title()));
+    }
+
+    private String synopsis(Book book) {
+        return needsDescription(book) ? null : book.getDescription();
+    }
+
+    private boolean needsDescription(Book book) {
+        String description = book.getDescription();
+        return description == null || description.isBlank()
+                || description.contains("책도장에서 이 책을 읽은 사람들의 독후감")
+                || description.contains("책도장에서 이 작품을 읽은 사람들의 감상");
+    }
+
+    private String normalizeDescription(String value) {
+        if (value == null || value.isBlank()) return null;
+        String withoutTags = value.replaceAll("(?i)<br\\s*/?>", " ").replaceAll("<[^>]+>", " ");
+        String normalized = HtmlUtils.htmlUnescape(withoutTags).replaceAll("\\s+", " ").trim();
+        if (normalized.isBlank()) return null;
+        return normalized.substring(0, Math.min(normalized.length(), 2000));
     }
 
     private String normalizeIsbn13(String value) {

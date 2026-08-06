@@ -11,6 +11,7 @@ public record GoogleBookResponse(
             String title,
             List<String> authors,
             String publisher,
+            String description,
             List<IndustryIdentifier> industryIdentifiers,
             ImageLinks imageLinks,
             List<String> categories

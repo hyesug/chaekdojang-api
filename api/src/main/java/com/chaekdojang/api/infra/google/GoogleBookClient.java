@@ -57,7 +57,7 @@ public class GoogleBookClient {
                 ? info.categories().get(0) : null;
 
         return new BookSearchResult(isbn13, info.title(), author,
-                info.publisher(), thumbnail, BookSource.GOOGLE_BOOKS, category);
+                info.publisher(), thumbnail, BookSource.GOOGLE_BOOKS, category, info.description());
     }
 
     private String extractIsbn13(List<GoogleBookResponse.IndustryIdentifier> identifiers) {

@@ -15,6 +15,7 @@ public record PublicBookDetailResponse(
         String thumbnail,
         String slug,
         String description,
+        String synopsis,
         Integer publishedYear,
         String seoTitle,
         String seoDescription,
@@ -48,6 +49,7 @@ public record PublicBookDetailResponse(
 
     public static PublicBookDetailResponse from(
             Book book,
+            String synopsis,
             long reviewCount,
             long readerCount,
             List<ReviewExcerpt> reviewExcerpts,
@@ -62,6 +64,7 @@ public record PublicBookDetailResponse(
                 book.getThumbnail(),
                 book.getSlug(),
                 book.getDescription(),
+                synopsis,
                 book.getPublishedYear(),
                 book.getSeoTitle(),
                 book.getSeoDescription(),

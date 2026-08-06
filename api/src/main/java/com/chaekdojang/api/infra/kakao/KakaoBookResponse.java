@@ -13,6 +13,7 @@ public record KakaoBookResponse(
             List<String> authors,
             String publisher,
             String thumbnail,
+            String contents,
             @JsonProperty("sale_price") int salePrice,
             @JsonProperty("category_name") String categoryName
     ) {}

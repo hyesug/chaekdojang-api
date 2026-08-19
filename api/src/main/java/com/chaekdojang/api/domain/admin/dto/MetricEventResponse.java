@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.admin.dto;
 
 import com.chaekdojang.api.domain.metrics.MetricEvent;
+import com.chaekdojang.api.domain.metrics.UserAgentInfo;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -18,6 +19,7 @@ public record MetricEventResponse(
         String deviceId,
         String browser,
         String operatingSystem,
+        boolean bot,
         String ip,
         Map<String, Object> meta,
         LocalDateTime createdAt
@@ -36,6 +38,7 @@ public record MetricEventResponse(
                 event.getDeviceId(),
                 event.getBrowser(),
                 event.getOperatingSystem(),
+                UserAgentInfo.isBot(event.getUserAgent()),
                 event.getIp(),
                 event.getMeta(),
                 event.getCreatedAt()

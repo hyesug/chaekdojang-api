@@ -1,8 +1,20 @@
 package com.chaekdojang.api.domain.metrics;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public record UserAgentInfo(String device, String browser, String operatingSystem) {
+
+    private static final Pattern BOT_PATTERN = Pattern.compile(
+            "bot|crawler|spider|slurp|facebookexternalhit|preview|headless|lighthouse|pagespeed|"
+                    + "google-inspectiontool|uptimerobot|curl/|wget/|python-requests|go-http-client|"
+                    + "apache-httpclient|java/|okhttp|undici"
+    );
+
+    public static boolean isBot(String rawUserAgent) {
+        if (rawUserAgent == null || rawUserAgent.isBlank()) return false;
+        return BOT_PATTERN.matcher(rawUserAgent.toLowerCase(Locale.ROOT)).find();
+    }
 
     public static UserAgentInfo parse(String rawUserAgent) {
         String userAgent = rawUserAgent == null ? "" : rawUserAgent;

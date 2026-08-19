@@ -16,6 +16,7 @@ import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
 import com.chaekdojang.api.domain.metrics.MetricEvent;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
+import com.chaekdojang.api.domain.metrics.UserAgentInfo;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroup;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupBookRepository;
 import com.chaekdojang.api.domain.readinggroup.ReadingGroupMemberRepository;
@@ -299,21 +300,28 @@ public class AdminService {
         LocalDateTime startOfToday = LocalDate.now(KST).atStartOfDay();
         LocalDateTime startOfTomorrow = startOfToday.plusDays(1);
         List<MetricEvent> todayMetrics = visibleMetricsSince(startOfToday);
+        List<MetricEvent> todayHumanMetrics = todayMetrics.stream()
+                .filter(event -> !UserAgentInfo.isBot(event.getUserAgent()))
+                .toList();
+        List<MetricEvent> todayBotMetrics = todayMetrics.stream()
+                .filter(event -> UserAgentInfo.isBot(event.getUserAgent()))
+                .toList();
         List<ErrorLog> todayErrors = visibleErrorsSince(startOfToday);
         List<AccessLog> todayAccessLogs = visibleAccessLogsSince(startOfToday);
-        long todayVisitors = todayMetrics.stream().map(this::visitorKey).distinct().count();
-        long todayPageViews = todayMetrics.stream()
+        long todayVisitors = VisitorIdentityResolver.from(todayHumanMetrics).count(todayHumanMetrics);
+        long todayBotVisitors = VisitorIdentityResolver.from(todayBotMetrics).count(todayBotMetrics);
+        long todayPageViews = todayHumanMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
                 .count();
-        long todayBookSearches = todayMetrics.stream()
+        long todayBookSearches = todayHumanMetrics.stream()
                 .filter(event -> "book_search".equals(event.getEventType())
                         || ("page_view".equals(event.getEventType()) && "/search".equals(normalizePath(event.getPath()))))
                 .count();
-        long todayBookDetailViews = todayMetrics.stream()
+        long todayBookDetailViews = todayHumanMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
                 .filter(event -> normalizePath(event.getPath()).matches("^/books/[^/]+$"))
                 .count();
-        long todayReviewDetailViews = todayMetrics.stream()
+        long todayReviewDetailViews = todayHumanMetrics.stream()
                 .filter(event -> "page_view".equals(event.getEventType()))
                 .filter(event -> normalizePath(event.getPath()).matches("^/reviews/\\d+$"))
                 .count();
@@ -323,6 +331,7 @@ public class AdminService {
         long todaySuspiciousRequests = countSecurityOccurrences(todayErrors, todayAccessLogs);
         return new AdminDashboardSummaryResponse(
                 todayVisitors,
+                todayBotVisitors,
                 todayPageViews,
                 todayBookSearches,
                 todayBookDetailViews,
@@ -337,12 +346,14 @@ public class AdminService {
     public List<AdminAnalyticsPageResponse> getAnalyticsPages(Long adminId) {
         assertAdmin(adminId);
         Map<String, PageAccumulator> summaries = new HashMap<>();
-        visibleMetricsSince(LocalDateTime.now(KST).minusDays(30)).forEach(event -> {
+        List<MetricEvent> metrics = visibleHumanMetricsSince(LocalDateTime.now(KST).minusDays(30));
+        VisitorIdentityResolver identities = VisitorIdentityResolver.from(metrics);
+        metrics.forEach(event -> {
             String path = normalizePath(event.getPath());
             if (!"page_view".equals(event.getEventType()) && event.getDurationMs() <= 0) return;
             PageAccumulator item = summaries.computeIfAbsent(path, PageAccumulator::new);
             if ("page_view".equals(event.getEventType())) item.views++;
-            item.visitors.add(visitorKey(event));
+            item.visitors.add(identities.key(event));
             if (event.getDurationMs() > 0) {
                 item.durationSumMs += event.getDurationMs();
                 item.durationCount++;
@@ -361,12 +372,14 @@ public class AdminService {
     public List<AdminAnalyticsActionResponse> getAnalyticsActions(Long adminId) {
         assertAdmin(adminId);
         Map<String, ActionAccumulator> summaries = new HashMap<>();
-        visibleMetricsSince(LocalDateTime.now(KST).minusDays(30)).stream()
+        List<MetricEvent> metrics = visibleHumanMetricsSince(LocalDateTime.now(KST).minusDays(30));
+        VisitorIdentityResolver identities = VisitorIdentityResolver.from(metrics);
+        metrics.stream()
                 .filter(event -> !"heartbeat".equals(event.getEventType()) && !"session_end".equals(event.getEventType()))
                 .forEach(event -> {
                     ActionAccumulator item = summaries.computeIfAbsent(event.getEventType(), ActionAccumulator::new);
                     item.count++;
-                    item.visitors.add(visitorKey(event));
+                    item.visitors.add(identities.key(event));
                     if (item.lastAt == null || event.getCreatedAt().isAfter(item.lastAt)) item.lastAt = event.getCreatedAt();
                 });
         return summaries.values().stream()
@@ -462,6 +475,12 @@ public class AdminService {
         return metricEventRepository.findVisibleSince(since);
     }
 
+    private List<MetricEvent> visibleHumanMetricsSince(LocalDateTime since) {
+        return visibleMetricsSince(since).stream()
+                .filter(event -> !UserAgentInfo.isBot(event.getUserAgent()))
+                .toList();
+    }
+
     private List<AccessLog> visibleAccessLogsSince(LocalDateTime since) {
         return accessLogRepository.findVisibleSince(since);
     }
@@ -472,13 +491,6 @@ public class AdminService {
                 .map(User::getId)
                 .toList();
         return errorLogRepository.findVisibleSince(since, adminIds.isEmpty() ? List.of(-1L) : adminIds);
-    }
-
-    private String visitorKey(MetricEvent event) {
-        if (event.getUser() != null) return "u:" + event.getUser().getId();
-        if (event.getSessionId() != null && !event.getSessionId().isBlank()) return "s:" + event.getSessionId();
-        if (event.getIp() != null && !event.getIp().isBlank()) return "ip:" + event.getIp();
-        return "event:" + event.getId();
     }
 
     private String normalizePath(String value) {

@@ -593,6 +593,7 @@ public class AdminService {
     private String securitySeverity(String method, String uri, int status) {
         String path = normalizePath(uri);
         if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/books/public/") && status == 404) return "정보";
+        if ("GET".equalsIgnoreCase(method) && path.matches("^/api/groups/[^/]+$") && status == 404) return "정보";
         return status >= 500 ? "오류" : "주의";
     }
 

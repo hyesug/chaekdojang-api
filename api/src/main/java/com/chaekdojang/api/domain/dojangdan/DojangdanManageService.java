@@ -41,6 +41,7 @@ public class DojangdanManageService {
 
     private final ReviewCampaignRepository campaignRepository;
     private final ReviewCampaignApplicationRepository applicationRepository;
+    private final ReviewUsageConsentRepository consentRepository;
     private final OfficialProfileRepository profileRepository;
     private final OfficialProfileMemberRepository profileMemberRepository;
     private final BookRepository bookRepository;
@@ -175,6 +176,7 @@ public class DojangdanManageService {
                 applicationRepository.countByCampaignIdAndStatus(campaignId, CampaignApplicationStatus.SELECTED),
                 applicationRepository.countByCampaignIdAndStatus(campaignId, CampaignApplicationStatus.SUBMITTED),
                 applicationRepository.countByCampaignIdAndStatus(campaignId, CampaignApplicationStatus.REJECTED),
+                consentRepository.countExportableConsents(campaignId),
                 applicationRepository.countByCampaignId(campaignId)
         );
     }

@@ -134,6 +134,8 @@ app:
       presigned-url-expiration-minutes: ${S3_PRESIGNED_URL_EXPIRATION_MINUTES:10}
   chat:
     retention-days: ${CHAT_RETENTION_DAYS:180}
+  dojangdan:
+    consent-terms-version: ${DOJANGDAN_CONSENT_TERMS_VERSION:2026-09-01}
   ai-summary:
     enabled: ${AI_SUMMARY_ENABLED:true}
     api-key: ${OPENAI_API_KEY:}

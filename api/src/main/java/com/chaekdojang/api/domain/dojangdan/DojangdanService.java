@@ -28,6 +28,7 @@ public class DojangdanService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final ReaderTrackRecordService trackRecordService;
+    private final ReviewUsageConsentService consentService;
 
     /** 공개 캠페인 목록. 작성 중(DRAFT)은 제외한다. */
     public List<CampaignSummaryResponse> getOpenCampaigns() {
@@ -66,10 +67,13 @@ public class DojangdanService {
     }
 
     @Transactional
-    public MyCampaignApplicationResponse apply(Long campaignId, CampaignApplyRequest request) {
+    public MyCampaignApplicationResponse apply(Long campaignId, CampaignApplyRequest request, String consentIp) {
         Long userId = SecurityUtils.getCurrentUserId();
         ReviewCampaign campaign = findPublicCampaign(campaignId);
 
+        if (!request.agreeTerms()) {
+            throw new CustomException(ErrorCode.CONSENT_TERMS_REQUIRED);
+        }
         if (!campaign.isAcceptingApplications(LocalDateTime.now())) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_RECRUITING);
         }
@@ -87,6 +91,8 @@ public class DojangdanService {
                         .message(request.message())
                         .build()
         );
+        consentService.record(application, request.consentPromotional(), request.consentExcerpt(),
+                request.displayNameType(), consentIp);
         return MyCampaignApplicationResponse.from(application);
     }
 
@@ -143,6 +149,7 @@ public class DojangdanService {
         }
 
         application.submit(review);
+        consentService.linkReview(applicationId, review);
         return MyCampaignApplicationResponse.from(application);
     }
 

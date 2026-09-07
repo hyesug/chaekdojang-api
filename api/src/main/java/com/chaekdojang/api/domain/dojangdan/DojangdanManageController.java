@@ -4,8 +4,13 @@ import com.chaekdojang.api.domain.dojangdan.dto.*;
 import com.chaekdojang.api.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -14,6 +19,7 @@ import java.util.List;
 public class DojangdanManageController {
 
     private final DojangdanManageService manageService;
+    private final CampaignExportService exportService;
 
     @GetMapping("/profiles")
     public ApiResponse<List<ManagedProfileResponse>> getManagedProfiles() {
@@ -61,5 +67,25 @@ public class DojangdanManageController {
             @PathVariable Long campaignId,
             @RequestBody @Valid CampaignSelectRequest request) {
         return ApiResponse.ok(manageService.select(campaignId, request));
+    }
+
+    @GetMapping("/campaigns/{campaignId}/reviews")
+    public ApiResponse<List<CampaignReviewSummaryResponse>> getCampaignReviews(
+            @PathVariable Long campaignId) {
+        return ApiResponse.ok(exportService.getCampaignReviews(campaignId));
+    }
+
+    @GetMapping("/campaigns/{campaignId}/export")
+    public ResponseEntity<byte[]> export(
+            @PathVariable Long campaignId,
+            @RequestParam(defaultValue = "markdown") String format) {
+        CampaignExportService.ExportFile file = exportService.export(campaignId, format);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.fileName(), StandardCharsets.UTF_8)
+                        .build()
+                        .toString())
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .body(file.content());
     }
 }

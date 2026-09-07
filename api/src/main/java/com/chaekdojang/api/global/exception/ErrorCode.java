@@ -63,6 +63,9 @@ public enum ErrorCode {
     CAMPAIGN_REVIEW_BOOK_MISMATCH(HttpStatus.BAD_REQUEST, "캠페인 도서로 작성한 독후감만 제출할 수 있습니다."),
     CAMPAIGN_INVALID_PERIOD(HttpStatus.BAD_REQUEST, "모집 시작·마감·독후감 마감 순서가 올바르지 않습니다."),
     CAMPAIGN_STATUS_TRANSITION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "현재 상태에서는 변경할 수 없는 단계입니다."),
+    CONSENT_TERMS_REQUIRED(HttpStatus.BAD_REQUEST, "서평단 참여 약관에 동의해야 신청할 수 있습니다."),
+    CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "동의 내역을 찾을 수 없습니다."),
+    EXPORT_FORMAT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "지원하지 않는 내보내기 형식입니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 

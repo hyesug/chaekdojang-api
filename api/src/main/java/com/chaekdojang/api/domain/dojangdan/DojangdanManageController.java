@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -21,6 +22,7 @@ public class DojangdanManageController {
     private final DojangdanManageService manageService;
     private final CampaignExportService exportService;
     private final ProfileAudienceService audienceService;
+    private final CampaignEbookService ebookService;
 
     @GetMapping("/profiles")
     public ApiResponse<List<ManagedProfileResponse>> getManagedProfiles() {
@@ -74,6 +76,18 @@ public class DojangdanManageController {
             @PathVariable Long campaignId,
             @RequestBody @Valid CampaignSelectRequest request) {
         return ApiResponse.ok(manageService.select(campaignId, request));
+    }
+
+    @PostMapping("/campaigns/{campaignId}/ebook")
+    public ApiResponse<EbookFileResponse> uploadEbook(
+            @PathVariable Long campaignId,
+            @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(ebookService.upload(campaignId, file));
+    }
+
+    @GetMapping("/campaigns/{campaignId}/ebook")
+    public ApiResponse<EbookFileResponse> getEbook(@PathVariable Long campaignId) {
+        return ApiResponse.ok(ebookService.getEbookFile(campaignId));
     }
 
     @GetMapping("/campaigns/{campaignId}/reviews")

@@ -6,8 +6,13 @@ import com.chaekdojang.api.global.util.ClientIpUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -18,6 +23,7 @@ public class DojangdanController {
     private final DojangdanService dojangdanService;
     private final ReviewUsageConsentService consentService;
     private final ProfileFollowIntentService followIntentService;
+    private final CampaignEbookService ebookService;
 
     @GetMapping("/campaigns")
     public ApiResponse<List<CampaignSummaryResponse>> getCampaigns() {
@@ -105,6 +111,38 @@ public class DojangdanController {
     @DeleteMapping("/follow-intents/{profileId}")
     public ApiResponse<Void> unsubscribeFollowIntent(@PathVariable Long profileId) {
         followIntentService.unsubscribe(profileId);
+        return ApiResponse.ok();
+    }
+
+    @GetMapping("/applications/{applicationId}/ebook")
+    public ApiResponse<MyEbookAccessResponse> getEbookAccess(@PathVariable Long applicationId) {
+        return ApiResponse.ok(ebookService.getMyAccess(applicationId));
+    }
+
+    /**
+     * 워터마크가 박힌 전자책을 내려받는다.
+     * 파일 주소를 밖으로 내보내지 않고 서버가 직접 흘려보내, 매 요청마다 권한을 다시 확인한다.
+     */
+    @GetMapping("/applications/{applicationId}/ebook/download")
+    public ResponseEntity<byte[]> downloadEbook(
+            @PathVariable Long applicationId,
+            HttpServletRequest httpRequest) {
+        CampaignEbookService.EbookDownload download =
+                ebookService.download(applicationId, ClientIpUtils.getClientIp(httpRequest));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(download.fileName(), StandardCharsets.UTF_8)
+                        .build()
+                        .toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(download.content());
+    }
+
+    /** 서평단 중도 포기. 전자책 열람 권한도 즉시 회수한다. */
+    @PostMapping("/applications/{applicationId}/drop")
+    public ApiResponse<Void> dropOut(@PathVariable Long applicationId) {
+        ebookService.dropOut(applicationId);
         return ApiResponse.ok();
     }
 }

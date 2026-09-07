@@ -49,6 +49,8 @@ public class DojangdanManageService {
     private final NotificationService notificationService;
     private final ReaderTrackRecordService trackRecordService;
     private final CampaignInviteService inviteService;
+    private final CampaignEbookService ebookService;
+    private final CampaignAccessGuard accessGuard;
 
     /** 내가 운영자로 등록된 공식 프로필 목록 */
     public List<ManagedProfileResponse> getManagedProfiles() {
@@ -79,6 +81,8 @@ public class DojangdanManageService {
                         .recruitEndAt(request.recruitEndAt())
                         .reviewDueAt(request.reviewDueAt())
                         .priorityInviteHours(request.priorityInviteHours())
+                        .deliveryType(request.deliveryType())
+                        .ebookAccessExtraDays(request.ebookAccessExtraDays())
                         .build()
         );
         return detailOf(campaign);
@@ -107,7 +111,7 @@ public class DojangdanManageService {
         validatePeriod(request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt());
         campaign.update(request.title(), request.description(), request.recruitCount(),
                 request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt(),
-                request.priorityInviteHours());
+                request.priorityInviteHours(), request.deliveryType(), request.ebookAccessExtraDays());
         return detailOf(campaign);
     }
 
@@ -140,12 +144,18 @@ public class DojangdanManageService {
 
         Map<Long, ReaderTrackRecordResponse> trackRecords = trackRecordService.forUsers(
                 applications.stream().map(application -> application.getUser().getId()).toList());
+        Map<Long, EbookAccessGrant> grants = ebookService
+                .getGrants(applications.stream().map(ReviewCampaignApplication::getId).toList())
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        grant -> grant.getApplication().getId(), grant -> grant));
 
         return applications.stream()
                 .map(application -> CampaignApplicantResponse.of(
                         application,
                         trackRecords.getOrDefault(application.getUser().getId(),
-                                ReaderTrackRecordResponse.empty())))
+                                ReaderTrackRecordResponse.empty()),
+                        grants.get(application.getId())))
                 .toList();
     }
 
@@ -166,6 +176,8 @@ public class DojangdanManageService {
             if (selectedIds.contains(application.getId())) {
                 if (application.getStatus() == CampaignApplicationStatus.APPLIED) {
                     application.select();
+                    // 전자책 캠페인이면 선정과 동시에 열람 권한이 생긴다.
+                    ebookService.grantAccess(application);
                     notificationService.send(application.getUser(), actor,
                             NotificationType.CAMPAIGN_SELECTED, campaignId);
                 }
@@ -203,18 +215,11 @@ public class DojangdanManageService {
         }
     }
 
-    ReviewCampaign requireCampaignAccess(Long campaignId) {
-        ReviewCampaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_NOT_FOUND));
-        requireProfileAccess(campaign.getProfile().getId());
-        return campaign;
+    private ReviewCampaign requireCampaignAccess(Long campaignId) {
+        return accessGuard.requireCampaignAccess(campaignId);
     }
 
-    void requireProfileAccess(Long profileId) {
-        if (SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (!profileMemberRepository.existsByProfileIdAndUserId(profileId, userId)) {
-            throw new CustomException(ErrorCode.FORBIDDEN);
-        }
+    private void requireProfileAccess(Long profileId) {
+        accessGuard.requireProfileAccess(profileId);
     }
 }

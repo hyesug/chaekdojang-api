@@ -38,7 +38,7 @@ public class CampaignExportService {
     private final ReviewCampaignApplicationRepository applicationRepository;
     private final ReviewUsageConsentRepository consentRepository;
     private final UserRepository userRepository;
-    private final DojangdanManageService manageService;
+    private final CampaignAccessGuard accessGuard;
     private final AdminAuditLogService auditLogService;
 
     @Value("${app.frontend-url}")
@@ -50,7 +50,7 @@ public class CampaignExportService {
      */
     @Transactional(readOnly = true)
     public List<CampaignReviewSummaryResponse> getCampaignReviews(Long campaignId) {
-        manageService.requireCampaignAccess(campaignId);
+        accessGuard.requireCampaignAccess(campaignId);
         return collectSubmitted(campaignId).stream()
                 .map(entry -> new CampaignReviewSummaryResponse(
                         entry.application().getId(),
@@ -68,7 +68,7 @@ public class CampaignExportService {
 
     @Transactional
     public ExportFile export(Long campaignId, String format) {
-        ReviewCampaign campaign = manageService.requireCampaignAccess(campaignId);
+        ReviewCampaign campaign = accessGuard.requireCampaignAccess(campaignId);
         List<SubmittedReview> exportable = collectSubmitted(campaignId).stream()
                 .filter(SubmittedReview::promotional)
                 .toList();

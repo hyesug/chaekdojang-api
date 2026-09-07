@@ -72,8 +72,10 @@ spring:
       platform: postgresql
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 5MB
+      # 서평단 PDF 업로드 때문에 서블릿 한도를 올렸다.
+      # 이미지·전자책별 실제 상한은 각 서비스에서 따로 검사한다.
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:60MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:60MB}
 
 jwt:
   secret: ${JWT_SECRET:chaekdojang-dev-secret-key-must-be-32chars-ok!}
@@ -126,11 +128,14 @@ app:
     local:
       upload-dir: ${LOCAL_UPLOAD_DIR:uploads/profile-images}
       public-path: ${LOCAL_UPLOAD_PUBLIC_PATH:/uploads/profile-images}
+      # 전자책은 공개 경로 아래에 두지 않는다. 반드시 서버를 거쳐야 열람할 수 있다.
+      ebook-dir: ${LOCAL_EBOOK_DIR:uploads/campaign-ebooks}
     s3:
       bucket: ${S3_UPLOAD_BUCKET:}
       region: ${AWS_REGION:ap-northeast-2}
       public-base-url: ${S3_PUBLIC_BASE_URL:}
       profile-image-prefix: ${S3_PROFILE_IMAGE_PREFIX:profile-images}
+      ebook-prefix: ${S3_EBOOK_PREFIX:campaign-ebooks}
       presigned-url-expiration-minutes: ${S3_PRESIGNED_URL_EXPIRATION_MINUTES:10}
   chat:
     retention-days: ${CHAT_RETENTION_DAYS:180}

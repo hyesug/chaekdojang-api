@@ -53,6 +53,14 @@ public class ReviewCampaign {
     @Column(nullable = false)
     private LocalDateTime reviewDueAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CampaignDeliveryType deliveryType = CampaignDeliveryType.PHYSICAL;
+
+    /** 전자책 열람 만료 = 독후감 마감일 + 이 일수 */
+    @Column(nullable = false)
+    private int ebookAccessExtraDays = 7;
+
     /** 공개 모집 전 관심 독자에게만 열어두는 시간. 0이면 우선 초대 없이 바로 공개한다. */
     @Column(nullable = false)
     private int priorityInviteHours = 24;
@@ -71,7 +79,8 @@ public class ReviewCampaign {
     @Builder
     private ReviewCampaign(OfficialProfile profile, Book book, String title, String description,
                            int recruitCount, LocalDateTime recruitStartAt, LocalDateTime recruitEndAt,
-                           LocalDateTime reviewDueAt, Integer priorityInviteHours) {
+                           LocalDateTime reviewDueAt, Integer priorityInviteHours,
+                           CampaignDeliveryType deliveryType, Integer ebookAccessExtraDays) {
         this.profile = profile;
         this.book = book;
         this.title = title;
@@ -81,12 +90,20 @@ public class ReviewCampaign {
         this.recruitEndAt = recruitEndAt;
         this.reviewDueAt = reviewDueAt;
         this.priorityInviteHours = priorityInviteHours == null ? 24 : priorityInviteHours;
+        this.deliveryType = deliveryType == null ? CampaignDeliveryType.PHYSICAL : deliveryType;
+        this.ebookAccessExtraDays = ebookAccessExtraDays == null ? 7 : ebookAccessExtraDays;
         this.status = CampaignStatus.DRAFT;
+    }
+
+    /** 선정자에게 열어줄 전자책 열람 만료 시각 */
+    public LocalDateTime ebookExpiresAt() {
+        return reviewDueAt.plusDays(ebookAccessExtraDays);
     }
 
     public void update(String title, String description, int recruitCount,
                        LocalDateTime recruitStartAt, LocalDateTime recruitEndAt,
-                       LocalDateTime reviewDueAt, Integer priorityInviteHours) {
+                       LocalDateTime reviewDueAt, Integer priorityInviteHours,
+                       CampaignDeliveryType deliveryType, Integer ebookAccessExtraDays) {
         this.title = title;
         this.description = description;
         this.recruitCount = recruitCount;
@@ -95,6 +112,12 @@ public class ReviewCampaign {
         this.reviewDueAt = reviewDueAt;
         if (priorityInviteHours != null) {
             this.priorityInviteHours = priorityInviteHours;
+        }
+        if (deliveryType != null) {
+            this.deliveryType = deliveryType;
+        }
+        if (ebookAccessExtraDays != null) {
+            this.ebookAccessExtraDays = ebookAccessExtraDays;
         }
     }
 

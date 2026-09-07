@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.dojangdan.dto;
 
 import com.chaekdojang.api.domain.dojangdan.CampaignApplicationStatus;
+import com.chaekdojang.api.domain.dojangdan.EbookAccessGrant;
 import com.chaekdojang.api.domain.dojangdan.ReviewCampaignApplication;
 
 import java.time.LocalDateTime;
@@ -22,10 +23,15 @@ public record CampaignApplicantResponse(
         LocalDateTime submittedAt,
         Long reviewId,
         Integer reviewLength,
-        ReaderTrackRecordResponse trackRecord
+        ReaderTrackRecordResponse trackRecord,
+        // 전자책 캠페인일 때만 채워진다. 유출 추적과 참여 확인의 근거다.
+        Integer ebookOpenCount,
+        LocalDateTime ebookFirstOpenedAt,
+        LocalDateTime ebookExpiresAt
 ) {
     public static CampaignApplicantResponse of(ReviewCampaignApplication application,
-                                               ReaderTrackRecordResponse trackRecord) {
+                                               ReaderTrackRecordResponse trackRecord,
+                                               EbookAccessGrant grant) {
         var review = application.getReview();
         return new CampaignApplicantResponse(
                 application.getId(),
@@ -39,7 +45,10 @@ public record CampaignApplicantResponse(
                 application.getSubmittedAt(),
                 review == null ? null : review.getId(),
                 review == null ? null : review.getContent().length(),
-                trackRecord
+                trackRecord,
+                grant == null ? null : grant.getOpenCount(),
+                grant == null ? null : grant.getFirstOpenedAt(),
+                grant == null ? null : grant.getExpiresAt()
         );
     }
 }

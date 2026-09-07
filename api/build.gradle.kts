@@ -46,6 +46,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-mail")
 	implementation("org.flywaydb:flyway-core")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	// 서평단 PDF에 열람자 워터마크를 새기는 데 사용
+	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 }
 
 tasks.withType<Test> {

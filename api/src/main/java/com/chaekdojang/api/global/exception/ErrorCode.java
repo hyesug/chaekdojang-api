@@ -67,6 +67,14 @@ public enum ErrorCode {
     CONSENT_TERMS_REQUIRED(HttpStatus.BAD_REQUEST, "서평단 참여 약관에 동의해야 신청할 수 있습니다."),
     CONSENT_NOT_FOUND(HttpStatus.NOT_FOUND, "동의 내역을 찾을 수 없습니다."),
     EXPORT_FORMAT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "지원하지 않는 내보내기 형식입니다."),
+    CAMPAIGN_NOT_EBOOK(HttpStatus.BAD_REQUEST, "전자책 배본 캠페인에서만 쓸 수 있는 기능입니다."),
+    EBOOK_FILE_INVALID(HttpStatus.BAD_REQUEST, "PDF 파일만 올릴 수 있습니다."),
+    EBOOK_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "전자책 파일은 50MB 이하만 올릴 수 있습니다."),
+    EBOOK_FILE_NOT_UPLOADED(HttpStatus.NOT_FOUND, "아직 전자책 파일이 올라오지 않았습니다."),
+    EBOOK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "이 전자책을 열람할 권한이 없습니다."),
+    EBOOK_ACCESS_EXPIRED(HttpStatus.GONE, "전자책 열람 기간이 끝났습니다."),
+    EBOOK_ACCESS_REVOKED(HttpStatus.FORBIDDEN, "전자책 열람 권한이 회수되었습니다."),
+    EBOOK_WATERMARK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "전자책을 준비하지 못했습니다. 잠시 후 다시 시도해주세요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 

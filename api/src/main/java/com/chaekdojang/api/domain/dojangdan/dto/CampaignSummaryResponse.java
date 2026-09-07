@@ -1,5 +1,6 @@
 package com.chaekdojang.api.domain.dojangdan.dto;
 
+import com.chaekdojang.api.domain.dojangdan.CampaignDeliveryType;
 import com.chaekdojang.api.domain.dojangdan.CampaignStatus;
 import com.chaekdojang.api.domain.dojangdan.ReviewCampaign;
 
@@ -22,7 +23,9 @@ public record CampaignSummaryResponse(
         LocalDateTime recruitEndAt,
         LocalDateTime reviewDueAt,
         int priorityInviteHours,
-        LocalDateTime priorityInviteUntil
+        LocalDateTime priorityInviteUntil,
+        CampaignDeliveryType deliveryType,
+        int ebookAccessExtraDays
 ) {
     public static CampaignSummaryResponse from(ReviewCampaign campaign, long applicantCount) {
         return new CampaignSummaryResponse(
@@ -42,7 +45,9 @@ public record CampaignSummaryResponse(
                 campaign.getRecruitEndAt(),
                 campaign.getReviewDueAt(),
                 campaign.getPriorityInviteHours(),
-                campaign.getPriorityInviteUntil()
+                campaign.getPriorityInviteUntil(),
+                campaign.getDeliveryType(),
+                campaign.getEbookAccessExtraDays()
         );
     }
 }

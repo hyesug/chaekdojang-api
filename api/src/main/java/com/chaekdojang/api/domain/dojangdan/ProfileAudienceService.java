@@ -29,10 +29,10 @@ public class ProfileAudienceService {
     private final ReviewCampaignApplicationRepository applicationRepository;
     private final ReviewRepository reviewRepository;
     private final OfficialProfileRepository profileRepository;
-    private final DojangdanManageService manageService;
+    private final CampaignAccessGuard accessGuard;
 
     public ProfileAudienceResponse getAudience(Long profileId) {
-        manageService.requireProfileAccess(profileId);
+        accessGuard.requireProfileAccess(profileId);
         OfficialProfile profile = profileRepository.findById(profileId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
 

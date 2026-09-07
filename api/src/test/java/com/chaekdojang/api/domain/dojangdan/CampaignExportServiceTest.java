@@ -39,7 +39,7 @@ class CampaignExportServiceTest {
     @Mock ReviewCampaignApplicationRepository applicationRepository;
     @Mock ReviewUsageConsentRepository consentRepository;
     @Mock UserRepository userRepository;
-    @Mock DojangdanManageService manageService;
+    @Mock CampaignAccessGuard accessGuard;
     @Mock AdminAuditLogService auditLogService;
     @InjectMocks CampaignExportService service;
 
@@ -63,7 +63,7 @@ class CampaignExportServiceTest {
         ReviewCampaignApplication agreed = submittedApplication(1L, "동의한독자", "동의한 독후감 본문");
         ReviewCampaignApplication refused = submittedApplication(2L, "거부한독자", "거부한 독후감 본문");
 
-        when(manageService.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
         when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any()))
                 .thenReturn(List.of(agreed, refused));
         when(consentRepository.findByApplicationIdInAndRevokedAtIsNull(any()))
@@ -83,7 +83,7 @@ class CampaignExportServiceTest {
     void 철회한_동의는_내보내기에서_빠진다() {
         ReviewCampaignApplication revoked = submittedApplication(1L, "철회한독자", "철회한 독후감 본문");
 
-        when(manageService.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
         when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any()))
                 .thenReturn(List.of(revoked));
         // 철회된 동의는 findByApplicationIdInAndRevokedAtIsNull 결과에 포함되지 않는다.
@@ -100,7 +100,7 @@ class CampaignExportServiceTest {
     void 익명_표기를_고르면_닉네임_대신_익명으로_나간다() {
         ReviewCampaignApplication anonymous = submittedApplication(1L, "실제닉네임", "익명 독후감 본문");
 
-        when(manageService.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
         when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any()))
                 .thenReturn(List.of(anonymous));
         when(consentRepository.findByApplicationIdInAndRevokedAtIsNull(any()))
@@ -118,7 +118,7 @@ class CampaignExportServiceTest {
         ReviewCampaignApplication deleted = submittedApplication(1L, "삭제한독자", "삭제된 독후감 본문");
         deleted.getReview().softDelete();
 
-        when(manageService.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
         when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any()))
                 .thenReturn(List.of(deleted));
         when(userRepository.findById(PUBLISHER_USER_ID)).thenReturn(Optional.empty());
@@ -132,7 +132,7 @@ class CampaignExportServiceTest {
     void 미동의_독후감은_목록에서_본문_없이_보인다() {
         ReviewCampaignApplication refused = submittedApplication(1L, "거부한독자", "거부한 독후감 본문");
 
-        when(manageService.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
         when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any()))
                 .thenReturn(List.of(refused));
         when(consentRepository.findByApplicationIdInAndRevokedAtIsNull(any()))

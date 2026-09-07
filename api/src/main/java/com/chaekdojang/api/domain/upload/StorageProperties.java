@@ -34,6 +34,15 @@ public class StorageProperties {
     public static class Local {
         private String uploadDir = "uploads/profile-images";
         private String publicPath = "/uploads/profile-images";
+        private String ebookDir = "uploads/campaign-ebooks";
+
+        public String getEbookDir() {
+            return ebookDir;
+        }
+
+        public void setEbookDir(String ebookDir) {
+            this.ebookDir = ebookDir;
+        }
 
         public String getUploadDir() {
             return uploadDir;
@@ -57,7 +66,16 @@ public class StorageProperties {
         private String region = "ap-northeast-2";
         private String publicBaseUrl = "";
         private String profileImagePrefix = "profile-images";
+        private String ebookPrefix = "campaign-ebooks";
         private long presignedUrlExpirationMinutes = 10;
+
+        public String getEbookPrefix() {
+            return ebookPrefix;
+        }
+
+        public void setEbookPrefix(String ebookPrefix) {
+            this.ebookPrefix = ebookPrefix;
+        }
 
         public String getBucket() {
             return bucket;

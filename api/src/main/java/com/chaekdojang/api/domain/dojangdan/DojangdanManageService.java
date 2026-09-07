@@ -48,6 +48,7 @@ public class DojangdanManageService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ReaderTrackRecordService trackRecordService;
+    private final CampaignInviteService inviteService;
 
     /** 내가 운영자로 등록된 공식 프로필 목록 */
     public List<ManagedProfileResponse> getManagedProfiles() {
@@ -77,6 +78,7 @@ public class DojangdanManageService {
                         .recruitStartAt(request.recruitStartAt())
                         .recruitEndAt(request.recruitEndAt())
                         .reviewDueAt(request.reviewDueAt())
+                        .priorityInviteHours(request.priorityInviteHours())
                         .build()
         );
         return detailOf(campaign);
@@ -104,7 +106,8 @@ public class DojangdanManageService {
         ReviewCampaign campaign = requireCampaignAccess(campaignId);
         validatePeriod(request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt());
         campaign.update(request.title(), request.description(), request.recruitCount(),
-                request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt());
+                request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt(),
+                request.priorityInviteHours());
         return detailOf(campaign);
     }
 
@@ -114,7 +117,19 @@ public class DojangdanManageService {
         if (!ALLOWED_TRANSITIONS.getOrDefault(campaign.getStatus(), Set.of()).contains(request.status())) {
             throw new CustomException(ErrorCode.CAMPAIGN_STATUS_TRANSITION_NOT_ALLOWED);
         }
-        campaign.changeStatus(request.status());
+
+        if (request.status() == CampaignStatus.RECRUITING) {
+            boolean firstOpen = campaign.getPriorityInviteUntil() == null;
+            campaign.startRecruiting();
+            // 우선 초대는 캠페인을 처음 열 때 한 번만 보낸다.
+            if (firstOpen && campaign.getPriorityInviteHours() > 0) {
+                User actor = userRepository.findById(SecurityUtils.getCurrentUserId())
+                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                inviteService.sendPriorityInvites(campaign, actor);
+            }
+        } else {
+            campaign.changeStatus(request.status());
+        }
         return detailOf(campaign);
     }
 
@@ -195,7 +210,7 @@ public class DojangdanManageService {
         return campaign;
     }
 
-    private void requireProfileAccess(Long profileId) {
+    void requireProfileAccess(Long profileId) {
         if (SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) return;
         Long userId = SecurityUtils.getCurrentUserId();
         if (!profileMemberRepository.existsByProfileIdAndUserId(profileId, userId)) {

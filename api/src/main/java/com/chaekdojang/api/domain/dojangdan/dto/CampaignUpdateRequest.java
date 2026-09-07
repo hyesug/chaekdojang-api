@@ -1,5 +1,6 @@
 package com.chaekdojang.api.domain.dojangdan.dto;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,6 +14,9 @@ public record CampaignUpdateRequest(
         @Min(1) int recruitCount,
         @NotNull LocalDateTime recruitStartAt,
         @NotNull LocalDateTime recruitEndAt,
-        @NotNull LocalDateTime reviewDueAt
+        @NotNull LocalDateTime reviewDueAt,
+
+        /** 공개 모집 전 관심 독자에게만 여는 시간(0~48). 비우면 기존 값을 유지한다. */
+        @Min(0) @Max(48) Integer priorityInviteHours
 ) {
 }

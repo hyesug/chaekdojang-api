@@ -20,7 +20,9 @@ public record CampaignSummaryResponse(
         String profileSlug,
         LocalDateTime recruitStartAt,
         LocalDateTime recruitEndAt,
-        LocalDateTime reviewDueAt
+        LocalDateTime reviewDueAt,
+        int priorityInviteHours,
+        LocalDateTime priorityInviteUntil
 ) {
     public static CampaignSummaryResponse from(ReviewCampaign campaign, long applicantCount) {
         return new CampaignSummaryResponse(
@@ -38,7 +40,9 @@ public record CampaignSummaryResponse(
                 campaign.getProfile().getSlug(),
                 campaign.getRecruitStartAt(),
                 campaign.getRecruitEndAt(),
-                campaign.getReviewDueAt()
+                campaign.getReviewDueAt(),
+                campaign.getPriorityInviteHours(),
+                campaign.getPriorityInviteUntil()
         );
     }
 }

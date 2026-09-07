@@ -20,6 +20,7 @@ public class DojangdanManageController {
 
     private final DojangdanManageService manageService;
     private final CampaignExportService exportService;
+    private final ProfileAudienceService audienceService;
 
     @GetMapping("/profiles")
     public ApiResponse<List<ManagedProfileResponse>> getManagedProfiles() {
@@ -31,6 +32,12 @@ public class DojangdanManageController {
             @PathVariable Long profileId,
             @RequestBody @Valid CampaignCreateRequest request) {
         return ApiResponse.ok(manageService.createCampaign(profileId, request));
+    }
+
+    /** 관심 독자 집계. 개별 독자를 식별할 수 있는 정보는 내려주지 않는다. */
+    @GetMapping("/profiles/{profileId}/audience")
+    public ApiResponse<ProfileAudienceResponse> getAudience(@PathVariable Long profileId) {
+        return ApiResponse.ok(audienceService.getAudience(profileId));
     }
 
     @GetMapping("/campaigns")

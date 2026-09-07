@@ -30,6 +30,7 @@ public record NotificationResponse(
             case REVIEW_CONTINUED -> senderNickname + "님이 내 독후감을 읽고 자신의 생각을 남겼어요";
             case CAMPAIGN_SELECTED -> "책도장단에 선정됐어요";
             case CAMPAIGN_REJECTED -> "이번 책도장단에는 선정되지 않았어요";
+            case CAMPAIGN_INVITED -> "관심 등록한 곳에서 새 책도장단이 열렸어요";
         };
         return new NotificationResponse(
                 n.getId(),

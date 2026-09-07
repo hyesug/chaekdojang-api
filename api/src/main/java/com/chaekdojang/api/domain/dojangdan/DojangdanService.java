@@ -29,6 +29,7 @@ public class DojangdanService {
     private final UserRepository userRepository;
     private final ReaderTrackRecordService trackRecordService;
     private final ReviewUsageConsentService consentService;
+    private final ProfileFollowIntentService followIntentService;
 
     /** 공개 캠페인 목록. 작성 중(DRAFT)은 제외한다. */
     public List<CampaignSummaryResponse> getOpenCampaigns() {
@@ -57,10 +58,18 @@ public class DojangdanService {
             }
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        boolean accepting = campaign.isAcceptingApplications(now);
+        boolean priorityWindow = accepting && campaign.isInPriorityWindow(now);
+        boolean canApplyNow = accepting && (!priorityWindow || (userId != null
+                && followIntentService.isSubscribed(userId, campaign.getProfile().getId())));
+
         return CampaignDetailResponse.of(
                 campaign,
                 applicationRepository.countByCampaignId(campaignId),
-                campaign.isAcceptingApplications(LocalDateTime.now()),
+                accepting,
+                priorityWindow,
+                canApplyNow,
                 myStatus,
                 myApplicationId
         );
@@ -74,8 +83,14 @@ public class DojangdanService {
         if (!request.agreeTerms()) {
             throw new CustomException(ErrorCode.CONSENT_TERMS_REQUIRED);
         }
-        if (!campaign.isAcceptingApplications(LocalDateTime.now())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (!campaign.isAcceptingApplications(now)) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_RECRUITING);
+        }
+        // 우선 초대 기간에는 관심 독자만 신청할 수 있다.
+        if (campaign.isInPriorityWindow(now)
+                && !followIntentService.isSubscribed(userId, campaign.getProfile().getId())) {
+            throw new CustomException(ErrorCode.CAMPAIGN_PRIORITY_INVITE_ONLY);
         }
         if (applicationRepository.existsByCampaignIdAndUserId(campaignId, userId)) {
             throw new CustomException(ErrorCode.CAMPAIGN_ALREADY_APPLIED);
@@ -93,6 +108,9 @@ public class DojangdanService {
         );
         consentService.record(application, request.consentPromotional(), request.consentExcerpt(),
                 request.displayNameType(), consentIp);
+        if (request.wantsFollowIntent()) {
+            followIntentService.record(user, campaign.getProfile(), campaign);
+        }
         return MyCampaignApplicationResponse.from(application);
     }
 

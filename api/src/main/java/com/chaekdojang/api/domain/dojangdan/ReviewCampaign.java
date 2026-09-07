@@ -53,6 +53,13 @@ public class ReviewCampaign {
     @Column(nullable = false)
     private LocalDateTime reviewDueAt;
 
+    /** 공개 모집 전 관심 독자에게만 열어두는 시간. 0이면 우선 초대 없이 바로 공개한다. */
+    @Column(nullable = false)
+    private int priorityInviteHours = 24;
+
+    @Column
+    private LocalDateTime priorityInviteUntil;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -64,7 +71,7 @@ public class ReviewCampaign {
     @Builder
     private ReviewCampaign(OfficialProfile profile, Book book, String title, String description,
                            int recruitCount, LocalDateTime recruitStartAt, LocalDateTime recruitEndAt,
-                           LocalDateTime reviewDueAt) {
+                           LocalDateTime reviewDueAt, Integer priorityInviteHours) {
         this.profile = profile;
         this.book = book;
         this.title = title;
@@ -73,21 +80,39 @@ public class ReviewCampaign {
         this.recruitStartAt = recruitStartAt;
         this.recruitEndAt = recruitEndAt;
         this.reviewDueAt = reviewDueAt;
+        this.priorityInviteHours = priorityInviteHours == null ? 24 : priorityInviteHours;
         this.status = CampaignStatus.DRAFT;
     }
 
     public void update(String title, String description, int recruitCount,
-                       LocalDateTime recruitStartAt, LocalDateTime recruitEndAt, LocalDateTime reviewDueAt) {
+                       LocalDateTime recruitStartAt, LocalDateTime recruitEndAt,
+                       LocalDateTime reviewDueAt, Integer priorityInviteHours) {
         this.title = title;
         this.description = description;
         this.recruitCount = recruitCount;
         this.recruitStartAt = recruitStartAt;
         this.recruitEndAt = recruitEndAt;
         this.reviewDueAt = reviewDueAt;
+        if (priorityInviteHours != null) {
+            this.priorityInviteHours = priorityInviteHours;
+        }
     }
 
     public void changeStatus(CampaignStatus status) {
         this.status = status;
+    }
+
+    /** 모집을 시작하면서 우선 초대 기간을 연다. 이미 열린 적 있으면 다시 열지 않는다. */
+    public void startRecruiting() {
+        this.status = CampaignStatus.RECRUITING;
+        if (priorityInviteHours > 0 && priorityInviteUntil == null) {
+            this.priorityInviteUntil = LocalDateTime.now().plusHours(priorityInviteHours);
+        }
+    }
+
+    /** 지금이 관심 독자 우선 신청 기간인지 */
+    public boolean isInPriorityWindow(LocalDateTime now) {
+        return priorityInviteUntil != null && now.isBefore(priorityInviteUntil);
     }
 
     /** 독자에게 목록·상세를 공개할 수 있는 상태인지 */

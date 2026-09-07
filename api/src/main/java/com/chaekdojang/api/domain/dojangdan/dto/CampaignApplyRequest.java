@@ -16,6 +16,12 @@ public record CampaignApplyRequest(
         boolean consentExcerpt,
 
         /** 표기 방식. 비어 있으면 닉네임 표기로 본다. */
-        ConsentDisplayNameType displayNameType
+        ConsentDisplayNameType displayNameType,
+
+        /** (선택, 기본 켜짐) 선정되지 않아도 이 출판사·작가의 다음 책 소식 받기 */
+        Boolean followIntent
 ) {
+    public boolean wantsFollowIntent() {
+        return followIntent == null || followIntent;
+    }
 }

@@ -17,6 +17,7 @@ public class DojangdanController {
 
     private final DojangdanService dojangdanService;
     private final ReviewUsageConsentService consentService;
+    private final ProfileFollowIntentService followIntentService;
 
     @GetMapping("/campaigns")
     public ApiResponse<List<CampaignSummaryResponse>> getCampaigns() {
@@ -83,6 +84,27 @@ public class DojangdanController {
     @DeleteMapping("/applications/{applicationId}/consent")
     public ApiResponse<Void> revokeConsent(@PathVariable Long applicationId) {
         consentService.revokeMyConsent(applicationId);
+        return ApiResponse.ok();
+    }
+
+    /** 미선정 통보 안에서 "다음 책 소식 받기"를 다시 확인할 때 쓴다. */
+    @PutMapping("/applications/{applicationId}/follow-intent")
+    public ApiResponse<Void> updateFollowIntent(
+            @PathVariable Long applicationId,
+            @RequestBody @Valid FollowIntentUpdateRequest request) {
+        followIntentService.updateFromApplication(applicationId, request.subscribe());
+        return ApiResponse.ok();
+    }
+
+    @GetMapping("/follow-intents/me")
+    public ApiResponse<List<MyFollowIntentResponse>> getMyFollowIntents() {
+        return ApiResponse.ok(followIntentService.getMyIntents());
+    }
+
+    /** 수신 거부 1클릭 해제 */
+    @DeleteMapping("/follow-intents/{profileId}")
+    public ApiResponse<Void> unsubscribeFollowIntent(@PathVariable Long profileId) {
+        followIntentService.unsubscribe(profileId);
         return ApiResponse.ok();
     }
 }

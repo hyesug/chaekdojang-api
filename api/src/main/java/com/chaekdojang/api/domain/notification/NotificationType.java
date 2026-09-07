@@ -10,5 +10,6 @@ public enum NotificationType {
     GROUP_JOIN_APPROVED, // 내 독서모임 가입 승인
     REVIEW_CONTINUED, // 내 독후감을 읽고 새 독후감 작성
     CAMPAIGN_SELECTED, // 서평단 선정
-    CAMPAIGN_REJECTED // 서평단 미선정
+    CAMPAIGN_REJECTED, // 서평단 미선정
+    CAMPAIGN_INVITED // 관심 등록한 출판사·작가의 새 서평단 우선 초대
 }

@@ -55,6 +55,14 @@ public enum ErrorCode {
     GROUP_ANALYSIS_AI_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 사용할 수 있는 AI 분석 횟수를 모두 사용했습니다."),
     SUBSCRIPTION_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 구독 중입니다."),
     SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "구독 정보를 찾을 수 없습니다."),
+    CAMPAIGN_NOT_FOUND(HttpStatus.NOT_FOUND, "서평단 캠페인을 찾을 수 없습니다."),
+    CAMPAIGN_NOT_RECRUITING(HttpStatus.BAD_REQUEST, "지금은 신청을 받지 않는 캠페인입니다."),
+    CAMPAIGN_ALREADY_APPLIED(HttpStatus.CONFLICT, "이미 신청한 캠페인입니다."),
+    CAMPAIGN_APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "서평단 신청 내역을 찾을 수 없습니다."),
+    CAMPAIGN_NOT_SELECTED(HttpStatus.BAD_REQUEST, "선정된 신청만 독후감을 제출할 수 있습니다."),
+    CAMPAIGN_REVIEW_BOOK_MISMATCH(HttpStatus.BAD_REQUEST, "캠페인 도서로 작성한 독후감만 제출할 수 있습니다."),
+    CAMPAIGN_INVALID_PERIOD(HttpStatus.BAD_REQUEST, "모집 시작·마감·독후감 마감 순서가 올바르지 않습니다."),
+    CAMPAIGN_STATUS_TRANSITION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "현재 상태에서는 변경할 수 없는 단계입니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 

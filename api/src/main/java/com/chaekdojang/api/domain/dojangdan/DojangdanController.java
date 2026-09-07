@@ -37,6 +37,12 @@ public class DojangdanController {
         return ApiResponse.ok(dojangdanService.getMyApplications());
     }
 
+    @GetMapping("/applications/{applicationId}/submittable-reviews")
+    public ApiResponse<List<SubmittableReviewResponse>> getSubmittableReviews(
+            @PathVariable Long applicationId) {
+        return ApiResponse.ok(dojangdanService.getSubmittableReviews(applicationId));
+    }
+
     @PostMapping("/applications/{applicationId}/review")
     public ApiResponse<MyCampaignApplicationResponse> submitReview(
             @PathVariable Long applicationId,

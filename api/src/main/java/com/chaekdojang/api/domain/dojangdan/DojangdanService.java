@@ -102,6 +102,22 @@ public class DojangdanService {
         return trackRecordService.forUser(SecurityUtils.getCurrentUserId());
     }
 
+    /** 이 신청에 연결할 수 있는 내 독후감 후보 (캠페인 도서로 쓴 것) */
+    public List<SubmittableReviewResponse> getSubmittableReviews(Long applicationId) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        ReviewCampaignApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_APPLICATION_NOT_FOUND));
+        if (!application.isOwnedBy(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        return reviewRepository.findAllByAuthorIdAndBookIdAndDeletedAtIsNullOrderByCreatedAtDesc(
+                        userId, application.getCampaign().getBook().getId())
+                .stream()
+                .map(SubmittableReviewResponse::from)
+                .toList();
+    }
+
     /** 이미 작성한 독후감을 서평단 제출물로 연결한다. */
     @Transactional
     public MyCampaignApplicationResponse submitReview(Long applicationId, CampaignReviewSubmitRequest request) {

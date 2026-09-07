@@ -45,6 +45,8 @@ class CampaignEbookServiceTest {
     @Mock EbookStorageService storageService;
     @Mock EbookWatermarkService watermarkService;
     @Mock CampaignAccessGuard accessGuard;
+    @Mock ReviewCampaignRepository campaignRepository;
+    @Mock EbookOpenLogRepository openLogRepository;
     @InjectMocks CampaignEbookService service;
 
     private ReviewCampaign campaign;
@@ -57,6 +59,7 @@ class CampaignEbookServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(READER_ID, null, List.of()));
         when(applicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(application));
+        org.mockito.Mockito.lenient().when(campaignRepository.findForRead(CAMPAIGN_ID)).thenReturn(Optional.of(campaign));
     }
 
     @AfterEach
@@ -67,7 +70,7 @@ class CampaignEbookServiceTest {
     @Test
     void 기한_안이면_워터마크_파일을_내려주고_열람을_기록한다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
         when(ebookFileRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(Optional.of(ebookFile()));
         when(storageService.get("originals/original.pdf"))
                 .thenReturn("%PDF-original".getBytes(StandardCharsets.UTF_8));
@@ -87,7 +90,7 @@ class CampaignEbookServiceTest {
     @Test
     void 기한이_지나면_열람할_수_없다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().minusMinutes(1));
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
 
         assertThatThrownBy(() -> service.download(APPLICATION_ID, "1.2.3.4"))
                 .isInstanceOf(CustomException.class)
@@ -101,7 +104,7 @@ class CampaignEbookServiceTest {
     void 회수된_권한은_즉시_차단된다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
         grant.revoke();
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
 
         assertThatThrownBy(() -> service.download(APPLICATION_ID, "1.2.3.4"))
                 .isInstanceOf(CustomException.class)
@@ -112,7 +115,7 @@ class CampaignEbookServiceTest {
 
     @Test
     void 선정되지_않아_권한이_없으면_열람할_수_없다() {
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.empty());
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.download(APPLICATION_ID, "1.2.3.4"))
                 .isInstanceOf(CustomException.class)
@@ -132,7 +135,7 @@ class CampaignEbookServiceTest {
     @Test
     void 중도_포기하면_권한이_회수된다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
 
         service.dropOut(APPLICATION_ID);
 
@@ -144,7 +147,7 @@ class CampaignEbookServiceTest {
     void 이미_만든_워터마크_파일은_다시_만들지_않는다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
         grant.markWatermarkReady("watermarked/grant-1.pdf");
-        when(grantRepository.findByApplicationId(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
         when(ebookFileRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(Optional.of(ebookFile()));
         when(storageService.get("watermarked/grant-1.pdf"))
                 .thenReturn("%PDF-cached".getBytes(StandardCharsets.UTF_8));

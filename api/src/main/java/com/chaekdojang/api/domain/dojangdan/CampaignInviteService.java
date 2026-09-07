@@ -3,6 +3,7 @@ package com.chaekdojang.api.domain.dojangdan;
 import com.chaekdojang.api.domain.notification.NotificationService;
 import com.chaekdojang.api.domain.notification.NotificationType;
 import com.chaekdojang.api.domain.user.User;
+import com.chaekdojang.api.domain.officialprofile.OfficialProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,28 @@ public class CampaignInviteService {
     private final ProfileFollowIntentRepository intentRepository;
     private final ProfileInviteSendRepository inviteSendRepository;
     private final NotificationService notificationService;
+    private final OfficialProfileRepository profileRepository;
+    private final ReviewCampaignRepository campaignRepository;
+
+    @Transactional
+    public void sendDueInvites(Long campaignId) {
+        campaignRepository.findForUpdate(campaignId).ifPresent(this::sendDueInvites);
+    }
+
+    @Transactional
+    public void sendDueInvites(ReviewCampaign campaign) {
+        LocalDateTime now = LocalDateTime.now();
+        if (campaign.getPriorityInvitesSentAt() != null || campaign.getPriorityInviteSender() == null
+                || !campaign.isAcceptingApplications(now) || !campaign.isInPriorityWindow(now)) return;
+        sendPriorityInvites(campaign, campaign.getPriorityInviteSender());
+        campaign.markPriorityInvitesSent(now);
+    }
 
     @Transactional
     public InviteResult sendPriorityInvites(ReviewCampaign campaign, User actor) {
         Long profileId = campaign.getProfile().getId();
+        // 출판사 단위로 조회와 기록을 직렬화해 서로 다른 캠페인의 동시 발송도 제한한다.
+        profileRepository.findForUpdate(profileId).orElseThrow();
         List<ProfileFollowIntent> intents =
                 intentRepository.findByProfileIdAndUnsubscribedAtIsNull(profileId);
         LocalDateTime since = LocalDateTime.now().minusDays(SEND_WINDOW_DAYS);

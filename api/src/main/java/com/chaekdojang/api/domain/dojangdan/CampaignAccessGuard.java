@@ -33,4 +33,11 @@ public class CampaignAccessGuard {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
     }
+
+    public ReviewCampaign requireCampaignWriteAccess(Long campaignId) {
+        ReviewCampaign campaign = campaignRepository.findForUpdate(campaignId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_NOT_FOUND));
+        requireProfileAccess(campaign.getProfile().getId());
+        return campaign;
+    }
 }

@@ -210,6 +210,12 @@ public class CampaignExportService {
 
     private String csvCell(String value) {
         if (value == null) return "";
+        // CSV 따옴표는 수식 실행을 막지 않는다. 앞쪽 공백/제어문자 뒤의 수식도 텍스트로 취급한다.
+        String stripped = value.stripLeading().replaceFirst("^[\\p{Cc}\\p{Cf}\\s]+", "");
+        if ((!stripped.isEmpty() && "=+-@".indexOf(stripped.charAt(0)) >= 0)
+                || value.startsWith("\t") || value.startsWith("\r") || value.startsWith("\n")) {
+            value = "'" + value;
+        }
         return '"' + value.replace("\"", "\"\"") + '"';
     }
 

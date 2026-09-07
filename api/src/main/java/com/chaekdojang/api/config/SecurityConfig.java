@@ -55,6 +55,7 @@ public class SecurityConfig {
                     .requestMatchers("/ws/**").permitAll()
                     .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                     .requestMatchers("/actuator/**").denyAll()
+                    .requestMatchers("/uploads/campaign-ebooks/**").denyAll()
                     .requestMatchers("/uploads/**").permitAll();
 
                 if (swaggerPublicEnabled) {

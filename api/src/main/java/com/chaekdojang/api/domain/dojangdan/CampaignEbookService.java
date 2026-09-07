@@ -32,10 +32,12 @@ public class CampaignEbookService {
     private final EbookStorageService storageService;
     private final EbookWatermarkService watermarkService;
     private final CampaignAccessGuard accessGuard;
+    private final ReviewCampaignRepository campaignRepository;
+    private final EbookOpenLogRepository openLogRepository;
 
     @Transactional
     public EbookFileResponse upload(Long campaignId, MultipartFile file) {
-        ReviewCampaign campaign = accessGuard.requireCampaignAccess(campaignId);
+        ReviewCampaign campaign = accessGuard.requireCampaignWriteAccess(campaignId);
         if (!campaign.getDeliveryType().isEbook()) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_EBOOK);
         }
@@ -60,6 +62,8 @@ public class CampaignEbookService {
                     .build());
         } else {
             ebookFile.replace(storageKey, originalName, "application/pdf", content.length, pageCount);
+            grantRepository.findByApplicationCampaignId(campaignId)
+                    .forEach(EbookAccessGrant::invalidateWatermark);
         }
         return EbookFileResponse.from(ebookFile);
     }
@@ -111,12 +115,14 @@ public class CampaignEbookService {
     @Transactional
     public EbookDownload download(Long applicationId, String ip) {
         ReviewCampaignApplication application = requireMyApplication(applicationId);
-        ReviewCampaign campaign = application.getCampaign();
+        // 교체/기한 변경은 배타 잠금, 다운로드는 공유 잠금으로 동시에 여러 독자가 읽을 수 있다.
+        ReviewCampaign campaign = campaignRepository.findForRead(application.getCampaign().getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_NOT_FOUND));
         if (!campaign.getDeliveryType().isEbook()) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_EBOOK);
         }
 
-        EbookAccessGrant grant = grantRepository.findByApplicationId(applicationId)
+        EbookAccessGrant grant = grantRepository.findForUpdate(applicationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.EBOOK_ACCESS_DENIED));
         if (grant.isRevoked()) {
             throw new CustomException(ErrorCode.EBOOK_ACCESS_REVOKED);
@@ -130,6 +136,7 @@ public class CampaignEbookService {
 
         byte[] content = resolveWatermarked(grant, ebookFile, application);
         grant.recordOpen(ip);
+        openLogRepository.save(new EbookOpenLog(grant, ip, ebookFile.getStorageKey()));
 
         return new EbookDownload(downloadFileName(campaign), content);
     }
@@ -138,11 +145,21 @@ public class CampaignEbookService {
     @Transactional
     public void dropOut(Long applicationId) {
         ReviewCampaignApplication application = requireMyApplication(applicationId);
+        campaignRepository.findForRead(application.getCampaign().getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_NOT_FOUND));
         if (application.getStatus() != CampaignApplicationStatus.SELECTED) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_SELECTED);
         }
         application.drop();
-        grantRepository.findByApplicationId(applicationId).ifPresent(EbookAccessGrant::revoke);
+        grantRepository.findForUpdate(applicationId).ifPresent(EbookAccessGrant::revoke);
+    }
+
+    /** 캠페인 수정의 배타 잠금 안에서 기존 권한의 만료일도 함께 맞춘다. */
+    @Transactional
+    public void syncExpiration(ReviewCampaign campaign) {
+        grantRepository.findByApplicationCampaignId(campaign.getId()).stream()
+                .filter(grant -> !grant.isRevoked())
+                .forEach(grant -> grant.extendUntil(campaign.ebookExpiresAt()));
     }
 
     /**

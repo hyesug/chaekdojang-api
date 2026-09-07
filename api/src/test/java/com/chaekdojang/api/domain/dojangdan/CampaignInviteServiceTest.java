@@ -36,6 +36,8 @@ class CampaignInviteServiceTest {
     @Mock ProfileFollowIntentRepository intentRepository;
     @Mock ProfileInviteSendRepository inviteSendRepository;
     @Mock NotificationService notificationService;
+    @Mock com.chaekdojang.api.domain.officialprofile.OfficialProfileRepository profileRepository;
+    @Mock ReviewCampaignRepository campaignRepository;
     @InjectMocks CampaignInviteService service;
 
     private OfficialProfile profile;
@@ -70,6 +72,8 @@ class CampaignInviteServiceTest {
         ReflectionTestUtils.setField(campaign, "id", CAMPAIGN_ID);
 
         actor = user(1L, "출판사담당자");
+        org.mockito.Mockito.lenient().when(profileRepository.findForUpdate(PROFILE_ID))
+                .thenReturn(java.util.Optional.of(profile));
     }
 
     @Test

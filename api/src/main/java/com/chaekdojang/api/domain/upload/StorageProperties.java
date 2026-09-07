@@ -34,7 +34,7 @@ public class StorageProperties {
     public static class Local {
         private String uploadDir = "uploads/profile-images";
         private String publicPath = "/uploads/profile-images";
-        private String ebookDir = "uploads/campaign-ebooks";
+        private String ebookDir = "private/campaign-ebooks";
 
         public String getEbookDir() {
             return ebookDir;

@@ -18,6 +18,12 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
+    @DeleteMapping("/{id}/campaign-subscription")
+    public ApiResponse<Void> unsubscribeCampaignInvitation(@PathVariable Long id) {
+        notificationService.unsubscribeCampaignInvitation(id);
+        return ApiResponse.ok();
+    }
+
     @Operation(summary = "내 알림 목록", description = "최신순으로 반환합니다. JWT 필요.")
     @GetMapping
     public ApiResponse<List<NotificationResponse>> getMyNotifications() {

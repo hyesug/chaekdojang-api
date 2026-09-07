@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.dojangdan;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.officialprofile.OfficialProfile;
+import com.chaekdojang.api.domain.user.User;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
@@ -68,6 +69,13 @@ public class ReviewCampaign {
     @Column
     private LocalDateTime priorityInviteUntil;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "priority_invite_sender_id")
+    private User priorityInviteSender;
+
+    @Column
+    private LocalDateTime priorityInvitesSentAt;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -119,6 +127,9 @@ public class ReviewCampaign {
         if (ebookAccessExtraDays != null) {
             this.ebookAccessExtraDays = ebookAccessExtraDays;
         }
+        if (priorityInvitesSentAt == null && status == CampaignStatus.RECRUITING) {
+            resetPendingPriorityWindow();
+        }
     }
 
     public void changeStatus(CampaignStatus status) {
@@ -128,14 +139,27 @@ public class ReviewCampaign {
     /** 모집을 시작하면서 우선 초대 기간을 연다. 이미 열린 적 있으면 다시 열지 않는다. */
     public void startRecruiting() {
         this.status = CampaignStatus.RECRUITING;
-        if (priorityInviteHours > 0 && priorityInviteUntil == null) {
-            this.priorityInviteUntil = LocalDateTime.now().plusHours(priorityInviteHours);
-        }
+        if (priorityInvitesSentAt == null) resetPendingPriorityWindow();
+    }
+
+    private void resetPendingPriorityWindow() {
+        this.priorityInviteUntil = priorityInviteHours > 0
+                ? recruitStartAt.plusHours(priorityInviteHours)
+                : null;
+    }
+
+    public void setPriorityInviteSender(User sender) {
+        this.priorityInviteSender = sender;
+    }
+
+    public void markPriorityInvitesSent(LocalDateTime now) {
+        this.priorityInvitesSentAt = now;
     }
 
     /** 지금이 관심 독자 우선 신청 기간인지 */
     public boolean isInPriorityWindow(LocalDateTime now) {
-        return priorityInviteUntil != null && now.isBefore(priorityInviteUntil);
+        return !now.isBefore(recruitStartAt)
+                && priorityInviteUntil != null && now.isBefore(priorityInviteUntil);
     }
 
     /** 독자에게 목록·상세를 공개할 수 있는 상태인지 */

@@ -38,3 +38,5 @@ out/
 
 ### Secrets ###
 src/main/resources/application-local.yaml
+private/
+uploads/campaign-ebooks/

@@ -147,6 +147,19 @@ class CampaignExportServiceTest {
         assertThat(reviews.get(0).reviewLength()).isEqualTo("거부한 독후감 본문".length());
     }
 
+    @Test
+    void CSV의_수식_입력은_텍스트로_내보내고_따옴표와_줄바꿈을_보존한다() {
+        ReviewCampaignApplication agreed = submittedApplication(1L, "=1+1", "\t@SUM(1,2)\n\"인용\"");
+        when(accessGuard.requireCampaignAccess(CAMPAIGN_ID)).thenReturn(campaign);
+        when(applicationRepository.findByCampaignIdAndStatusIn(anyLong(), any())).thenReturn(List.of(agreed));
+        when(consentRepository.findByApplicationIdInAndRevokedAtIsNull(any()))
+                .thenReturn(List.of(consent(agreed, true, ConsentDisplayNameType.REAL_NICKNAME, false)));
+        String csv = new String(service.export(CAMPAIGN_ID, "csv").content(), StandardCharsets.UTF_8);
+        assertThat(csv).contains("\"'=1+1\"", "\"'\t@SUM(1,2)\n\"\"인용\"\"\"");
+        String markdown = new String(service.export(CAMPAIGN_ID, "markdown").content(), StandardCharsets.UTF_8);
+        assertThat(markdown).contains("## =1+1", "\t@SUM(1,2)\n\"인용\"");
+    }
+
     private ReviewCampaign campaign() {
         OfficialProfile profile = OfficialProfile.builder()
                 .type(OfficialProfileType.PUBLISHER)

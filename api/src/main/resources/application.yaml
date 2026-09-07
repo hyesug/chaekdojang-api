@@ -129,7 +129,7 @@ app:
       upload-dir: ${LOCAL_UPLOAD_DIR:uploads/profile-images}
       public-path: ${LOCAL_UPLOAD_PUBLIC_PATH:/uploads/profile-images}
       # 전자책은 공개 경로 아래에 두지 않는다. 반드시 서버를 거쳐야 열람할 수 있다.
-      ebook-dir: ${LOCAL_EBOOK_DIR:uploads/campaign-ebooks}
+      ebook-dir: ${LOCAL_EBOOK_DIR:private/campaign-ebooks}
     s3:
       bucket: ${S3_UPLOAD_BUCKET:}
       region: ${AWS_REGION:ap-northeast-2}

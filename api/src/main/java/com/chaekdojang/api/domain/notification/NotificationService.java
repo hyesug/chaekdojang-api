@@ -3,6 +3,8 @@ package com.chaekdojang.api.domain.notification;
 import com.chaekdojang.api.domain.notification.dto.NotificationResponse;
 import com.chaekdojang.api.domain.user.User;
 import com.chaekdojang.api.domain.user.UserRepository;
+import com.chaekdojang.api.domain.dojangdan.ProfileFollowIntentService;
+import com.chaekdojang.api.domain.dojangdan.ReviewCampaignRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import com.chaekdojang.api.global.security.SecurityUtils;
@@ -19,6 +21,23 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final ReviewCampaignRepository campaignRepository;
+    private final ProfileFollowIntentService followIntentService;
+
+    @Transactional
+    public void unsubscribeCampaignInvitation(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        if (!notification.getReceiver().getId().equals(SecurityUtils.getCurrentUserId())) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+        if (notification.getType() != NotificationType.CAMPAIGN_INVITED) {
+            throw new CustomException(ErrorCode.NOT_FOUND);
+        }
+        var campaign = campaignRepository.findById(notification.getTargetId())
+                .orElseThrow(() -> new CustomException(ErrorCode.CAMPAIGN_NOT_FOUND));
+        followIntentService.unsubscribe(campaign.getProfile().getId());
+    }
 
     // 알림 생성 (내부 호출용)
     @Transactional

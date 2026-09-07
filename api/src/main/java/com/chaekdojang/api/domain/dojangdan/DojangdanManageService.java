@@ -107,29 +107,30 @@ public class DojangdanManageService {
 
     @Transactional
     public ManageCampaignDetailResponse updateCampaign(Long campaignId, CampaignUpdateRequest request) {
-        ReviewCampaign campaign = requireCampaignAccess(campaignId);
+        ReviewCampaign campaign = accessGuard.requireCampaignWriteAccess(campaignId);
         validatePeriod(request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt());
         campaign.update(request.title(), request.description(), request.recruitCount(),
                 request.recruitStartAt(), request.recruitEndAt(), request.reviewDueAt(),
                 request.priorityInviteHours(), request.deliveryType(), request.ebookAccessExtraDays());
+        ebookService.syncExpiration(campaign);
+        inviteService.sendDueInvites(campaign);
         return detailOf(campaign);
     }
 
     @Transactional
     public ManageCampaignDetailResponse updateStatus(Long campaignId, CampaignStatusUpdateRequest request) {
-        ReviewCampaign campaign = requireCampaignAccess(campaignId);
+        ReviewCampaign campaign = accessGuard.requireCampaignWriteAccess(campaignId);
         if (!ALLOWED_TRANSITIONS.getOrDefault(campaign.getStatus(), Set.of()).contains(request.status())) {
             throw new CustomException(ErrorCode.CAMPAIGN_STATUS_TRANSITION_NOT_ALLOWED);
         }
 
         if (request.status() == CampaignStatus.RECRUITING) {
-            boolean firstOpen = campaign.getPriorityInviteUntil() == null;
             campaign.startRecruiting();
-            // 우선 초대는 캠페인을 처음 열 때 한 번만 보낸다.
-            if (firstOpen && campaign.getPriorityInviteHours() > 0) {
+            if (campaign.getPriorityInvitesSentAt() == null && campaign.getPriorityInviteHours() > 0) {
                 User actor = userRepository.findById(SecurityUtils.getCurrentUserId())
                         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-                inviteService.sendPriorityInvites(campaign, actor);
+                campaign.setPriorityInviteSender(actor);
+                inviteService.sendDueInvites(campaign);
             }
         } else {
             campaign.changeStatus(request.status());
@@ -162,7 +163,7 @@ public class DojangdanManageService {
     /** 선정 처리. rejectOthers가 true면 나머지 신청자를 모두 미선정으로 확정한다. */
     @Transactional
     public List<CampaignApplicantResponse> select(Long campaignId, CampaignSelectRequest request) {
-        ReviewCampaign campaign = requireCampaignAccess(campaignId);
+        ReviewCampaign campaign = accessGuard.requireCampaignWriteAccess(campaignId);
         if (campaign.getStatus() != CampaignStatus.CLOSED && campaign.getStatus() != CampaignStatus.SELECTED) {
             throw new CustomException(ErrorCode.CAMPAIGN_STATUS_TRANSITION_NOT_ALLOWED);
         }

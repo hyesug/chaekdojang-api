@@ -72,6 +72,11 @@ public class EbookAccessGrant {
         this.watermarkStatus = WatermarkStatus.FAILED;
     }
 
+    public void invalidateWatermark() {
+        this.watermarkStatus = WatermarkStatus.PENDING;
+        this.watermarkedStorageKey = null;
+    }
+
     public void recordOpen(String ip) {
         LocalDateTime now = LocalDateTime.now();
         if (this.firstOpenedAt == null) {
@@ -98,7 +103,7 @@ public class EbookAccessGrant {
     }
 
     public boolean isExpired(LocalDateTime now) {
-        return now.isAfter(expiresAt);
+        return !now.isBefore(expiresAt);
     }
 
     public boolean isReadable(LocalDateTime now) {

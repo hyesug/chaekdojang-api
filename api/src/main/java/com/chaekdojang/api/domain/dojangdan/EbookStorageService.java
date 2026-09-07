@@ -34,7 +34,7 @@ public class EbookStorageService {
     }
 
     public String putWatermarked(Long grantId, byte[] content) {
-        return put("watermarked/grant-" + grantId + ".pdf", content);
+        return put("watermarked/grant-" + grantId + "-" + java.util.UUID.randomUUID() + ".pdf", content);
     }
 
     public byte[] get(String storageKey) {
@@ -51,7 +51,14 @@ public class EbookStorageService {
         }
 
         try {
-            return Files.readAllBytes(localPath(storageKey));
+            Path path = localPath(storageKey);
+            // 기본 경로 변경 전에 업로드한 파일도 인증된 다운로드에서는 계속 읽는다.
+            if (!Files.exists(path) && "private/campaign-ebooks".equals(storageProperties.getLocal().getEbookDir())) {
+                Path legacyRoot = Paths.get("uploads/campaign-ebooks").toAbsolutePath().normalize();
+                Path legacy = legacyRoot.resolve(storageKey).normalize();
+                if (legacy.startsWith(legacyRoot) && Files.exists(legacy)) path = legacy;
+            }
+            return Files.readAllBytes(path);
         } catch (IOException e) {
             throw new UncheckedIOException("전자책 파일을 읽지 못했습니다: " + storageKey, e);
         }

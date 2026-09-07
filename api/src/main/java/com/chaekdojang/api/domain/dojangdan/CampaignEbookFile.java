@@ -40,7 +40,7 @@ public class CampaignEbookFile {
     private Integer pageCount;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
     @Builder

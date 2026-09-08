@@ -172,6 +172,9 @@ public class CampaignEbookService {
                 && grant.getWatermarkedStorageKey() != null) {
             try {
                 return storageService.get(grant.getWatermarkedStorageKey());
+            } catch (CustomException e) {
+                // 저장소 미설정 같은 환경 문제는 다시 만들어도 소용없다. 그대로 알린다.
+                throw e;
             } catch (RuntimeException e) {
                 log.warn("워터마크 파일을 읽지 못해 다시 만듭니다. grantId={}", grant.getId(), e);
             }
@@ -186,6 +189,9 @@ public class CampaignEbookService {
                     application.getUser().getNickname());
             grant.markWatermarkReady(storageService.putWatermarked(grant.getId(), watermarked));
             return watermarked;
+        } catch (CustomException e) {
+            // 파일이 깨진 게 아니라 설정이 없는 것이므로 권한을 실패로 낙인찍지 않는다.
+            throw e;
         } catch (RuntimeException e) {
             grant.markWatermarkFailed();
             log.error("전자책 워터마크 생성 실패. grantId={}", grant.getId(), e);

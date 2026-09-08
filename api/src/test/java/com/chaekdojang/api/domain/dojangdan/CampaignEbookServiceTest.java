@@ -144,6 +144,38 @@ class CampaignEbookServiceTest {
     }
 
     @Test
+    void 저장소_미설정은_워터마크_실패로_뭉개지_않고_그대로_알린다() {
+        EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(ebookFileRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(Optional.of(ebookFile()));
+        when(storageService.get(anyString()))
+                .thenThrow(new CustomException(ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED));
+
+        assertThatThrownBy(() -> service.download(APPLICATION_ID, "1.2.3.4"))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED);
+
+        // 파일이 깨진 게 아니므로 권한을 실패 상태로 남기지 않는다.
+        assertThat(grant.getWatermarkStatus()).isEqualTo(WatermarkStatus.PENDING);
+    }
+
+    @Test
+    void 캐시된_워터마크가_있어도_저장소_미설정이면_그대로_알린다() {
+        EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
+        grant.markWatermarkReady("watermarked/grant-1.pdf");
+        when(grantRepository.findForUpdate(APPLICATION_ID)).thenReturn(Optional.of(grant));
+        when(ebookFileRepository.findByCampaignId(CAMPAIGN_ID)).thenReturn(Optional.of(ebookFile()));
+        when(storageService.get("watermarked/grant-1.pdf"))
+                .thenThrow(new CustomException(ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED));
+
+        assertThatThrownBy(() -> service.download(APPLICATION_ID, "1.2.3.4"))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED);
+
+        verify(watermarkService, never()).watermark(any(), anyLong(), anyLong(), any());
+    }
+
+    @Test
     void 이미_만든_워터마크_파일은_다시_만들지_않는다() {
         EbookAccessGrant grant = grant(LocalDateTime.now().plusDays(3));
         grant.markWatermarkReady("watermarked/grant-1.pdf");

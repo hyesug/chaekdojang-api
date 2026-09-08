@@ -67,6 +67,8 @@ public class StorageProperties {
         private String publicBaseUrl = "";
         private String profileImagePrefix = "profile-images";
         private String ebookPrefix = "campaign-ebooks";
+        // 전자책 전용 비공개 버킷. 공개 읽기가 열린 이미지 버킷과 절대 섞지 않는다.
+        private String ebookBucket = "";
         private long presignedUrlExpirationMinutes = 10;
 
         public String getEbookPrefix() {
@@ -75,6 +77,14 @@ public class StorageProperties {
 
         public void setEbookPrefix(String ebookPrefix) {
             this.ebookPrefix = ebookPrefix;
+        }
+
+        public String getEbookBucket() {
+            return ebookBucket;
+        }
+
+        public void setEbookBucket(String ebookBucket) {
+            this.ebookBucket = ebookBucket;
         }
 
         public String getBucket() {

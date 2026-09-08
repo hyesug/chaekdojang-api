@@ -294,3 +294,53 @@ Current production status:
 - Edge/API alarms:
   - `chaekdojang-api-public-health-down`
   - `chaekdojang-cloudfront-5xx-high`
+
+## Campaign Ebook Storage (PDF 서평단)
+
+Review-campaign PDFs must never live in the image bucket. That bucket is served
+publicly through CloudFront (`cdn.chaekdojang.com`), so an object placed there is
+readable without authentication, bypassing selection, watermarking, expiry and
+revocation.
+
+Code is ready:
+
+- `EbookStorageService` uses `app.storage.s3.ebook-bucket` only.
+- It never falls back to `app.storage.s3.bucket`, and refuses to start using a
+  bucket that equals the image bucket.
+- If `S3_EBOOK_BUCKET` is empty, ebook upload and download fail closed with
+  `EBOOK_STORAGE_NOT_CONFIGURED` and a startup warning is logged. The rest of the
+  API keeps running.
+- Ebook objects are never given a public URL. The only read path is
+  `GET /api/dojangdan/applications/{id}/ebook/download`, which re-checks the
+  grant, expiry and revocation on every request.
+
+AWS work:
+
+- Create a private S3 bucket, for example `chaekdojang-prod-ebooks-863518416212`.
+- Block all public access on that bucket.
+- Turn on default server-side encryption.
+- Do NOT attach it to the CloudFront distribution.
+- Do NOT add a public bucket policy.
+- Allow the EC2 instance role to `s3:GetObject` and `s3:PutObject` only on
+  `arn:aws:s3:::chaekdojang-prod-ebooks-863518416212/campaign-ebooks/*`.
+
+EC2 `.env.production`:
+
+```text
+S3_EBOOK_BUCKET=chaekdojang-prod-ebooks-863518416212
+```
+
+Verify after deploy:
+
+```bash
+# 1) 전용 버킷은 공개 접근이 막혀 있어야 한다 (AccessDenied 기대)
+curl -sI "https://chaekdojang-prod-ebooks-863518416212.s3.ap-northeast-2.amazonaws.com/campaign-ebooks/originals/test.pdf" | head -1
+
+# 2) 이미지 버킷 정책이 전자책 프리픽스까지 열어두지 않았는지 확인
+aws s3api get-bucket-policy --bucket <image-bucket> --query Policy --output text
+```
+
+Note on existing files:
+
+- Any campaign PDF uploaded before this change went to the image bucket under
+  `campaign-ebooks/`. Delete those objects and re-upload through the app.

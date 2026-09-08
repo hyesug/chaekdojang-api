@@ -1,7 +1,11 @@
 package com.chaekdojang.api.domain.dojangdan;
 
 import com.chaekdojang.api.domain.upload.StorageProperties;
+import com.chaekdojang.api.global.exception.CustomException;
+import com.chaekdojang.api.global.exception.ErrorCode;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -22,12 +26,25 @@ import java.nio.file.Paths;
  *
  * 전자책은 공개 경로(/uploads/**)에 절대 두지 않는다.
  * 로컬이든 S3든 파일을 여는 유일한 통로는 권한을 확인하는 서버 엔드포인트다.
+ *
+ * S3에서는 프로필 이미지 버킷을 절대 쓰지 않는다. 그 버킷은 CDN으로 공개 읽기가 열려 있어
+ * 같은 곳에 두면 워터마크 없는 원본이 인증 없이 새어나간다.
+ * 전용 버킷이 설정돼 있지 않으면 저장·열람을 아예 막는다(공개 버킷으로 흘리지 않기 위해).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EbookStorageService {
 
     private final StorageProperties storageProperties;
+
+    @PostConstruct
+    void warnWhenEbookBucketMissing() {
+        if (storageProperties.isS3() && isBlank(storageProperties.getS3().getEbookBucket())) {
+            log.warn("S3_EBOOK_BUCKET이 비어 있어 PDF 서평단이 비활성화됩니다. "
+                    + "공개 읽기가 열린 이미지 버킷을 재사용하지 않도록 전용 비공개 버킷을 지정하세요.");
+        }
+    }
 
     public String putOriginal(byte[] content, String extension) {
         return put("originals/" + java.util.UUID.randomUUID() + "." + extension, content);
@@ -40,10 +57,12 @@ public class EbookStorageService {
     public byte[] get(String storageKey) {
         if (storageProperties.isS3()) {
             StorageProperties.S3 s3 = storageProperties.getS3();
+            // 버킷을 먼저 확인한다. 설정이 없으면 AWS를 건드리기 전에 막는다.
+            String bucket = requireEbookBucket();
             try (S3Client client = S3Client.builder().region(Region.of(s3.getRegion())).build()) {
                 ResponseBytes<GetObjectResponse> object = client.getObjectAsBytes(
                         GetObjectRequest.builder()
-                                .bucket(requireBucket())
+                                .bucket(bucket)
                                 .key(s3Key(storageKey))
                                 .build());
                 return object.asByteArray();
@@ -67,10 +86,11 @@ public class EbookStorageService {
     private String put(String storageKey, byte[] content) {
         if (storageProperties.isS3()) {
             StorageProperties.S3 s3 = storageProperties.getS3();
+            String bucket = requireEbookBucket();
             try (S3Client client = S3Client.builder().region(Region.of(s3.getRegion())).build()) {
                 client.putObject(
                         PutObjectRequest.builder()
-                                .bucket(requireBucket())
+                                .bucket(bucket)
                                 .key(s3Key(storageKey))
                                 .contentType("application/pdf")
                                 .contentLength((long) content.length)
@@ -105,11 +125,23 @@ public class EbookStorageService {
         return prefix.replaceAll("^/+", "").replaceAll("/+$", "") + "/" + storageKey;
     }
 
-    private String requireBucket() {
-        String bucket = storageProperties.getS3().getBucket();
-        if (bucket == null || bucket.isBlank()) {
-            throw new IllegalStateException("S3 upload bucket is required.");
+    /**
+     * 전자책 전용 버킷만 쓴다.
+     * 설정이 없어도 프로필 이미지 버킷으로 대체하지 않는다. 그 순간 공개 노출이 되기 때문이다.
+     */
+    private String requireEbookBucket() {
+        String bucket = storageProperties.getS3().getEbookBucket();
+        if (isBlank(bucket)) {
+            throw new CustomException(ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED);
+        }
+        if (bucket.equals(storageProperties.getS3().getBucket())) {
+            log.error("S3_EBOOK_BUCKET이 이미지 버킷과 같습니다. 전자책이 공개될 수 있어 사용을 막습니다.");
+            throw new CustomException(ErrorCode.EBOOK_STORAGE_NOT_CONFIGURED);
         }
         return bucket;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

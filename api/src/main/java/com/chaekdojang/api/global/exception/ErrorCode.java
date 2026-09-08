@@ -75,6 +75,7 @@ public enum ErrorCode {
     EBOOK_ACCESS_EXPIRED(HttpStatus.GONE, "전자책 열람 기간이 끝났습니다."),
     EBOOK_ACCESS_REVOKED(HttpStatus.FORBIDDEN, "전자책 열람 권한이 회수되었습니다."),
     EBOOK_WATERMARK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "전자책을 준비하지 못했습니다. 잠시 후 다시 시도해주세요."),
+    EBOOK_STORAGE_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "전자책 저장소가 설정되지 않아 PDF 서평단을 이용할 수 없습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 

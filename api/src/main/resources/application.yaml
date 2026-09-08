@@ -136,6 +136,8 @@ app:
       public-base-url: ${S3_PUBLIC_BASE_URL:}
       profile-image-prefix: ${S3_PROFILE_IMAGE_PREFIX:profile-images}
       ebook-prefix: ${S3_EBOOK_PREFIX:campaign-ebooks}
+      # 전자책 전용 비공개 버킷. 비워두면 전자책 업로드·열람이 막힌다(공개 버킷으로 새지 않게).
+      ebook-bucket: ${S3_EBOOK_BUCKET:}
       presigned-url-expiration-minutes: ${S3_PRESIGNED_URL_EXPIRATION_MINUTES:10}
   chat:
     retention-days: ${CHAT_RETENTION_DAYS:180}

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -21,6 +22,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CampaignInviteService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     static final int MAX_SENDS_PER_PROFILE_IN_WINDOW = 2;
     static final int SEND_WINDOW_DAYS = 30;
@@ -38,7 +41,7 @@ public class CampaignInviteService {
 
     @Transactional
     public void sendDueInvites(ReviewCampaign campaign) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         if (campaign.getPriorityInvitesSentAt() != null || campaign.getPriorityInviteSender() == null
                 || !campaign.isAcceptingApplications(now) || !campaign.isInPriorityWindow(now)) return;
         sendPriorityInvites(campaign, campaign.getPriorityInviteSender());

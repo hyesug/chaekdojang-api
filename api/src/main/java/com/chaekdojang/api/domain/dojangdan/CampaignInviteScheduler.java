@@ -5,17 +5,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class CampaignInviteScheduler {
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final ReviewCampaignRepository campaignRepository;
     private final CampaignInviteService inviteService;
 
     @Scheduled(fixedDelayString = "${app.dojangdan.invite-scheduler-delay-ms:30000}")
     public void sendPendingInvites() {
-        for (Long id : campaignRepository.findPendingInviteCampaignIds(LocalDateTime.now())) {
+        for (Long id : campaignRepository.findPendingInviteCampaignIds(LocalDateTime.now(KST))) {
             try {
                 // 캠페인별 트랜잭션. 실패한 캠페인만 다음 주기에 다시 시도한다.
                 inviteService.sendDueInvites(id);

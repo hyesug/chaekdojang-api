@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -22,6 +23,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DojangdanService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final ReviewCampaignRepository campaignRepository;
     private final ReviewCampaignApplicationRepository applicationRepository;
@@ -58,7 +61,7 @@ public class DojangdanService {
             }
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         boolean accepting = campaign.isAcceptingApplications(now);
         boolean priorityWindow = accepting && campaign.isInPriorityWindow(now);
         boolean canApplyNow = accepting && (!priorityWindow || (userId != null
@@ -83,7 +86,7 @@ public class DojangdanService {
         if (!request.agreeTerms()) {
             throw new CustomException(ErrorCode.CONSENT_TERMS_REQUIRED);
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(KST);
         if (!campaign.isAcceptingApplications(now)) {
             throw new CustomException(ErrorCode.CAMPAIGN_NOT_RECRUITING);
         }

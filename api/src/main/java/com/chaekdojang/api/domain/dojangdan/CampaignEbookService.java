@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -25,6 +26,7 @@ import java.util.List;
 public class CampaignEbookService {
 
     private static final long MAX_EBOOK_BYTES = 50L * 1024 * 1024;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final CampaignEbookFileRepository ebookFileRepository;
     private final EbookAccessGrantRepository grantRepository;
@@ -102,7 +104,7 @@ public class CampaignEbookService {
                         grant,
                         ebookFileRepository.findByCampaignId(application.getCampaign().getId())
                                 .orElse(null),
-                        LocalDateTime.now()))
+                        LocalDateTime.now(KST)))
                 .orElse(null);
     }
 
@@ -127,7 +129,7 @@ public class CampaignEbookService {
         if (grant.isRevoked()) {
             throw new CustomException(ErrorCode.EBOOK_ACCESS_REVOKED);
         }
-        if (grant.isExpired(LocalDateTime.now())) {
+        if (grant.isExpired(LocalDateTime.now(KST))) {
             throw new CustomException(ErrorCode.EBOOK_ACCESS_EXPIRED);
         }
 

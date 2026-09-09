@@ -43,6 +43,11 @@ public class EbookWatermarkService {
         try (PDDocument document = Loader.loadPDF(source);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
+            // 비밀번호 없이 열리는 PDF도 배포 도구에 따라 암호화 사전만 남아 있을 수 있다.
+            // 원본 보안 설정을 그대로 저장하려 하면 PDFBox가 예외를 내므로,
+            // 선정자용 사본에서는 제거한 뒤 책도장 워터마크를 적용한다.
+            document.setAllSecurityToBeRemoved(true);
+
             PDType1Font font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 
             PDExtendedGraphicsState faint = new PDExtendedGraphicsState();

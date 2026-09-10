@@ -31,6 +31,8 @@ public record NotificationResponse(
             case CAMPAIGN_SELECTED -> "책도장단에 선정됐어요";
             case CAMPAIGN_REJECTED -> "이번 책도장단에는 선정되지 않았어요";
             case CAMPAIGN_INVITED -> "관심 등록한 곳에서 새 책도장단이 열렸어요";
+            case CONTEST_AWARDED -> "공모전 수상작으로 선정됐어요";
+            case CONTEST_NOT_AWARDED -> "이번 공모전에는 수상하지 못했어요";
         };
         return new NotificationResponse(
                 n.getId(),

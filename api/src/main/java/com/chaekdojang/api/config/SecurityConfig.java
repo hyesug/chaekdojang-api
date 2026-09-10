@@ -95,6 +95,8 @@ public class SecurityConfig {
                             "/api/profiles", "/api/profiles/**",
                             "/api/groups", "/api/groups/**",
                             "/api/dojangdan/campaigns", "/api/dojangdan/campaigns/*",
+                            // 공모전 목록·상세는 비회원도 볼 수 있다. 응모·운영은 아래 anyRequest()에서 인증을 요구한다.
+                            "/api/contests", "/api/contests/*",
                             "/api/review/*/ai-summary/status",
                             "/api/users/*/followers", "/api/users/*/followings",
                             "/api/users/*/reviews",

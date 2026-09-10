@@ -45,6 +45,12 @@ public class AdminOfficialProfileController {
         return ApiResponse.ok(officialProfileService.getProfiles());
     }
 
+    @PostMapping("/profiles")
+    public ApiResponse<OfficialProfileResponse> createProfile(
+            @RequestBody @Valid OfficialProfileCreateRequest request) {
+        return ApiResponse.ok(officialProfileService.createProfile(SecurityUtils.getCurrentUserId(), request));
+    }
+
     @PutMapping("/profiles/{id}")
     public ApiResponse<OfficialProfileResponse> updateProfile(
             @PathVariable Long id,

@@ -20,4 +20,6 @@ public interface OfficialProfileRepository extends JpaRepository<OfficialProfile
     Optional<OfficialProfile> findBySlugAndStatus(String slug, OfficialProfileStatus status);
 
     List<OfficialProfile> findAllByStatusOrderByFeaturedDescDisplayNameAsc(OfficialProfileStatus status);
+
+    List<OfficialProfile> findAllByType(OfficialProfileType type);
 }

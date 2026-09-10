@@ -40,6 +40,10 @@ public class OfficialProfileService {
     @Transactional
     public OfficialProfileApplicationResponse apply(OfficialProfileApplicationRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
+        // 책도장 주최 프로필은 공모전을 여는 운영진 전용이라 사용자가 신청할 수 없다.
+        if (request.type() == OfficialProfileType.PLATFORM) {
+            throw new CustomException(ErrorCode.OFFICIAL_PROFILE_TYPE_NOT_ALLOWED);
+        }
         User applicant = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         OfficialProfileApplication application = OfficialProfileApplication.builder()
@@ -139,6 +143,33 @@ public class OfficialProfileService {
                 "Rejected official profile application for " + application.getDisplayName()
         );
         return OfficialProfileApplicationResponse.from(application);
+    }
+
+    /**
+     * 관리자가 공식 프로필을 신청 절차 없이 직접 만든다.
+     * 책도장이 직접 주최하는 공모전(PLATFORM)이나 도서관 프로필을 운영진이 바로 열 수 있게 하기 위한 통로다.
+     * 만든 관리자는 그 프로필의 운영자로 함께 등록된다.
+     */
+    @Transactional
+    public OfficialProfileResponse createProfile(Long adminId, OfficialProfileCreateRequest request) {
+        User admin = assertAdmin(adminId);
+        OfficialProfile profile = profileRepository.save(OfficialProfile.builder()
+                .type(request.type())
+                .displayName(trim(request.displayName()))
+                .slug(createUniqueSlug(request.displayName()))
+                .bio(blankToNull(request.bio()))
+                .officialUrl(blankToNull(request.officialUrl()))
+                .contactEmail(blankToNull(request.contactEmail()))
+                .build());
+        memberRepository.save(OfficialProfileMember.owner(profile, admin));
+        adminAuditLogService.record(
+                admin,
+                "OFFICIAL_PROFILE_CREATED",
+                "OFFICIAL_PROFILE",
+                profile.getId(),
+                "Created official profile " + profile.getDisplayName() + " (" + profile.getType() + ")"
+        );
+        return toResponse(profile);
     }
 
     @Transactional

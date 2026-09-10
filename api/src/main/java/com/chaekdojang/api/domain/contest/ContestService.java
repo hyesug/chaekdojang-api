@@ -38,10 +38,12 @@ public class ContestService {
 
     /** 공개 공모전 목록. 작성 중(DRAFT)은 제외한다. */
     public List<ContestSummaryResponse> getOpenContests() {
+        LocalDateTime now = LocalDateTime.now(KST);
         return contestRepository.findByStatusInOrderBySubmitEndAtDesc(List.of(
                         ContestStatus.OPEN, ContestStatus.CLOSED, ContestStatus.ANNOUNCED))
                 .stream()
-                .map(contest -> ContestSummaryResponse.of(contest, entryCount(contest.getId()), books(contest.getId())))
+                .map(contest -> ContestSummaryResponse.of(
+                        contest, entryCount(contest.getId()), books(contest.getId()), now))
                 .toList();
     }
 
@@ -63,7 +65,7 @@ public class ContestService {
                 contest,
                 entryCount(contestId),
                 books(contestId),
-                contest.isAcceptingEntries(LocalDateTime.now(KST)),
+                LocalDateTime.now(KST),
                 myEntry,
                 awards
         );

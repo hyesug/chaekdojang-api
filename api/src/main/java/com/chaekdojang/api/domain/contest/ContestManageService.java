@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -36,6 +37,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ContestManageService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private static final Map<ContestStatus, Set<ContestStatus>> ALLOWED_TRANSITIONS = Map.of(
             ContestStatus.DRAFT, Set.of(ContestStatus.OPEN),
@@ -85,8 +88,10 @@ public class ContestManageService {
         List<Long> profileIds = hostProfiles().stream().map(OfficialProfile::getId).toList();
         if (profileIds.isEmpty()) return List.of();
 
+        LocalDateTime now = LocalDateTime.now(KST);
         return contestRepository.findByHostIdInOrderByCreatedAtDesc(profileIds).stream()
-                .map(contest -> ContestSummaryResponse.of(contest, entryCount(contest.getId()), books(contest.getId())))
+                .map(contest -> ContestSummaryResponse.of(
+                        contest, entryCount(contest.getId()), books(contest.getId()), now))
                 .toList();
     }
 
@@ -215,6 +220,7 @@ public class ContestManageService {
         return ManageContestDetailResponse.of(
                 contest,
                 books(contestId),
+                LocalDateTime.now(KST),
                 entryCount(contestId),
                 entryRepository.countByContestIdAndStatus(contestId, ContestEntryStatus.AWARDED),
                 entryRepository.countByContestIdAndStatus(contestId, ContestEntryStatus.NOT_AWARDED),

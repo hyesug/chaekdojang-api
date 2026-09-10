@@ -21,10 +21,15 @@ public record ContestSummaryResponse(
         LocalDateTime submitStartAt,
         LocalDateTime submitEndAt,
         LocalDateTime announceAt,
+        /** 지금 응모를 받는 중인지 */
+        boolean acceptingEntries,
+        /** 접수 마감 시각이 지났는지. 주최자가 마감 처리를 미뤄도 화면에 마감으로 보여주기 위해 쓴다. */
+        boolean submitClosed,
         long entryCount,
         List<ContestBookResponse> books
 ) {
-    public static ContestSummaryResponse of(Contest contest, long entryCount, List<ContestBookResponse> books) {
+    public static ContestSummaryResponse of(Contest contest, long entryCount,
+                                            List<ContestBookResponse> books, LocalDateTime now) {
         return new ContestSummaryResponse(
                 contest.getId(),
                 contest.getTitle(),
@@ -38,6 +43,8 @@ public record ContestSummaryResponse(
                 contest.getSubmitStartAt(),
                 contest.getSubmitEndAt(),
                 contest.getAnnounceAt(),
+                contest.isAcceptingEntries(now),
+                now.isAfter(contest.getSubmitEndAt()),
                 entryCount,
                 books
         );

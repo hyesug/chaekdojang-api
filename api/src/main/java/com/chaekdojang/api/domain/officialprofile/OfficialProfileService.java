@@ -254,8 +254,12 @@ public class OfficialProfileService {
     }
 
     private String createUniqueSlug(String displayName) {
-        String base = Normalizer.normalize(displayName, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
+        // NFD는 한글을 자모로 쪼갠다. 그대로 두면 아래 필터에서 전부 걸러져 한글 이름이 빈 값이 되므로,
+        // 발음 부호만 떼어낸 뒤 NFC로 다시 합쳐 한글 음절을 되살린다.
+        String withoutDiacritics = Normalizer.normalize(
+                Normalizer.normalize(displayName, Normalizer.Form.NFD).replaceAll("\\p{M}", ""),
+                Normalizer.Form.NFC);
+        String base = withoutDiacritics
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9가-힣]+", "-")
                 .replaceAll("^-+|-+$", "");

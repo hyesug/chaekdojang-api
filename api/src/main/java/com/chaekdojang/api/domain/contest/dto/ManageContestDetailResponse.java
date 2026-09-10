@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.contest.dto;
 
 import com.chaekdojang.api.domain.contest.Contest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record ManageContestDetailResponse(
@@ -14,10 +15,10 @@ public record ManageContestDetailResponse(
         long withdrawnCount
 ) {
     public static ManageContestDetailResponse of(Contest contest, List<ContestBookResponse> books,
-                                                 long entryCount, long awardedCount,
+                                                 LocalDateTime now, long entryCount, long awardedCount,
                                                  long notAwardedCount, long withdrawnCount) {
         return new ManageContestDetailResponse(
-                ContestSummaryResponse.of(contest, entryCount, books),
+                ContestSummaryResponse.of(contest, entryCount, books, now),
                 contest.getDescription(),
                 contest.getPrizeDescription(),
                 entryCount,

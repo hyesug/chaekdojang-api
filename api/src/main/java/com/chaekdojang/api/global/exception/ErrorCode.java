@@ -39,6 +39,7 @@ public enum ErrorCode {
     AI_REFLECTION_DISABLED(HttpStatus.SERVICE_UNAVAILABLE, "AI 회고 기능을 잠시 이용할 수 없습니다."),
     AI_REFLECTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI 회고를 만들지 못했습니다. 기존 독후감은 그대로 보관됩니다."),
     AI_REFLECTION_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 사용할 수 있는 AI 회고 횟수를 모두 사용했습니다."),
+    FORTUNE_AI_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "이번 달 AI 운세 풀이 5회를 모두 사용했습니다."),
     FOLLOW_UP_QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "저장된 후속 질문이 없습니다."),
     CHANGE_COMPARISON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "비교할 수 있는 활성 재독 기록이 없습니다."),
     CHANGE_COMPARISON_NOT_FOUND(HttpStatus.NOT_FOUND, "저장된 생각 변화 비교가 없습니다."),

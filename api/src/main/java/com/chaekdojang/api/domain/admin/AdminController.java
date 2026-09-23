@@ -246,6 +246,13 @@ public class AdminController {
                 SecurityUtils.getCurrentUserId(), round, body.drawTime(), body.reason())));
     }
 
+    @PostMapping("/lotto-future-validations/{round}/model-revision")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> reviseLottoFutureValidationModel(
+            @PathVariable int round, @RequestBody LottoModelRevisionRequest body) {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.reviseModel(
+                SecurityUtils.getCurrentUserId(), round, body.reason())));
+    }
+
     @PatchMapping("/lotto-future-validations/{round}/result")
     public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> confirmLottoFutureValidationResult(
             @PathVariable int round, @RequestBody LottoResultRequest body) {
@@ -263,4 +270,5 @@ public class AdminController {
 }
 
 record LottoTimeRevisionRequest(LocalTime drawTime, String reason) {}
+record LottoModelRevisionRequest(String reason) {}
 record LottoResultRequest(List<Integer> numbers) {}

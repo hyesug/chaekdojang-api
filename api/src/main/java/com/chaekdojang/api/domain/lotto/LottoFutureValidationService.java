@@ -72,6 +72,19 @@ public class LottoFutureValidationService {
     }
 
     @Transactional
+    public RoundResponse reviseModel(Long userId, int round, String reason) {
+        assertAdmin(userId);
+        RoundRow existing = roundRow(round);
+        if (reason == null || reason.isBlank() || !ZonedDateTime.of(existing.drawDate, existing.drawTime, KST).isAfter(ZonedDateTime.now(KST))) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        LottoFuturePredictionGenerator.Generated generated = generator.generate(round, existing.drawDate, existing.drawTime, history());
+        jdbcTemplate.update("UPDATE lotto_future_predictions SET active = false WHERE prediction_round_id = ? AND active", existing.id);
+        insertPredictions(existing.id, generated, reason.trim(), nextRevision(existing.id));
+        return response(roundRow(round));
+    }
+
+    @Transactional
     public RoundResponse confirmResult(Long userId, int round, List<Integer> numbers) {
         assertAdmin(userId);
         LottoFutureValidationPolicy.requireTicket(numbers);

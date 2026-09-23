@@ -41,11 +41,13 @@ public class LottoFutureValidationService {
     public RoundResponse generateNext() {
         ZonedDateTime now = ZonedDateTime.now(KST);
         LocalDate date = LottoFutureValidationPolicy.nextDrawDate(now.toLocalDate());
-        if (date.equals(now.toLocalDate()) && !now.toLocalTime().isBefore(LottoFutureValidationPolicy.DEFAULT_DRAW_TIME)) {
+        LottoFutureValidationPolicy.DrawSchedule schedule = LottoFutureValidationPolicy.drawSchedule(date);
+        if (date.equals(now.toLocalDate()) && !now.toLocalTime().isBefore(schedule.drawTime())) {
             date = date.plusWeeks(1);
+            schedule = LottoFutureValidationPolicy.drawSchedule(date);
         }
-        return generate(LottoFutureValidationPolicy.roundOf(date), date, LottoFutureValidationPolicy.DEFAULT_DRAW_TIME,
-                "official_default", "기본 추첨 시각 20:35 KST", "자동 생성");
+        return generate(LottoFutureValidationPolicy.roundOf(date), date, schedule.drawTime(),
+                schedule.timeSource(), schedule.timeSourceDetail(), "자동 생성");
     }
 
     @Transactional
@@ -100,7 +102,18 @@ public class LottoFutureValidationService {
     private RoundResponse generate(int round, LocalDate drawDate, LocalTime drawTime, String timeSource, String detail, String reason) {
         jdbcTemplate.query("SELECT pg_advisory_xact_lock(?)", (rs, rowNum) -> 0, (long) round);
         List<Long> ids = jdbcTemplate.query("SELECT id FROM lotto_future_prediction_rounds WHERE draw_round = ?", (rs, rowNum) -> rs.getLong(1), round);
-        if (!ids.isEmpty()) return response(roundRow(round));
+        if (!ids.isEmpty()) {
+            RoundRow existing = roundRow(round);
+            if ("official_schedule_override".equals(timeSource) && "official_default".equals(existing.timeSource)
+                    && ZonedDateTime.of(existing.drawDate, existing.drawTime, KST).isAfter(ZonedDateTime.now(KST))) {
+                jdbcTemplate.update("UPDATE lotto_future_prediction_rounds SET draw_time = ?, time_source = ?, time_source_detail = ? WHERE id = ?",
+                        drawTime, timeSource, detail, existing.id);
+                jdbcTemplate.update("UPDATE lotto_future_predictions SET active = false WHERE prediction_round_id = ? AND active", existing.id);
+                LottoFuturePredictionGenerator.Generated generated = generator.generate(round, existing.drawDate, drawTime, history());
+                insertPredictions(existing.id, generated, detail, nextRevision(existing.id));
+            }
+            return response(roundRow(round));
+        }
         LottoFuturePredictionGenerator.Generated generated = generator.generate(round, drawDate, drawTime, history());
         LocalDateTime now = LocalDateTime.now(KST);
         jdbcTemplate.update("""

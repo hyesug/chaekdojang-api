@@ -21,6 +21,17 @@ class LottoFutureValidationPolicyTest {
     }
 
     @Test
+    void appliesTheOfficialAsianGamesBroadcastOverridesForRounds1243And1244() {
+        LottoFutureValidationPolicy.DrawSchedule round1243 = LottoFutureValidationPolicy.drawSchedule(LocalDate.of(2026, 9, 26));
+        LottoFutureValidationPolicy.DrawSchedule round1244 = LottoFutureValidationPolicy.drawSchedule(LocalDate.of(2026, 10, 3));
+
+        assertThat(round1243.drawTime()).isEqualTo(LocalTime.of(21, 30));
+        assertThat(round1244.drawTime()).isEqualTo(LocalTime.of(21, 35));
+        assertThat(round1243.timeSource()).isEqualTo("official_schedule_override");
+        assertThat(round1244.timeSource()).isEqualTo("official_schedule_override");
+    }
+
+    @Test
     void ticketMustHaveSixDistinctNumbersInRange() {
         LottoFutureValidationPolicy.requireTicket(List.of(1, 7, 11, 22, 34, 45));
 

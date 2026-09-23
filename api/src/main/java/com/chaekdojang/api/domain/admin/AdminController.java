@@ -16,6 +16,7 @@ import com.chaekdojang.api.domain.admin.dto.BookReviewStatResponse;
 import com.chaekdojang.api.domain.admin.dto.ErrorLogResponse;
 import com.chaekdojang.api.domain.admin.dto.MetricEventResponse;
 import com.chaekdojang.api.domain.inquiry.dto.InquiryResponse;
+import com.chaekdojang.api.domain.lotto.LottoFutureValidationService;
 import com.chaekdojang.api.domain.user.UserRole;
 import com.chaekdojang.api.global.response.ApiResponse;
 import com.chaekdojang.api.global.security.SecurityUtils;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -38,6 +40,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AdminUserActivityService adminUserActivityService;
+    private final LottoFutureValidationService lottoFutureValidationService;
 
     // ── 회원 관리 ──────────────────────────────────────────
     @GetMapping("/users")
@@ -226,6 +229,30 @@ public class AdminController {
                 adminService.getAuditLogs(SecurityUtils.getCurrentUserId(), q, action, targetType, pageable)));
     }
 
+    @GetMapping("/lotto-future-validations")
+    public ResponseEntity<ApiResponse<List<LottoFutureValidationService.RoundResponse>>> getLottoFutureValidations() {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.list(SecurityUtils.getCurrentUserId())));
+    }
+
+    @PostMapping("/lotto-future-validations/generate-next")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> generateNextLottoFutureValidation() {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.generateNext(SecurityUtils.getCurrentUserId())));
+    }
+
+    @PatchMapping("/lotto-future-validations/{round}/draw-time")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> reviseLottoFutureValidationTime(
+            @PathVariable int round, @RequestBody LottoTimeRevisionRequest body) {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.reviseTime(
+                SecurityUtils.getCurrentUserId(), round, body.drawTime(), body.reason())));
+    }
+
+    @PatchMapping("/lotto-future-validations/{round}/result")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> confirmLottoFutureValidationResult(
+            @PathVariable int round, @RequestBody LottoResultRequest body) {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.confirmResult(
+                SecurityUtils.getCurrentUserId(), round, body.numbers())));
+    }
+
     @PostMapping("/inquiries/{id}/comments")
     public ResponseEntity<ApiResponse<InquiryResponse>> addComment(
             @PathVariable Long id,
@@ -234,3 +261,6 @@ public class AdminController {
                 adminService.addComment(SecurityUtils.getCurrentUserId(), id, body.get("content"))));
     }
 }
+
+record LottoTimeRevisionRequest(LocalTime drawTime, String reason) {}
+record LottoResultRequest(List<Integer> numbers) {}

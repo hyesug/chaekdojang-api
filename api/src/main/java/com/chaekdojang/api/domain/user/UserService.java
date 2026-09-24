@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.book.BookCategoryResolver;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.chat.ChatBlockRepository;
+import com.chaekdojang.api.domain.fortune.FortuneProfileRepository;
 import com.chaekdojang.api.domain.inquiry.InquiryRepository;
 import com.chaekdojang.api.domain.library.LibraryStatus;
 import com.chaekdojang.api.domain.library.Library;
@@ -63,6 +64,7 @@ public class UserService {
     private final MetricEventRepository metricEventRepository;
     private final InquiryRepository inquiryRepository;
     private final MetricEventService metricEventService;
+    private final FortuneProfileRepository fortuneProfileRepository;
 
     public UserProfileResponse getMyProfile() {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -81,6 +83,7 @@ public class UserService {
         notificationRepository.deleteAllByReceiverIdOrSenderId(userId, userId);
         subscriptionRepository.deleteAllByUserId(userId);
         userAuthProviderRepository.deleteAllByUserId(userId);
+        fortuneProfileRepository.deleteByUserId(userId);
         metricEventRepository.anonymizeUser(userId);
         inquiryRepository.findAllByUserIdAndDeletedAtIsNull(userId)
                 .forEach(inquiry -> inquiry.softDelete());

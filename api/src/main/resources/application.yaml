@@ -166,6 +166,13 @@ app:
     member-daily-limit: ${FEEDBACK_DAILY_LIMIT_MEMBER:5}
     boundary-message: ${FEEDBACK_BOUNDARY_MESSAGE:도장 코멘트는 참고용이에요. 내 생각과 감상을 가장 중요한 기준으로 삼아주세요.}
     beta-apply-url: ${BETA_APPLY_URL:}
+  # 로또 미래검증 — 예측 계산은 웹(Next) 쪽 /api/internal/lotto-future-predictions 에서 돈다.
+  # 두 값이 비면 HttpLottoFuturePredictionGenerator 가 예외를 던져 회차 생성이 실패한다.
+  # 토큰은 웹의 LOTTO_PREDICTION_INTERNAL_TOKEN 과 **같은 값**이어야 한다.
+  #   보기: LOTTO_FUTURE_GENERATOR_URL=https://staging.chaekdojang.com/api/internal/lotto-future-predictions
+  lotto-future:
+    generator-url: ${LOTTO_FUTURE_GENERATOR_URL:}
+    generator-token: ${LOTTO_FUTURE_GENERATOR_TOKEN:}
 
 kakao:
   api-key: ${KAKAO_API_KEY:}

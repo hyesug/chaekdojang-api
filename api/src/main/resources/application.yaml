@@ -154,6 +154,12 @@ app:
     input-cost-per-million-tokens: ${OPENAI_INPUT_COST_PER_MILLION_TOKENS:0}
     output-cost-per-million-tokens: ${OPENAI_OUTPUT_COST_PER_MILLION_TOKENS:0}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
+  ai-credit:
+    grant-existing-users: ${AI_CREDIT_GRANT_EXISTING_USERS:true}
+    input-cost-per-million-tokens: ${ANTHROPIC_INPUT_COST_PER_MILLION_TOKENS:5}
+    output-cost-per-million-tokens: ${ANTHROPIC_OUTPUT_COST_PER_MILLION_TOKENS:25}
+    cache-read-cost-per-million-tokens: ${ANTHROPIC_CACHE_READ_COST_PER_MILLION_TOKENS:0.5}
+    cache-write-cost-per-million-tokens: ${ANTHROPIC_CACHE_WRITE_COST_PER_MILLION_TOKENS:6.25}
   feedback:
     enabled: ${FEEDBACK_ENABLED:true}
     api-key: ${LLM_API_KEY:${OPENAI_API_KEY:}}

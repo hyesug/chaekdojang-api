@@ -14,6 +14,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Deprecated(forRemoval = false)
 public class FortuneAiUsageService {
 
     private static final int MONTHLY_LIMIT = 5;

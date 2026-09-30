@@ -2,8 +2,11 @@ package com.chaekdojang.api.domain.dojangdan;
 
 import com.chaekdojang.api.domain.book.*;
 import com.chaekdojang.api.domain.dojangdan.dto.CampaignUpdateRequest;
+import com.chaekdojang.api.domain.dojangdan.dto.*;
 import com.chaekdojang.api.domain.notification.*;
 import com.chaekdojang.api.domain.officialprofile.*;
+import com.chaekdojang.api.domain.review.ReviewService;
+import com.chaekdojang.api.domain.review.dto.ReviewCreateRequest;
 import com.chaekdojang.api.domain.user.*;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
@@ -64,6 +67,9 @@ class DojangdanRegressionTest {
     @Autowired NotificationRepository notifications;
     @Autowired CampaignEbookService ebooks;
     @Autowired DojangdanManageService manage;
+    @Autowired DojangdanService dojangdan;
+    @Autowired CampaignExportService exports;
+    @Autowired ReviewService reviewService;
     @Autowired CampaignInviteService invites;
     @Autowired NotificationService notificationService;
 
@@ -215,6 +221,50 @@ class DojangdanRegressionTest {
         notificationService.unsubscribeCampaignInvitation(notificationId);
         notificationService.unsubscribeCampaignInvitation(notificationId);
         assertThat(intents.existsByUserIdAndProfileIdAndUnsubscribedAtIsNull(fixture.reader(), fixture.profile())).isFalse();
+    }
+
+    @Test
+    void 캠페인_생성부터_전자책_열람_독후감_제출_내보내기까지_완료된다() throws Exception {
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+
+        authenticate(fixture.owner());
+        var created = manage.createCampaign(fixture.profile(), new CampaignCreateRequest(
+                fixture.book(), "전체 흐름 검증", "출판사에서 만든 PDF 서평단", 3,
+                now.minusMinutes(1), now.plusDays(3), now.plusDays(10),
+                0, CampaignDeliveryType.PDF, 7));
+        Long campaignId = created.campaign().id();
+        ebooks.upload(campaignId, pdf(2));
+        manage.updateStatus(campaignId, new CampaignStatusUpdateRequest(CampaignStatus.RECRUITING));
+
+        authenticate(fixture.reader());
+        assertThat(dojangdan.getCampaign(campaignId).canApplyNow()).isTrue();
+        var applied = dojangdan.apply(campaignId, new CampaignApplyRequest(
+                "책을 꼼꼼히 읽고 독후감을 쓰겠습니다.", true, true, true,
+                ConsentDisplayNameType.REAL_NICKNAME, true), "192.0.2.10");
+        Long applicationId = applied.id();
+
+        authenticate(fixture.owner());
+        manage.updateStatus(campaignId, new CampaignStatusUpdateRequest(CampaignStatus.CLOSED));
+        manage.select(campaignId, new CampaignSelectRequest(List.of(applicationId), true));
+
+        authenticate(fixture.reader());
+        assertPages(ebooks.download(applicationId, "192.0.2.11").content(), 2);
+        var review = reviewService.create(new ReviewCreateRequest(
+                fixture.book(), "서평단 전체 흐름을 검증하기 위한 독후감입니다.", 5,
+                false, false, null, null, List.of("서평단", "통합검증"), false));
+        var submitted = dojangdan.submitReview(applicationId, new CampaignReviewSubmitRequest(review.id()));
+        assertThat(submitted.status()).isEqualTo(CampaignApplicationStatus.SUBMITTED);
+        assertThat(submitted.reviewId()).isEqualTo(review.id());
+        assertThat(dojangdan.getMyTrackRecord().submittedCount()).isEqualTo(1);
+
+        authenticate(fixture.owner());
+        assertThat(exports.getCampaignReviews(campaignId)).hasSize(1);
+        var markdown = exports.export(campaignId, "markdown");
+        assertThat(new String(markdown.content(), java.nio.charset.StandardCharsets.UTF_8))
+                .contains("전체 흐름 검증", "서평단 전체 흐름을 검증하기 위한 독후감입니다.");
+        assertThat(manage.getCampaignDetail(campaignId).submittedCount()).isEqualTo(1);
+        manage.updateStatus(campaignId, new CampaignStatusUpdateRequest(CampaignStatus.COMPLETED));
+        assertThat(campaigns.findById(campaignId).orElseThrow().getStatus()).isEqualTo(CampaignStatus.COMPLETED);
     }
 
     private void updateDue(LocalDateTime due) {

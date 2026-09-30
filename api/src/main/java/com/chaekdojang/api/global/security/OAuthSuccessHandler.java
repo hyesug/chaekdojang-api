@@ -46,7 +46,7 @@ public class OAuthSuccessHandler implements AuthenticationSuccessHandler {
                 "login_succeeded", principal.getUserId(), "/auth/callback", meta, request);
         String redirect = principal.isNew()
                 ? frontendUrl + "/auth/callback?setup=true"
-                : frontendUrl + "/auth/callback";
+                : frontendUrl + (principal.isLinked() ? "/profile?linked=true" : "/auth/callback");
         response.sendRedirect(redirect);
     }
 }

@@ -22,9 +22,13 @@ public class OAuthRegistrationService {
     @Value("${admin.super-email:}")
     private String superAdminEmail;
 
-    public record RegistrationResult(User user, boolean isNew) {}
+    public record RegistrationResult(User user, boolean isNew, boolean linked) {}
 
     public RegistrationResult getOrRegister(AuthProvider provider, Map<String, Object> attributes) {
+        return getOrRegister(provider, attributes, null);
+    }
+
+    public RegistrationResult getOrRegister(AuthProvider provider, Map<String, Object> attributes, Long linkUserId) {
         OAuthUserInfo info = OAuthUserInfo.of(provider, attributes);
 
         // 1. 이미 이 소셜 로그인 수단으로 가입된 계정이 있는지 확인
@@ -42,21 +46,23 @@ public class OAuthRegistrationService {
                         && superAdminEmail.equals(linked.getEmail()) && !linked.isSuperAdmin()) {
                     linked.setSuperAdmin();
                 }
-                return new RegistrationResult(linked, false);
+                if (linkUserId != null && !linked.getId().equals(linkUserId)) {
+                    throw new com.chaekdojang.api.global.exception.CustomException(
+                            com.chaekdojang.api.global.exception.ErrorCode.AUTH_PROVIDER_ALREADY_LINKED);
+                }
+                return new RegistrationResult(linked, false, false);
             }
         }
 
-        // 2. 같은 이메일로 다른 소셜 로그인을 한 계정이 있는지 확인 → 있으면 연결 (탈퇴 계정 제외)
+        // 이메일은 계정 소유 증명이 아니므로 다른 소셜 로그인과 자동 병합하지 않는다.
         User user;
         boolean isNew = false;
-        if (info.email() != null) {
-            Optional<User> existingByEmail = userRepository.findByEmail(info.email());
-            if (existingByEmail.isPresent() && existingByEmail.get().getDeletedAt() == null) {
-                user = existingByEmail.get();
-            } else {
-                user = createNewUser(info);
-                isNew = true;
-            }
+        boolean linked = linkUserId != null;
+        if (linked) {
+            user = userRepository.findById(linkUserId)
+                    .filter(item -> item.getDeletedAt() == null)
+                    .orElseThrow(() -> new com.chaekdojang.api.global.exception.CustomException(
+                            com.chaekdojang.api.global.exception.ErrorCode.USER_NOT_FOUND));
         } else {
             user = createNewUser(info);
             isNew = true;
@@ -77,7 +83,7 @@ public class OAuthRegistrationService {
             adminAlertService.sendSignupAlert(user.getEmail(), user.getNickname());
         }
 
-        return new RegistrationResult(user, isNew);
+        return new RegistrationResult(user, isNew, linked);
     }
 
     private User createNewUser(OAuthUserInfo info) {

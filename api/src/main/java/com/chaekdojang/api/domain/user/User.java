@@ -30,6 +30,11 @@ public class User {
     @Column(nullable = false, unique = true)
     private String nickname;
 
+    // DB trigger가 별도 시퀀스로 생성하는 고객지원용 공개 식별자
+    // 테스트 H2 스키마는 Flyway trigger를 실행하지 않으므로 DB not-null 제약은 migration에서만 선언한다.
+    @Column(name = "customer_code", unique = true, insertable = false, updatable = false)
+    private String customerCode;
+
     @Column
     private String profileImage;
 

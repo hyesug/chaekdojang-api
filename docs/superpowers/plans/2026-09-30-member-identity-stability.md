@@ -81,7 +81,7 @@
 - Test: `api/src/test/java/com/chaekdojang/api/domain/user/OAuthRegistrationServiceTest.java`
 
 **Interfaces:**
-- Produces: `POST /api/users/me/auth-providers/{provider}/link`, OAuth callback result that indicates a completed link without creating a second account.
+- Produces: `GET /api/users/me/auth-providers/{provider}/link`, OAuth callback result that indicates a completed link without creating a second account.
 
 - [ ] **Step 1: 같은 현재 사용자에 provider를 연결하고, 다른 활성 사용자에 연결된 provider를 거부하는 failing tests를 작성한다**
 

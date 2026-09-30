@@ -81,7 +81,8 @@ public class UserService {
         libraryRepository.deleteAllByUserId(userId);
         followRepository.deleteAllByFollowerIdOrFollowingId(userId, userId);
         notificationRepository.deleteAllByReceiverIdOrSenderId(userId, userId);
-        subscriptionRepository.deleteAllByUserId(userId);
+        // 결제·구독 이력은 법적 보존 가능성을 위해 삭제하지 않고 접근만 중지한다.
+        subscriptionRepository.deactivateAllActiveByUserId(userId);
         userAuthProviderRepository.deleteAllByUserId(userId);
         fortuneProfileRepository.deleteByUserId(userId);
         metricEventRepository.anonymizeUser(userId);
@@ -185,7 +186,9 @@ public class UserService {
                 yearlyFinishedCount,
                 readingGoalPublicVisible
         );
-        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary, readingGoal);
+        return UserProfileResponse.of(user, reviewCount, followerCount, followingCount, librarySummary, readingGoal,
+                userAuthProviderRepository.findAllByUserIdOrderByCreatedAtAsc(userId).stream()
+                        .map(UserAuthProvider::getProvider).toList());
     }
 
     public List<UserSummary> searchUsers(String q) {

@@ -95,6 +95,7 @@ public enum ErrorCode {
     CONTEST_AWARD_REQUIRED(HttpStatus.BAD_REQUEST, "수상작을 한 편 이상 지정한 뒤 발표할 수 있습니다."),
     OFFICIAL_PROFILE_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "직접 신청할 수 없는 프로필 유형입니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "찾을 수 없습니다."),
+    AUTH_PROVIDER_ALREADY_LINKED(HttpStatus.CONFLICT, "이미 다른 계정에 연결된 로그인 수단입니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 
     private final HttpStatus status;

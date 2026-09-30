@@ -2,6 +2,10 @@ package com.chaekdojang.api.domain.user.dto;
 
 import com.chaekdojang.api.domain.book.Book;
 import com.chaekdojang.api.domain.user.User;
+import com.chaekdojang.api.domain.user.AuthProvider;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 public record UserProfileResponse(
         Long id,
@@ -16,7 +20,11 @@ public record UserProfileResponse(
         ReadingGoalSummary readingGoal,
         LifeBook lifeBook,
         boolean onboardingCompleted,
-        String preferredGenres
+        String preferredGenres,
+        String customerCode,
+        String email,
+        LocalDateTime createdAt,
+        List<AuthProvider> authProviders
 ) {
     public record LibrarySummary(long readingCount, long finishedCount, long wishlistCount) {
     }
@@ -49,7 +57,8 @@ public record UserProfileResponse(
             long followerCount,
             long followingCount,
             LibrarySummary librarySummary,
-            ReadingGoalSummary readingGoal) {
+            ReadingGoalSummary readingGoal,
+            List<AuthProvider> authProviders) {
         LifeBook lifeBook = user.getLifeBook() != null ? LifeBook.from(user.getLifeBook()) : null;
         return new UserProfileResponse(
                 user.getId(),
@@ -64,7 +73,11 @@ public record UserProfileResponse(
                 readingGoal,
                 lifeBook,
                 user.isOnboardingCompleted(),
-                user.getPreferredGenres()
+                user.getPreferredGenres(),
+                user.getCustomerCode(),
+                user.getEmail(),
+                user.getCreatedAt(),
+                authProviders
         );
     }
 }

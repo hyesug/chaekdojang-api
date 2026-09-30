@@ -37,7 +37,7 @@
 
 여러 로그인 수단을 하나의 계정에 추가하는 경우에만 명시적 연결을 허용한다.
 
-1. 로그인된 사용자가 `POST /api/users/me/auth-providers/{provider}/link`를 호출한다.
+1. 로그인된 사용자가 `GET /api/users/me/auth-providers/{provider}/link`로 이동한다.
 2. 서버는 현재 JWT 사용자 id를 OAuth state 검증용 HTTP session에 한 번만 저장하고 해당 provider 인가 URL로 redirect한다.
 3. OAuth callback에서 해당 session이 있으면 새 OAuth 인증 결과를 현재 사용자에 연결한다.
 4. 이미 다른 활성 사용자에 연결된 OAuth 계정은 거부한다.

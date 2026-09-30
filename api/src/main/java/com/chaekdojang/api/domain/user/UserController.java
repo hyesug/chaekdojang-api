@@ -13,6 +13,7 @@ import com.chaekdojang.api.global.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,21 @@ public class UserController {
     @PatchMapping("/me")
     public ApiResponse<UserProfileResponse> updateMyProfile(@RequestBody @Valid UpdateProfileRequest request) {
         return ApiResponse.ok(userService.updateMyProfile(request));
+    }
+
+    @Operation(summary = "로그인 수단 연결 시작", description = "현재 로그인한 계정에 OAuth 로그인 수단을 추가합니다.")
+    @GetMapping("/me/auth-providers/{provider}/link")
+    public void startProviderLink(@PathVariable AuthProvider provider,
+                                  HttpServletRequest request,
+                                  HttpServletResponse response) throws java.io.IOException {
+        if (provider == AuthProvider.LOCAL) {
+            throw new com.chaekdojang.api.global.exception.CustomException(
+                    com.chaekdojang.api.global.exception.ErrorCode.INVALID_REQUEST);
+        }
+        request.getSession(true).setAttribute(
+                com.chaekdojang.api.global.security.OAuthUserService.OAUTH_LINK_USER_ID,
+                SecurityUtils.getCurrentUserId());
+        response.sendRedirect("/oauth2/authorization/" + provider.name().toLowerCase(java.util.Locale.ROOT));
     }
 
     @Operation(summary = "내 독서 목표 수정", description = "올해 독서 목표 권수를 설정하거나 삭제합니다. targetCount가 null이면 삭제. JWT 필요.")

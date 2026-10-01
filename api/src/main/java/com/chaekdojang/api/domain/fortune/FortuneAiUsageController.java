@@ -18,8 +18,8 @@ public class FortuneAiUsageController {
     private final AiCreditService aiCreditService;
 
     @PostMapping("/reservations")
-    public ApiResponse<AiCreditService.Reservation> reserve(@RequestHeader("X-Idempotency-Key") java.util.UUID requestId) {
-        return ApiResponse.ok(aiCreditService.reserve(SecurityUtils.getCurrentUserId(), requestId));
+    public ApiResponse<AiCreditService.Reservation> reserve(@RequestHeader("X-Idempotency-Key") java.util.UUID requestId, @RequestBody ReserveRequest request) {
+        return ApiResponse.ok(aiCreditService.reserve(SecurityUtils.getCurrentUserId(), requestId, request.tier()));
     }
 
     @PostMapping("/reservations/{requestId}/complete")
@@ -35,6 +35,7 @@ public class FortuneAiUsageController {
     public ApiResponse<CreditResponse> credits() { Long id=SecurityUtils.getCurrentUserId(); return ApiResponse.ok(new CreditResponse(aiCreditService.balanceView(id), aiCreditService.history(id))); }
 
     public record CompleteRequest(String model, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens, long durationMs, java.time.LocalDateTime requestedAt) {}
+    public record ReserveRequest(FortuneAiModelTier tier) {}
     public record RefundRequest(String errorType) {}
     public record CreditResponse(AiCreditService.Balance balance, java.util.List<AiCreditService.History> recentHistory) {}
 }

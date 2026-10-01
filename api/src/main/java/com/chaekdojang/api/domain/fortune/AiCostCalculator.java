@@ -16,5 +16,14 @@ public class AiCostCalculator {
                 .add(price(cacheWrite, properties.getCacheWriteCostPerMillionTokens()))
                 .setScale(8, RoundingMode.HALF_UP);
     }
+    public BigDecimal estimate(FortuneAiModelTier tier, int input, int output, int cacheRead, int cacheWrite) {
+        BigDecimal[] price = switch (tier) {
+            case CLAUDE_SONNET -> new BigDecimal[] { new BigDecimal("2"), new BigDecimal("10"), new BigDecimal("0.20"), new BigDecimal("2.50") };
+            case GPT_SOL -> new BigDecimal[] { new BigDecimal("2"), new BigDecimal("10"), new BigDecimal("0.10"), new BigDecimal("2.50") };
+            case CLAUDE_OPUS -> new BigDecimal[] { new BigDecimal("4"), new BigDecimal("20"), new BigDecimal("0.20"), new BigDecimal("5") };
+            case GPT_ASTRA -> new BigDecimal[] { new BigDecimal("10"), new BigDecimal("50"), new BigDecimal("1"), new BigDecimal("12.50") };
+        };
+        return price(input, price[0]).add(price(output, price[1])).add(price(cacheRead, price[2])).add(price(cacheWrite, price[3])).setScale(8, RoundingMode.HALF_UP);
+    }
     private BigDecimal price(int tokens, BigDecimal perMillion) { return perMillion.multiply(BigDecimal.valueOf(tokens)).divide(MILLION, 8, RoundingMode.HALF_UP); }
 }

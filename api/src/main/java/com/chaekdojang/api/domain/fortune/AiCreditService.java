@@ -19,7 +19,8 @@ public class AiCreditService {
     private final AiCostCalculator costCalculator;
 
     @Transactional
-    public Reservation reserve(Long userId, UUID requestId) {
+    public Reservation reserve(Long userId, UUID requestId, FortuneAiModelTier tier) {
+        if (tier == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
         jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
         Reservation existing = reservation(userId, requestId);
         if (existing != null) return existing;
@@ -27,9 +28,10 @@ public class AiCreditService {
         int balance = balance(userId);
         if (balance < 1) throw new CustomException(ErrorCode.AI_CREDIT_EXHAUSTED);
         UUID ledgerId = UUID.randomUUID();
-        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)", ledgerId,userId,-1,"USE",requestId,"운세 AI 심층질문 선점");
-        jdbc.update("INSERT INTO ai_credit_reservations(request_id,user_id,feature,status,use_ledger_id) VALUES (?,?,?,?,?)", requestId,userId,FORTUNE_DEEP_QUESTION,"RESERVED",ledgerId);
-        return new Reservation(requestId, balance(userId), freeRemaining(userId), "RESERVED");
+        if (balance < tier.creditCost()) throw new CustomException(ErrorCode.AI_CREDIT_EXHAUSTED);
+        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)", ledgerId,userId,-tier.creditCost(),"USE",requestId,tier.displayName()+" 선점");
+        jdbc.update("INSERT INTO ai_credit_reservations(request_id,user_id,feature,status,use_ledger_id) VALUES (?,?,?,?,?)", requestId,userId,FORTUNE_DEEP_QUESTION+":"+tier.name(),"RESERVED",ledgerId);
+        return new Reservation(requestId, balance(userId), freeRemaining(userId), "RESERVED", LocalDateTime.now(), tier, tier.creditCost());
     }
 
     @Transactional
@@ -39,9 +41,10 @@ public class AiCreditService {
         if ("COMPLETED".equals(r.status())) return;
         if ("REFUNDED".equals(r.status())) throw new CustomException(ErrorCode.INVALID_REQUEST);
         LocalDateTime now = LocalDateTime.now();
-        BigDecimal cost = costCalculator.estimate(usage.inputTokens(), usage.outputTokens(), usage.cacheReadTokens(), usage.cacheWriteTokens());
+        FortuneAiModelTier tier = r.tier();
+        BigDecimal cost = costCalculator.estimate(tier, usage.inputTokens(), usage.outputTokens(), usage.cacheReadTokens(), usage.cacheWriteTokens());
         jdbc.update("UPDATE ai_credit_reservations SET status='COMPLETED', completed_at=? WHERE request_id=?", Timestamp.valueOf(now),requestId);
-        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,estimated_cost,requested_at,completed_at,duration_ms,success) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,true)", UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,"fortune-ai route",usage.model(),usage.inputTokens(),usage.outputTokens(),usage.cacheReadTokens(),usage.cacheWriteTokens(),cost,Timestamp.valueOf(usage.requestedAt()),Timestamp.valueOf(now),Math.max(0,usage.durationMs()));
+        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,estimated_cost,requested_at,completed_at,duration_ms,success) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,true)", UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,tier.displayName(),tier.model(),usage.inputTokens(),usage.outputTokens(),usage.cacheReadTokens(),usage.cacheWriteTokens(),cost,Timestamp.valueOf(usage.requestedAt()),Timestamp.valueOf(now),Math.max(0,usage.durationMs()));
     }
 
     @Transactional
@@ -51,8 +54,8 @@ public class AiCreditService {
         if (!"RESERVED".equals(r.status())) return;
         LocalDateTime now = LocalDateTime.now();
         jdbc.update("UPDATE ai_credit_reservations SET status='REFUNDED', completed_at=? WHERE request_id=?",Timestamp.valueOf(now),requestId);
-        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)",UUID.randomUUID(),userId,1,"REFUND",requestId,"AI 호출 실패 자동 복구: "+sanitize(errorType));
-        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,requested_at,completed_at,duration_ms,success,error_type) VALUES (?,?,?,?,?,?,?,?,?,?,false)",UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,"fortune-ai route","claude-opus-5",Timestamp.valueOf(r.createdAt()),Timestamp.valueOf(now),Math.max(0,now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()-r.createdAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()),sanitize(errorType));
+        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)",UUID.randomUUID(),userId,r.creditsReserved(),"REFUND",requestId,"AI 호출 실패 자동 복구: "+sanitize(errorType));
+        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,requested_at,completed_at,duration_ms,success,error_type) VALUES (?,?,?,?,?,?,?,?,?,?,false)",UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,r.tier().displayName(),r.tier().model(),Timestamp.valueOf(r.createdAt()),Timestamp.valueOf(now),Math.max(0,now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()-r.createdAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()),sanitize(errorType));
     }
 
     @Transactional
@@ -69,10 +72,10 @@ public class AiCreditService {
     private int balance(Long userId){ Integer v=jdbc.queryForObject("SELECT COALESCE(SUM(amount),0) FROM ai_credit_ledger WHERE user_id=?",Integer.class,userId);return v==null?0:v; }
     private int freeRemaining(Long userId){ Integer v=jdbc.queryForObject("SELECT COALESCE(SUM(amount),0) FROM ai_credit_ledger WHERE user_id=? AND type IN ('FREE_GRANT','USE','REFUND')",Integer.class,userId);return Math.max(0,v==null?0:v); }
     private int purchasedBalance(Long userId){ return Math.max(0,balance(userId)-freeRemaining(userId)); }
-    private Reservation reservation(Long userId,UUID requestId){ List<Reservation> rows=jdbc.query("SELECT request_id,status,created_at FROM ai_credit_reservations WHERE user_id=? AND request_id=?",(rs,n)->new Reservation(UUID.fromString(rs.getString(1)),balance(userId),freeRemaining(userId),rs.getString(2),rs.getTimestamp(3).toLocalDateTime()),userId,requestId);return rows.isEmpty()?null:rows.getFirst(); }
+    private Reservation reservation(Long userId,UUID requestId){ List<Reservation> rows=jdbc.query("SELECT request_id,status,created_at,feature FROM ai_credit_reservations WHERE user_id=? AND request_id=?",(rs,n)->{ FortuneAiModelTier tier=FortuneAiModelTier.valueOf(rs.getString(4).substring(rs.getString(4).lastIndexOf(':')+1)); return new Reservation(UUID.fromString(rs.getString(1)),balance(userId),freeRemaining(userId),rs.getString(2),rs.getTimestamp(3).toLocalDateTime(),tier,tier.creditCost()); },userId,requestId);return rows.isEmpty()?null:rows.getFirst(); }
     private Reservation requiredReservation(Long userId,UUID requestId){ Reservation r=reservation(userId,requestId);if(r==null)throw new CustomException(ErrorCode.INVALID_REQUEST);return r; }
     private String sanitize(String value){return value==null||value.isBlank()?"UNKNOWN":value.substring(0,Math.min(value.length(),120));}
-    public record Reservation(UUID requestId,int totalBalance,int freeRemaining,String status,LocalDateTime createdAt){ public Reservation(UUID id,int b,int f,String s){this(id,b,f,s,LocalDateTime.now());} }
+    public record Reservation(UUID requestId,int totalBalance,int freeRemaining,String status,LocalDateTime createdAt,FortuneAiModelTier tier,int creditsReserved){ public Reservation(UUID id,int b,int f,String s){this(id,b,f,s,LocalDateTime.now(),FortuneAiModelTier.CLAUDE_SONNET,1);} }
     public record Usage(String model,int inputTokens,int outputTokens,int cacheReadTokens,int cacheWriteTokens,long durationMs,LocalDateTime requestedAt) {}
     public record Balance(int freeRemaining,int purchasedBalance,int totalBalance) {}
     public record History(int amount,String type,String description,LocalDateTime createdAt) {}

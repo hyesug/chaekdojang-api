@@ -25,12 +25,16 @@ public class AiCreditOrderService {
     @Value("${portone.api-secret:}")
     private String apiSecret;
 
+    @Value("${app.ai-credit.sales-enabled:false}")
+    private boolean salesEnabled;
+
     public List<Product> products() {
         return java.util.Arrays.stream(AiCreditProduct.values()).map(p -> new Product(p.name(), p.displayName(), p.credits(), p.price(), p.validDays())).toList();
     }
 
     @Transactional
     public Order create(Long userId, AiCreditProduct product) {
+        if (!salesEnabled) throw new CustomException(ErrorCode.PAYMENT_NOT_CONFIGURED);
         if (product == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
         UUID id = UUID.randomUUID();
         String paymentId = "ai-credit-" + id;

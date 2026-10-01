@@ -155,6 +155,8 @@ app:
     output-cost-per-million-tokens: ${OPENAI_OUTPUT_COST_PER_MILLION_TOKENS:0}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
   ai-credit:
+    # 사업자 정보·정책·PG 심사가 모두 확정되기 전에는 주문 API도 열지 않는다.
+    sales-enabled: ${AI_CREDIT_SALES_ENABLED:false}
     grant-existing-users: ${AI_CREDIT_GRANT_EXISTING_USERS:true}
     input-cost-per-million-tokens: ${ANTHROPIC_INPUT_COST_PER_MILLION_TOKENS:5}
     output-cost-per-million-tokens: ${ANTHROPIC_OUTPUT_COST_PER_MILLION_TOKENS:25}

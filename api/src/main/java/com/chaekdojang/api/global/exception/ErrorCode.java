@@ -41,6 +41,8 @@ public enum ErrorCode {
     AI_REFLECTION_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 사용할 수 있는 AI 회고 횟수를 모두 사용했습니다."),
     FORTUNE_AI_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "이번 달 AI 운세 풀이 5회를 모두 사용했습니다."),
     AI_CREDIT_EXHAUSTED(HttpStatus.PAYMENT_REQUIRED, "AI 질문권이 없습니다."),
+    PAYMENT_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "결제 설정이 아직 완료되지 않았습니다."),
+    PAYMENT_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "결제 정보를 확인하지 못했습니다."),
     FOLLOW_UP_QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "저장된 후속 질문이 없습니다."),
     CHANGE_COMPARISON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "비교할 수 있는 활성 재독 기록이 없습니다."),
     CHANGE_COMPARISON_NOT_FOUND(HttpStatus.NOT_FOUND, "저장된 생각 변화 비교가 없습니다."),

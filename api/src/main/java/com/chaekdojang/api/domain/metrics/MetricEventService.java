@@ -32,10 +32,11 @@ public class MetricEventService {
     private static final String COPY_GROUP_INVITE_REFERRER = "chaekdojang://invite/reading-group-link";
     private static final Set<String> CLIENT_EVENT_TYPES = Set.of(
             "page_view", "review_write_click", "book_search", "book_click_search",
-            "web_novel_search", "share_click", "heartbeat", "session_end", "revision_saved"
+            "web_novel_search", "share_click", "heartbeat", "session_end", "revision_saved",
+            "FORTUNE_PAGE_VIEW", "FORTUNE_PROFILE_STARTED", "FORTUNE_PROFILE_COMPLETED", "CHART_GENERATED", "AI_CHAT_STARTED", "FREE_CREDIT_USED", "PAYWALL_VIEWED", "PRODUCT_SELECTED", "CHECKOUT_STARTED", "PAYMENT_COMPLETED", "PAID_AI_USED", "RETURN_VISIT"
     );
     private static final Set<String> SENSITIVE_META_PARTS = Set.of(
-            "token", "password", "secret", "content", "body", "prompt", "authorization"
+            "token", "password", "secret", "content", "body", "prompt", "authorization", "email", "name", "birth", "location", "address", "card", "payment"
     );
 
     private final MetricEventRepository metricEventRepository;

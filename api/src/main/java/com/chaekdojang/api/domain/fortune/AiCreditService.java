@@ -42,9 +42,11 @@ public class AiCreditService {
         if ("REFUNDED".equals(r.status())) throw new CustomException(ErrorCode.INVALID_REQUEST);
         LocalDateTime now = LocalDateTime.now();
         FortuneAiModelTier tier = r.tier();
-        BigDecimal cost = costCalculator.estimate(tier, usage.inputTokens(), usage.outputTokens(), usage.cacheReadTokens(), usage.cacheWriteTokens());
+        CallDetail d = usage.detail() == null ? CallDetail.EMPTY : usage.detail();
+        int write1h = d.cacheWrite1hTokens() == null ? 0 : d.cacheWrite1hTokens();
+        BigDecimal cost = costCalculator.estimate(tier, usage.inputTokens(), usage.outputTokens(), usage.cacheReadTokens(), usage.cacheWriteTokens(), write1h);
         jdbc.update("UPDATE ai_credit_reservations SET status='COMPLETED', completed_at=? WHERE request_id=?", Timestamp.valueOf(now),requestId);
-        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,estimated_cost,requested_at,completed_at,duration_ms,success) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,true)", UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,tier.displayName(),tier.model(),usage.inputTokens(),usage.outputTokens(),usage.cacheReadTokens(),usage.cacheWriteTokens(),cost,Timestamp.valueOf(usage.requestedAt()),Timestamp.valueOf(now),Math.max(0,usage.durationMs()));
+        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,estimated_cost,requested_at,completed_at,duration_ms,success,provider,session_id,question_category,detail_level,credit_used,cache_write_1h_tokens,context_chars,focus_chars,history_message_count,summarized_turns) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,true,?,?,?,?,?,?,?,?,?,?)", UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,tier.displayName(),tier.model(),usage.inputTokens(),usage.outputTokens(),usage.cacheReadTokens(),usage.cacheWriteTokens(),cost,Timestamp.valueOf(usage.requestedAt()),Timestamp.valueOf(now),Math.max(0,usage.durationMs()),tier.provider(),clip(d.sessionId(),64),clip(d.questionCategory(),80),clip(d.detailLevel(),10),r.creditsReserved(),d.cacheWrite1hTokens(),d.contextChars(),d.focusChars(),d.historyMessageCount(),d.summarizedTurns());
     }
 
     @Transactional
@@ -102,8 +104,15 @@ public class AiCreditService {
     private Reservation reservation(Long userId,UUID requestId){ List<Reservation> rows=jdbc.query("SELECT request_id,status,created_at,feature FROM ai_credit_reservations WHERE user_id=? AND request_id=?",(rs,n)->{ FortuneAiModelTier tier=FortuneAiModelTier.valueOf(rs.getString(4).substring(rs.getString(4).lastIndexOf(':')+1)); return new Reservation(UUID.fromString(rs.getString(1)),balance(userId),freeRemaining(userId),rs.getString(2),rs.getTimestamp(3).toLocalDateTime(),tier,tier.creditCost()); },userId,requestId);return rows.isEmpty()?null:rows.getFirst(); }
     private Reservation requiredReservation(Long userId,UUID requestId){ Reservation r=reservation(userId,requestId);if(r==null)throw new CustomException(ErrorCode.INVALID_REQUEST);return r; }
     private String sanitize(String value){return value==null||value.isBlank()?"UNKNOWN":value.substring(0,Math.min(value.length(),120));}
+    private String clip(String value,int max){return value==null||value.isBlank()?null:value.substring(0,Math.min(value.length(),max));}
     public record Reservation(UUID requestId,int totalBalance,int freeRemaining,String status,LocalDateTime createdAt,FortuneAiModelTier tier,int creditsReserved){ public Reservation(UUID id,int b,int f,String s){this(id,b,f,s,LocalDateTime.now(),FortuneAiModelTier.CLAUDE_SONNET,1);} }
-    public record Usage(String model,int inputTokens,int outputTokens,int cacheReadTokens,int cacheWriteTokens,long durationMs,LocalDateTime requestedAt) {}
+    public record Usage(String model,int inputTokens,int outputTokens,int cacheReadTokens,int cacheWriteTokens,long durationMs,LocalDateTime requestedAt,CallDetail detail) {
+        public Usage(String model,int inputTokens,int outputTokens,int cacheReadTokens,int cacheWriteTokens,long durationMs,LocalDateTime requestedAt){this(model,inputTokens,outputTokens,cacheReadTokens,cacheWriteTokens,durationMs,requestedAt,CallDetail.EMPTY);}
+    }
+    /** 원가 분석용 부가 정보. 옛 클라이언트는 보내지 않으므로 전부 비어 있을 수 있다 */
+    public record CallDetail(String sessionId,String questionCategory,String detailLevel,Integer cacheWrite1hTokens,Integer contextChars,Integer focusChars,Integer historyMessageCount,Integer summarizedTurns) {
+        public static final CallDetail EMPTY = new CallDetail(null,null,null,null,null,null,null,null);
+    }
     public record Balance(int freeRemaining,int purchasedBalance,int totalBalance) {}
     public record History(int amount,String type,String description,LocalDateTime createdAt) {}
     public record Statistics(long calls,long successes,long failures,double averageInputTokens,double averageOutputTokens,BigDecimal averageCost,BigDecimal p50Cost,BigDecimal p95Cost,BigDecimal totalCost) {}

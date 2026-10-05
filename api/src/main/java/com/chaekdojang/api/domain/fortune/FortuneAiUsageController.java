@@ -24,7 +24,8 @@ public class FortuneAiUsageController {
 
     @PostMapping("/reservations/{requestId}/complete")
     public ApiResponse<Void> complete(@org.springframework.web.bind.annotation.PathVariable java.util.UUID requestId, @RequestBody CompleteRequest request) {
-        aiCreditService.complete(SecurityUtils.getCurrentUserId(), requestId, new AiCreditService.Usage(request.model(), request.inputTokens(), request.outputTokens(), request.cacheReadTokens(), request.cacheWriteTokens(), request.durationMs(), request.requestedAt()));
+        AiCreditService.CallDetail detail = new AiCreditService.CallDetail(request.sessionId(), request.questionCategory(), request.detailLevel(), request.cacheWrite1hTokens(), request.contextChars(), request.focusChars(), request.historyMessageCount(), request.summarizedTurns());
+        aiCreditService.complete(SecurityUtils.getCurrentUserId(), requestId, new AiCreditService.Usage(request.model(), request.inputTokens(), request.outputTokens(), request.cacheReadTokens(), request.cacheWriteTokens(), request.durationMs(), request.requestedAt(), detail));
         return ApiResponse.ok(null);
     }
 
@@ -34,7 +35,9 @@ public class FortuneAiUsageController {
     @GetMapping("/credits/me")
     public ApiResponse<CreditResponse> credits() { Long id=SecurityUtils.getCurrentUserId(); return ApiResponse.ok(new CreditResponse(aiCreditService.balanceView(id), aiCreditService.history(id))); }
 
-    public record CompleteRequest(String model, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens, long durationMs, java.time.LocalDateTime requestedAt) {}
+    // 뒤쪽 필드는 원가 분석용이라 빠져도 된다 (옛 프론트 호환)
+    public record CompleteRequest(String model, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens, long durationMs, java.time.LocalDateTime requestedAt,
+                                  String sessionId, String questionCategory, String detailLevel, Integer cacheWrite1hTokens, Integer contextChars, Integer focusChars, Integer historyMessageCount, Integer summarizedTurns) {}
     public record ReserveRequest(FortuneAiModelTier tier) {}
     public record RefundRequest(String errorType) {}
     public record CreditResponse(AiCreditService.Balance balance, java.util.List<AiCreditService.History> recentHistory) {}

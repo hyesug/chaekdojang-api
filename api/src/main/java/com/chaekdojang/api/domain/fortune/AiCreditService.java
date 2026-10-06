@@ -1,5 +1,8 @@
 package com.chaekdojang.api.domain.fortune;
 
+import com.chaekdojang.api.domain.admin.audit.AdminAuditLogService;
+import com.chaekdojang.api.domain.user.User;
+import com.chaekdojang.api.domain.user.UserRepository;
 import com.chaekdojang.api.global.exception.CustomException;
 import com.chaekdojang.api.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,8 @@ public class AiCreditService {
     private final JdbcTemplate jdbc;
     private final AiCreditProperties properties;
     private final AiCostCalculator costCalculator;
+    private final UserRepository userRepository;
+    private final AdminAuditLogService auditLogService;
 
     @Transactional
     public Reservation reserve(Long userId, UUID requestId, FortuneAiModelTier tier) {
@@ -58,18 +63,35 @@ public class AiCreditService {
         jdbc.update("UPDATE ai_credit_reservations SET status='REFUNDED', completed_at=? WHERE request_id=?",Timestamp.valueOf(now),requestId);
         jdbc.update("UPDATE ai_credit_lots l SET remaining_amount = l.remaining_amount + a.amount FROM ai_credit_reservation_allocations a WHERE a.request_id=? AND a.lot_id=l.id", requestId);
         jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)",UUID.randomUUID(),userId,r.creditsReserved(),"REFUND",requestId,"AI 호출 실패 자동 복구: "+sanitize(errorType));
-        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,requested_at,completed_at,duration_ms,success,error_type) VALUES (?,?,?,?,?,?,?,?,?,?,false)",UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,r.tier().displayName(),r.tier().model(),Timestamp.valueOf(r.createdAt()),Timestamp.valueOf(now),Math.max(0,now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()-r.createdAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()),sanitize(errorType));
+        // success 는 false 고정, 마지막 자리가 error_type 이다. 순서가 어긋나면 복구 트랜잭션 전체가 롤백된다
+        jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,requested_at,completed_at,duration_ms,success,error_type) VALUES (?,?,?,?,?,?,?,?,?,false,?)",UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,r.tier().displayName(),r.tier().model(),Timestamp.valueOf(r.createdAt()),Timestamp.valueOf(now),Math.max(0,now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()-r.createdAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()),sanitize(errorType));
     }
 
     @Transactional
     public void adjust(Long adminId, Long userId, int amount, String description) {
         if (amount == 0 || description == null || description.isBlank()) throw new CustomException(ErrorCode.INVALID_REQUEST);
-        jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE",Long.class,userId);
+        if (jdbc.queryForList("SELECT id FROM users WHERE id = ? FOR UPDATE",Long.class,userId).isEmpty()) throw new CustomException(ErrorCode.USER_NOT_FOUND);
         if (amount < 0 && balance(userId) + amount < 0) throw new CustomException(ErrorCode.AI_CREDIT_EXHAUSTED);
         UUID ledgerId = UUID.randomUUID();
         jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)",ledgerId,userId,amount,amount > 0 ? "ADMIN_GRANT":"ADMIN_REVOKE",null,"관리자 "+adminId+": "+sanitize(description));
         if (amount > 0) createLot(userId, ledgerId, "ADMIN_GRANT", amount, null);
         else consumeLots(userId, -amount);
+        // 질문권은 돈과 같은 값이라 누가 언제 왜 바꿨는지 관리자 감사 로그에도 남긴다
+        User admin = userRepository.findById(adminId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        auditLogService.record(admin, amount > 0 ? "AI_CREDIT_GRANTED" : "AI_CREDIT_REVOKED", "USER", userId,
+                (amount > 0 ? "+" : "") + amount + "회 (원장 " + ledgerId + "): " + sanitize(description));
+    }
+
+    /** 관리자 문의 대응용. 잔액·최근 원장·주문·정산이 안 끝난 예약을 한 번에 본다 */
+    @Transactional(readOnly = true)
+    public AdminView adminView(Long userId) {
+        if (jdbc.queryForList("SELECT id FROM users WHERE id = ?",Long.class,userId).isEmpty()) throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        List<AdminLedger> ledger = jdbc.query("SELECT id,amount,type,reference_id,description,created_at FROM ai_credit_ledger WHERE user_id=? ORDER BY created_at DESC LIMIT 100",
+                (rs,n)->new AdminLedger(UUID.fromString(rs.getString(1)),rs.getInt(2),rs.getString(3),rs.getString(4)==null?null:UUID.fromString(rs.getString(4)),rs.getString(5),rs.getTimestamp(6).toLocalDateTime()),userId);
+        List<AdminOrder> orders = jdbc.query("SELECT id,product,amount,credits,payment_id,status,paid_at,created_at FROM ai_credit_orders WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+                (rs,n)->new AdminOrder(UUID.fromString(rs.getString(1)),rs.getString(2),rs.getInt(3),rs.getInt(4),rs.getString(5),rs.getString(6),rs.getTimestamp(7)==null?null:rs.getTimestamp(7).toLocalDateTime(),rs.getTimestamp(8).toLocalDateTime()),userId);
+        Integer stale = jdbc.queryForObject("SELECT count(*) FROM ai_credit_reservations WHERE user_id=? AND status='RESERVED' AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'",Integer.class,userId);
+        return new AdminView(new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId)), ledger, orders, stale == null ? 0 : stale);
     }
     @Transactional
     public Balance balanceView(Long userId) { jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId); grantFreeIfEligible(userId); return new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId)); }
@@ -114,6 +136,9 @@ public class AiCreditService {
         public static final CallDetail EMPTY = new CallDetail(null,null,null,null,null,null,null,null);
     }
     public record Balance(int freeRemaining,int purchasedBalance,int totalBalance) {}
+    public record AdminLedger(UUID id,int amount,String type,UUID referenceId,String description,LocalDateTime createdAt) {}
+    public record AdminOrder(UUID orderId,String product,int amount,int credits,String paymentId,String status,LocalDateTime paidAt,LocalDateTime createdAt) {}
+    public record AdminView(Balance balance,List<AdminLedger> ledger,List<AdminOrder> orders,int staleReservations) {}
     public record History(int amount,String type,String description,LocalDateTime createdAt) {}
     public record Statistics(long calls,long successes,long failures,double averageInputTokens,double averageOutputTokens,BigDecimal averageCost,BigDecimal p50Cost,BigDecimal p95Cost,BigDecimal totalCost) {}
 }

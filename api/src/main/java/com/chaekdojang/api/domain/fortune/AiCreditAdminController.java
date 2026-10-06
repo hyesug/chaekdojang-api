@@ -17,6 +17,8 @@ public class AiCreditAdminController {
         credits.adjust(SecurityUtils.getCurrentUserId(), userId, request.amount(), request.description());
         return ApiResponse.ok(null);
     }
+    @GetMapping("/{userId}")
+    public ApiResponse<AiCreditService.AdminView> userCredits(@PathVariable Long userId) { return ApiResponse.ok(credits.adminView(userId)); }
     @GetMapping("/statistics")
     public ApiResponse<AiCreditService.Statistics> statistics() { return ApiResponse.ok(credits.statistics()); }
     public record Adjustment(@NotNull Integer amount, @NotBlank String description) {}

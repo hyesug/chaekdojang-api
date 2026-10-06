@@ -21,9 +21,14 @@ public class AiCreditOrderService {
     private final JdbcTemplate jdbc;
     private final AiCreditService credits;
     private final WebClient webClient;
+    private static final java.time.Duration PORTONE_TIMEOUT = java.time.Duration.ofSeconds(10);
 
     @Value("${portone.api-secret:}")
     private String apiSecret;
+
+    // 테스트에서 가짜 PortOne 서버를 붙일 수 있게만 열어 둔다. 운영은 기본값을 쓴다
+    @Value("${portone.api-base-url:https://api.portone.io}")
+    private String apiBaseUrl;
 
     @Value("${app.ai-credit.sales-enabled:false}")
     private boolean salesEnabled;
@@ -57,14 +62,16 @@ public class AiCreditOrderService {
     private void verifyPaid(OrderRow order) {
         if (apiSecret.isBlank()) throw new CustomException(ErrorCode.PAYMENT_NOT_CONFIGURED);
         try {
-            Map<?, ?> login = webClient.post().uri("https://api.portone.io/login/api-secret").bodyValue(Map.of("apiSecret", apiSecret)).retrieve().bodyToMono(Map.class).block();
+            // 주문 행을 잠근 채 부르므로 응답을 무한정 기다리면 DB 연결이 묶인다
+            Map<?, ?> login = webClient.post().uri(apiBaseUrl + "/login/api-secret").bodyValue(Map.of("apiSecret", apiSecret)).retrieve().bodyToMono(Map.class).block(PORTONE_TIMEOUT);
             Object accessToken = login == null ? null : login.get("accessToken");
             if (!(accessToken instanceof String token) || token.isBlank()) throw new IllegalStateException("PortOne access token missing");
-            Map<?, ?> payment = webClient.get().uri("https://api.portone.io/payments/{paymentId}", order.paymentId()).headers(h -> h.setBearerAuth(token)).retrieve().bodyToMono(Map.class).block();
+            Map<?, ?> payment = webClient.get().uri(apiBaseUrl + "/payments/{paymentId}", order.paymentId()).headers(h -> h.setBearerAuth(token)).retrieve().bodyToMono(Map.class).block(PORTONE_TIMEOUT);
             Object amount = payment == null ? null : payment.get("amount");
             Object status = payment == null ? null : payment.get("status");
             Object total = amount instanceof Map<?, ?> values ? values.get("total") : null;
-            if (!"PAID".equals(status) || !(total instanceof Number paid) || paid.intValue() != order.amount()) throw new CustomException(ErrorCode.PAYMENT_VERIFICATION_FAILED);
+            Object currency = payment == null ? null : payment.get("currency");
+            if (!"PAID".equals(status) || !"KRW".equals(currency) || !(total instanceof Number paid) || paid.longValue() != order.amount()) throw new CustomException(ErrorCode.PAYMENT_VERIFICATION_FAILED);
         } catch (CustomException e) { throw e; }
         catch (Exception e) { throw new CustomException(ErrorCode.PAYMENT_VERIFICATION_FAILED); }
     }

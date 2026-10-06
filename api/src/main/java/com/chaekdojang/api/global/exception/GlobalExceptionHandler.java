@@ -10,6 +10,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -81,6 +83,16 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException e,
             HttpServletRequest request
     ) {
+        errorLogService.save(request, HttpStatus.BAD_REQUEST.value(), e);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("요청 값 형식이 올바르지 않습니다."));
+    }
+
+    // 깨진 JSON·없는 enum 값·빠진 헤더는 클라이언트 잘못이다. 500 으로 두면 장애처럼 보이고
+    // 파서 원문(클래스 이름 등)이 오류 로그에만 남도록 사용자에게는 짧은 문구만 준다.
+    @ExceptionHandler({HttpMessageNotReadableException.class, MissingRequestHeaderException.class})
+    public ResponseEntity<ApiResponse<Void>> handleBadRequestBody(Exception e, HttpServletRequest request) {
         errorLogService.save(request, HttpStatus.BAD_REQUEST.value(), e);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

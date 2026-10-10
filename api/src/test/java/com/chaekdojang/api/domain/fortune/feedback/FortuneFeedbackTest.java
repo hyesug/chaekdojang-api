@@ -81,6 +81,12 @@ class FortuneFeedbackTest {
     }
 
     @Test
+    void 토큰이_설정되지_않으면_내보내기는_언제나_막힌다() throws Exception {
+        mvc.perform(get("/api/internal/fortune-feedback").header("X-Fortune-Feedback-Token", ""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void 관리자_집계는_비회원이_볼_수_없다() throws Exception {
         mvc.perform(get("/api/admin/fortune-feedback")).andExpect(status().is4xxClientError());
     }

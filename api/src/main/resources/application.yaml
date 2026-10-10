@@ -192,6 +192,9 @@ app:
   lotto-future:
     generator-url: ${LOTTO_FUTURE_GENERATOR_URL:}
     generator-token: ${LOTTO_FUTURE_GENERATOR_TOKEN:}
+  # 운세 피드백 내보내기 — 매주 도는 사전 자동 수정 작업이 읽는다. 비어 있으면 내보내기를 막는다
+  fortune-feedback:
+    export-token: ${FORTUNE_FEEDBACK_EXPORT_TOKEN:}
 
 kakao:
   api-key: ${KAKAO_API_KEY:}

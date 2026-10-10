@@ -91,6 +91,8 @@ public class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                             "/api/auth/session"
                     ).permitAll()
+                    // 운세 피드백 내보내기 — 컨트롤러가 전용 토큰을 확인한다(토큰이 없으면 403)
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/internal/fortune-feedback").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                             "/api/reviews", "/api/reviews/**",
                             "/api/books/**",

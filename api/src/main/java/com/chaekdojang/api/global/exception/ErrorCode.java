@@ -21,6 +21,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     CANNOT_FOLLOW_SELF(HttpStatus.BAD_REQUEST, "자기 자신을 팔로우할 수 없습니다."),
+    FORTUNE_FEEDBACK_INVALID(HttpStatus.BAD_REQUEST, "피드백 형식이 올바르지 않습니다."),
     FOLLOW_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 팔로우한 사용자입니다."),
     FOLLOW_NOT_FOUND(HttpStatus.NOT_FOUND, "팔로우 관계가 존재하지 않습니다."),
     LIKE_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 좋아요한 독후감입니다."),

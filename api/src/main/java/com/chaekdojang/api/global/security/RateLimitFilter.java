@@ -95,6 +95,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = normalizedPath(request);
         String method = request.getMethod().toUpperCase(Locale.ROOT);
 
+        if (path.equals("/api/fortune/feedback")) {
+            return new LimitPolicy("fortune-feedback", Math.min(apiLimitPerMinute, 20));
+        }
         if (path.startsWith("/api/metrics/events")) {
             return new LimitPolicy("metrics", metricsLimitPerMinute);
         }

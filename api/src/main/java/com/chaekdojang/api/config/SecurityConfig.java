@@ -79,6 +79,8 @@ public class SecurityConfig {
                     ).authenticated()
                     .requestMatchers(org.springframework.http.HttpMethod.POST,
                             "/api/metrics/events",
+                            // 운세 결과 피드백 — 비회원도 남긴다(생년월일·이름은 받지 않는다)
+                            "/api/fortune/feedback",
                             "/api/dev/login",
                             "/api/auth/logout",
                             "/api/auth/refresh",

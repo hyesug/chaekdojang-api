@@ -65,18 +65,33 @@ public class BookThemeService {
         }
     }
 
-    @Transactional(readOnly = true)
     public List<BookThemeRecommendationResponse> recommend(List<String> codes, int perTheme) {
+        return recommend(codes, perTheme, null);
+    }
+
+    /**
+     * @param seed 사람마다 다른 책이 나오게 — 같은 주제의 앞쪽 후보(최대 12권)를 이 값만큼 돌려 고른다.
+     *             같은 사람(같은 seed)은 늘 같은 책을 받는다. 없으면 순위 그대로.
+     */
+    @Transactional(readOnly = true)
+    public List<BookThemeRecommendationResponse> recommend(List<String> codes, int perTheme, Long seed) {
         int limit = Math.max(1, Math.min(perTheme, 5));
         Set<Long> used = new HashSet<>();
         List<BookThemeRecommendationResponse> out = new ArrayList<>();
+        int themeIndex = 0;
         for (String code : codes) {
             BookTheme theme = BookTheme.fromCode(code).orElse(null);
             if (theme == null) continue;
+            List<Object[]> rows = new ArrayList<>(bookRepository.findByThemeRanked(theme.name(),
+                    BookTheme.EXCLUDED_CATEGORIES, PageRequest.of(0, 12)));
+            if (seed != null && !rows.isEmpty()) {
+                // 주제마다 다른 만큼 돌린다 — 같은 seed 라도 주제끼리 같은 자리의 책이 몰리지 않게
+                java.util.Collections.rotate(rows, -(int) Math.floorMod(seed + themeIndex * 7L, (long) rows.size()));
+            }
+            themeIndex++;
             List<BookResponse> books = new ArrayList<>();
-            // 다른 주제에서 이미 고른 책을 건너뛰어도 모자라지 않게 넉넉히 받는다
-            for (Object[] row : bookRepository.findByThemeRanked(theme.name(), BookTheme.EXCLUDED_CATEGORIES,
-                    PageRequest.of(0, limit + 6))) {
+            // 다른 주제에서 이미 고른 책은 건너뛴다
+            for (Object[] row : rows) {
                 Book b = (Book) row[0];
                 if (!used.add(b.getId())) continue;
                 books.add(BookResponse.from(b, ((Number) row[1]).longValue()));

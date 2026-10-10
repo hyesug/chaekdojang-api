@@ -31,6 +31,14 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             """)
     List<Book> findUntaggedForThemes(@Param("excluded") List<String> excluded, org.springframework.data.domain.Pageable page);
 
+    /** 스테디셀러 목록의 책을 이미 등록했는가 — 제목(공백 없이·소문자)으로 본다 */
+    @Query("""
+            SELECT COUNT(b) > 0 FROM Book b
+            WHERE b.themesCurated = true AND b.deletedAt IS NULL
+              AND REPLACE(LOWER(b.title), ' ', '') LIKE CONCAT('%', :title, '%')
+            """)
+    boolean existsCuratedByTitle(@Param("title") String normalizedTitle);
+
     @Query("SELECT COUNT(b) FROM Book b JOIN b.themes t WHERE t = :theme AND b.deletedAt IS NULL AND b.isPublic = true")
     long countByTheme(@Param("theme") String theme);
 
@@ -42,7 +50,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             WHERE t = :theme AND b.deletedAt IS NULL AND b.isPublic = true
               AND (b.category IS NULL OR b.category NOT IN :excluded)
             GROUP BY b
-            ORDER BY COUNT(r.id) DESC, b.id DESC
+            ORDER BY COUNT(r.id) DESC, b.themesCurated DESC, b.id DESC
             """)
     List<Object[]> findByThemeRanked(@Param("theme") String theme, @Param("excluded") List<String> excluded,
                                      org.springframework.data.domain.Pageable page);

@@ -64,6 +64,10 @@ public class Book {
     @Column(name = "themes_tagged_at")
     private LocalDateTime themesTaggedAt;
 
+    /** 미리 골라 둔 스테디셀러로 주제를 붙였는가 — 추천에서 앞에 둔다 */
+    @Column(name = "themes_curated", nullable = false)
+    private boolean themesCurated = false;
+
     @Column(length = 100)
     private String category;
 
@@ -139,6 +143,13 @@ public class Book {
             this.category = category;
             this.categoryVerified = true;
         }
+    }
+
+    /** 스테디셀러 목록의 주제를 더한다 — AI 태그 작업이 이 책을 다시 덮어쓰지 않게 태그 시각도 남긴다 */
+    public void addCuratedThemes(java.util.Collection<String> codes) {
+        if (codes != null) this.themes.addAll(codes);
+        this.themesCurated = true;
+        if (this.themesTaggedAt == null) this.themesTaggedAt = LocalDateTime.now();
     }
 
     public void applyThemes(java.util.Collection<String> codes) {

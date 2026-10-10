@@ -88,6 +88,37 @@ class BookThemeServiceTest {
         assertThat(parsed.get(8L)).isEmpty();
     }
 
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    @Autowired BookThemeProperties properties;
+
+    @Test
+    void 스테디셀러_목록의_책을_찾아_주제를_붙이고_AI_태그보다_앞에_둔다() {
+        Book ai = book("감정 사용법", "인문", "감정을 다루는 법", List.of("MIND"));
+        Book steady = book("죽음의 수용소에서", "인문", null, null);
+        BookService search = org.mockito.Mockito.mock(BookService.class);
+        org.mockito.Mockito.when(search.search("죽음의 수용소에서", "", "")).thenReturn(List.of(
+                com.chaekdojang.api.domain.book.dto.BookResponse.from(tx.execute(s -> books.findById(steady.getId()).orElseThrow()))));
+        // 테스트 책의 저자는 "저자" — 목록 항목도 같은 저자로 맞춘다
+        BookThemeCurator curator = new BookThemeCurator(search, books, objectMapper, tx, properties);
+
+        assertThat(curator.curate(new BookThemeCurator.Entry("죽음의 수용소에서", "저자", List.of("MIND", "WISDOM")))).isTrue();
+        assertThat(books.existsCuratedByTitle(BookThemeCurator.norm("죽음의 수용소에서"))).isTrue();
+
+        List<BookThemeRecommendationResponse> out = service.recommend(List.of("MIND"), 2);
+        // 독후감 수가 같으면 미리 골라 둔 책이 AI 가 태그한 책보다 앞
+        assertThat(out.get(0).books()).extracting(x -> x.id()).containsSequence(steady.getId(), ai.getId());
+        // 스테디셀러 목록은 약 120권, 주제마다 6권 이상
+        assertThat(curator.entries()).hasSizeGreaterThanOrEqualTo(100);
+    }
+
+    @Test
+    void 같은_seed는_같은_책_다른_seed는_다른_책을_고른다() {
+        for (int i = 0; i < 5; i++) book("습관 " + i, "자기계발", "습관을 다루는 책", List.of("HABIT"));
+        Long first = service.recommend(List.of("HABIT"), 1, 3L).get(0).books().get(0).id();
+        assertThat(service.recommend(List.of("HABIT"), 1, 3L).get(0).books().get(0).id()).isEqualTo(first);
+        assertThat(service.recommend(List.of("HABIT"), 1, 4L).get(0).books().get(0).id()).isNotEqualTo(first);
+    }
+
     @Test
     void 추천_API는_로그인_없이_부를_수_있다() throws Exception {
         book("돈의 감각", "경제/경영", "돈을 대하는 태도", List.of("MONEY"));

@@ -61,10 +61,12 @@ public class BookController {
             @Parameter(description = "주제 코드, 쉼표로 (예: REST,MONEY,LEADERSHIP)", required = true)
             @RequestParam(defaultValue = "") String themes,
             @Parameter(description = "주제마다 몇 권 (1~5)")
-            @RequestParam(defaultValue = "2") int perTheme) {
+            @RequestParam(defaultValue = "2") int perTheme,
+            @Parameter(description = "사람마다 다른 책이 나오게 하는 값(같은 값이면 같은 책). 없으면 순위 그대로")
+            @RequestParam(required = false) Long seed) {
         List<String> codes = java.util.Arrays.stream(themes.split(","))
                 .map(String::trim).filter(s -> !s.isEmpty()).limit(5).toList();
-        return ApiResponse.ok(bookThemeService.recommend(codes, perTheme));
+        return ApiResponse.ok(bookThemeService.recommend(codes, perTheme, seed));
     }
 
     @Operation(summary = "카테고리별 도서 조회", description = "특정 카테고리에 속한 도서 목록을 반환합니다. 인증 불필요.")

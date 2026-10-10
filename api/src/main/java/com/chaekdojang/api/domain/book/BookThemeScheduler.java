@@ -12,6 +12,19 @@ import org.springframework.stereotype.Component;
 public class BookThemeScheduler {
 
     private final BookThemeService service;
+    private final BookThemeCurator curator;
+
+    /** 스테디셀러 목록 등록 — 20초마다 4권씩 찾아 끝나면 멈춘다(120권이면 10분 남짓) */
+    @Scheduled(fixedDelay = 20000, initialDelay = 30000)
+    public void curate() {
+        if (curator.finished()) return;
+        try {
+            int n = curator.tick(4);
+            if (n > 0) log.info("book-theme: curated {} books", n);
+        } catch (Exception e) {
+            log.warn("book-theme curate failed: {}", e.getMessage());
+        }
+    }
 
     @Scheduled(fixedDelayString = "${app.book-theme.scheduler-delay-ms:600000}", initialDelay = 60000)
     public void run() {

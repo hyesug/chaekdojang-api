@@ -154,6 +154,17 @@ app:
     input-cost-per-million-tokens: ${OPENAI_INPUT_COST_PER_MILLION_TOKENS:0}
     output-cost-per-million-tokens: ${OPENAI_OUTPUT_COST_PER_MILLION_TOKENS:0}
     scheduler-delay-ms: ${AI_SUMMARY_SCHEDULER_DELAY_MS:5000}
+  book-theme:
+    # 책 소개글을 읽고 주제 태그를 붙인다 — 운세 리포트의 책 추천용. 책당 한 번, 여러 권을 묶어 부른다.
+    # 키·주소는 ai-summary(OpenAI)를 함께 쓴다. 비용을 줄이려면 OPENAI_BOOK_THEME_MODEL 에 저비용 모델을 지정한다.
+    enabled: ${BOOK_THEME_ENABLED:true}
+    model: ${OPENAI_BOOK_THEME_MODEL:${OPENAI_REVIEW_SUMMARY_MODEL:gpt-5.5}}
+    batch-size: ${BOOK_THEME_BATCH_SIZE:20}
+    description-chars: ${BOOK_THEME_DESCRIPTION_CHARS:400}
+    timeout: ${BOOK_THEME_TIMEOUT:60s}
+    # 주제마다 태그 책이 이 수보다 적으면 검색어로 후보 책을 모은다(한 번 돌 때 검색 한 번)
+    seed-min-books: ${BOOK_THEME_SEED_MIN_BOOKS:8}
+    scheduler-delay-ms: ${BOOK_THEME_SCHEDULER_DELAY_MS:600000}
   ai-credit:
     # 사업자 정보·정책·PG 심사가 모두 확정되기 전에는 주문 API도 열지 않는다.
     sales-enabled: ${AI_CREDIT_SALES_ENABLED:false}

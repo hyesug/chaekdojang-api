@@ -4,6 +4,7 @@ import com.chaekdojang.api.domain.book.dto.BookResponse;
 import com.chaekdojang.api.domain.book.dto.BookReactionReportResponse;
 import com.chaekdojang.api.domain.book.dto.BookConnectionResponse;
 import com.chaekdojang.api.domain.book.dto.PublicBookDetailResponse;
+import com.chaekdojang.api.domain.book.dto.BookThemeRecommendationResponse;
 import com.chaekdojang.api.domain.book.dto.WebNovelRegisterRequest;
 import com.chaekdojang.api.domain.book.dto.WebNovelSearchResult;
 import com.chaekdojang.api.domain.review.ReviewService;
@@ -27,6 +28,7 @@ public class BookController {
     private final BookService bookService;
     private final WebNovelService webNovelService;
     private final ReviewService reviewService;
+    private final BookThemeService bookThemeService;
 
     @Operation(summary = "도서 검색", description = "카카오 책 API와 Google Books API를 통합 검색합니다. 인증 불필요.")
     @GetMapping("/search")
@@ -51,6 +53,18 @@ public class BookController {
     @PostMapping("/web-novels")
     public ApiResponse<BookResponse> registerWebNovel(@RequestBody @Valid WebNovelRegisterRequest request) {
         return ApiResponse.ok(webNovelService.register(request));
+    }
+
+    @Operation(summary = "주제별 추천 도서", description = "책 소개글로 붙인 주제 태그로 주제마다 책을 고릅니다(독후감 많은 순, 주제끼리 겹치지 않게). 운세 리포트의 책 추천이 씁니다. 인증 불필요.")
+    @GetMapping("/recommend")
+    public ApiResponse<List<BookThemeRecommendationResponse>> recommend(
+            @Parameter(description = "주제 코드, 쉼표로 (예: REST,MONEY,LEADERSHIP)", required = true)
+            @RequestParam(defaultValue = "") String themes,
+            @Parameter(description = "주제마다 몇 권 (1~5)")
+            @RequestParam(defaultValue = "2") int perTheme) {
+        List<String> codes = java.util.Arrays.stream(themes.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).limit(5).toList();
+        return ApiResponse.ok(bookThemeService.recommend(codes, perTheme));
     }
 
     @Operation(summary = "카테고리별 도서 조회", description = "특정 카테고리에 속한 도서 목록을 반환합니다. 인증 불필요.")

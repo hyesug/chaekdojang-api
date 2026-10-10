@@ -54,6 +54,16 @@ public class Book {
     @Column(nullable = false)
     private boolean isPublic = true;
 
+    /** 소개글로 붙인 주제 태그(BookTheme 코드) — 운세 리포트의 책 추천이 쓴다 */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "book_themes", joinColumns = @JoinColumn(name = "book_id"))
+    @Column(name = "theme", length = 30)
+    private java.util.Set<String> themes = new java.util.HashSet<>();
+
+    /** 태그를 붙여 본 시각. 주제가 하나도 없다고 판단한 책도 다시 보내지 않도록 남긴다 */
+    @Column(name = "themes_tagged_at")
+    private LocalDateTime themesTaggedAt;
+
     @Column(length = 100)
     private String category;
 
@@ -129,6 +139,12 @@ public class Book {
             this.category = category;
             this.categoryVerified = true;
         }
+    }
+
+    public void applyThemes(java.util.Collection<String> codes) {
+        this.themes.clear();
+        if (codes != null) this.themes.addAll(codes);
+        this.themesTaggedAt = LocalDateTime.now();
     }
 
     public void updateSeoFields(String slug, String description, String seoTitle, String seoDescription) {

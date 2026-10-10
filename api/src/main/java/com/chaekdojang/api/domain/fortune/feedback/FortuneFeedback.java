@@ -46,6 +46,17 @@ public class FortuneFeedback {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /** 처리한 때(그 문장을 고쳤거나 관리자가 처리함) — 지우지 않고 숨긴다 */
+    private LocalDateTime resolvedAt;
+
+    public void resolve() {
+        if (resolvedAt == null) resolvedAt = LocalDateTime.now();
+    }
+
+    public void reopen() {
+        resolvedAt = null;
+    }
+
     public FortuneFeedback(String mode, String section, String verdict, String snippet, String comment) {
         this.mode = mode;
         this.section = section;

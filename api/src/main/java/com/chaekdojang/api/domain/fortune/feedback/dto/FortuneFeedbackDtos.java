@@ -21,11 +21,15 @@ public final class FortuneFeedbackDtos {
 
     public record SectionCount(String section, long up, long down) {}
 
-    public record Item(Long id, String mode, String section, String verdict, String snippet, String comment, LocalDateTime createdAt) {
+    public record Item(Long id, String mode, String section, String verdict, String snippet, String comment,
+                       LocalDateTime createdAt, LocalDateTime resolvedAt) {
         public static Item from(FortuneFeedback f) {
-            return new Item(f.getId(), f.getMode(), f.getSection(), f.getVerdict(), f.getSnippet(), f.getComment(), f.getCreatedAt());
+            return new Item(f.getId(), f.getMode(), f.getSection(), f.getVerdict(), f.getSnippet(), f.getComment(),
+                    f.getCreatedAt(), f.getResolvedAt());
         }
     }
+
+    public record ResolveRequest(@jakarta.validation.constraints.NotNull @Size(max = 500) List<Long> ids) {}
 
     public record Summary(List<SectionCount> sections, List<Item> recent) {}
 }

@@ -46,6 +46,12 @@ public class FortuneFeedbackService {
 
     @Transactional(readOnly = true)
     public Summary summary(int limit) {
+        return summary(limit, false);
+    }
+
+    /** @param includeResolved true 면 처리한 피드백도 최근 목록에 넣는다(집계는 언제나 처리 안 한 것만) */
+    @Transactional(readOnly = true)
+    public Summary summary(int limit, boolean includeResolved) {
         Map<String, long[]> counts = new LinkedHashMap<>();
         for (Object[] row : repository.countBySectionAndVerdict()) {
             long[] c = counts.computeIfAbsent((String) row[0], k -> new long[2]);
@@ -55,10 +61,25 @@ public class FortuneFeedbackService {
                 .map(e -> new SectionCount(e.getKey(), e.getValue()[0], e.getValue()[1]))
                 .sorted((a, b) -> Long.compare(b.down(), a.down()))
                 .toList();
-        List<Item> recent = repository.findAllByOrderByIdDesc(PageRequest.of(0, Math.max(1, Math.min(limit, 500)))).stream()
+        PageRequest page = PageRequest.of(0, Math.max(1, Math.min(limit, 500)));
+        List<Item> recent = (includeResolved ? repository.findAllByOrderByIdDesc(page) : repository.findByResolvedAtIsNullOrderByIdDesc(page)).stream()
                 .map(Item::from)
                 .toList();
         return new Summary(sections, recent);
+    }
+
+    /** 처리 완료 — 지우지 않고 숨긴다. 처리한 개수를 돌려준다 */
+    @Transactional
+    public int resolve(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return 0;
+        List<FortuneFeedback> found = repository.findAllById(ids.stream().limit(500).toList());
+        found.forEach(FortuneFeedback::resolve);
+        return found.size();
+    }
+
+    @Transactional
+    public void reopen(Long id) {
+        repository.findById(id).ifPresent(FortuneFeedback::reopen);
     }
 
     /** 이메일·전화번호·출생일처럼 보이는 것을 지운다 */

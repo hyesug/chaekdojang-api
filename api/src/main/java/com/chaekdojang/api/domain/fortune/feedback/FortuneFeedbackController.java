@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.fortune.feedback;
 
 import com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.CreateRequest;
+import com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.ResolveRequest;
 import com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.Summary;
 import com.chaekdojang.api.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -39,15 +40,39 @@ public class FortuneFeedbackController {
     public ResponseEntity<ApiResponse<Summary>> export(
             @RequestHeader(value = "X-Fortune-Feedback-Token", required = false) String token,
             @RequestParam(defaultValue = "500") int limit) {
-        if (exportToken == null || exportToken.isBlank() || token == null
-                || !MessageDigest.isEqual(exportToken.getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        if (!tokenOk(token)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         return ResponseEntity.ok(ApiResponse.ok(service.summary(limit)));
     }
 
+    /** 주간 작업이 사전 문장을 고친 뒤, 그 문장에 달린 피드백을 처리 완료로 — 같은 전용 토큰 */
+    @PostMapping("/api/internal/fortune-feedback/resolve")
+    public ResponseEntity<ApiResponse<Integer>> resolveInternal(
+            @RequestHeader(value = "X-Fortune-Feedback-Token", required = false) String token,
+            @Valid @RequestBody ResolveRequest req) {
+        if (!tokenOk(token)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(ApiResponse.ok(service.resolve(req.ids())));
+    }
+
+    private boolean tokenOk(String token) {
+        return exportToken != null && !exportToken.isBlank() && token != null
+                && MessageDigest.isEqual(exportToken.getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8));
+    }
+
     @GetMapping("/api/admin/fortune-feedback")
-    public ResponseEntity<ApiResponse<Summary>> summary(@RequestParam(defaultValue = "100") int limit) {
-        return ResponseEntity.ok(ApiResponse.ok(service.summary(limit)));
+    public ResponseEntity<ApiResponse<Summary>> summary(
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(defaultValue = "false") boolean includeResolved) {
+        return ResponseEntity.ok(ApiResponse.ok(service.summary(limit, includeResolved)));
+    }
+
+    @PostMapping("/api/admin/fortune-feedback/resolve")
+    public ResponseEntity<ApiResponse<Integer>> resolve(@Valid @RequestBody ResolveRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok(service.resolve(req.ids())));
+    }
+
+    @PostMapping("/api/admin/fortune-feedback/{id}/reopen")
+    public ResponseEntity<ApiResponse<Void>> reopen(@PathVariable Long id) {
+        service.reopen(id);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 }

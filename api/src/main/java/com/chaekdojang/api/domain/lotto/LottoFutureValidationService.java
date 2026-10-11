@@ -98,6 +98,24 @@ public class LottoFutureValidationService {
         return response(roundRow(round));
     }
 
+    // 득표 전략을 현재 엔진으로 다시 계산해 참고값으로만 돌려준다. 저장하지 않으며 정식 성적에 넣지 않는다.
+    @Transactional(readOnly = true)
+    public RecalculationResponse recalculateStrategies(Long userId, int round) {
+        assertAdmin(userId);
+        RoundRow existing = roundRow(round);
+        if (existing.actualNumbers == null) throw new CustomException(ErrorCode.INVALID_REQUEST);
+        List<LottoFuturePredictionGenerator.History> pastHistory = history().stream().filter(row -> row.round() < round).toList();
+        LottoFuturePredictionGenerator.Generated generated = generator.generate(round, existing.drawDate, existing.drawTime, pastHistory);
+        List<Integer> actual = numbers(existing.actualNumbers);
+        List<RecalculatedPrediction> predictions = LottoFutureValidationPolicy.STRATEGY_MODELS.stream().map(model -> {
+            List<Integer> ticket = generated.predictions().get(model);
+            LottoFutureValidationPolicy.requireTicket(ticket);
+            List<Integer> hits = ticket.stream().filter(actual::contains).toList();
+            return new RecalculatedPrediction(model, ticket, hits.size(), hits);
+        }).toList();
+        return new RecalculationResponse(round, generated.modelVersion(), generated.sourceCommit(), predictions);
+    }
+
     private RoundResponse generate(int round, LocalDate drawDate, LocalTime drawTime, String timeSource, String detail, String reason) {
         jdbcTemplate.query("SELECT pg_advisory_xact_lock(?)", (rs, rowNum) -> 0, (long) round);
         List<Long> ids = jdbcTemplate.query("SELECT id FROM lotto_future_prediction_rounds WHERE draw_round = ?", (rs, rowNum) -> rs.getLong(1), round);
@@ -162,8 +180,10 @@ public class LottoFutureValidationService {
             List<Integer> ticket = numbers(rs.getString(3));
             List<Integer> actual = round.actualNumbers == null ? null : numbers(round.actualNumbers);
             List<Integer> hits = actual == null ? List.of() : ticket.stream().filter(actual::contains).toList();
+            LocalDateTime generatedAt = rs.getObject(6, LocalDateTime.class);
             return new PredictionResponse(rs.getString(1), rs.getInt(2), ticket, rs.getString(4), rs.getString(5),
-                    rs.getObject(6, LocalDateTime.class), rs.getString(7), rs.getBoolean(8), hits.size(), hits);
+                    generatedAt, rs.getString(7), rs.getBoolean(8), hits.size(), hits,
+                    LottoFutureValidationPolicy.isPreDraw(generatedAt, round.drawDate, round.drawTime));
         }, round.id);
         return new RoundResponse(round.round, round.drawDate, round.drawTime, round.timezone, round.timeSource,
                 round.timeSourceDetail, round.generatedAt, round.actualNumbers == null ? null : numbers(round.actualNumbers),
@@ -201,7 +221,9 @@ public class LottoFutureValidationService {
                             String actualNumbers, LocalDateTime resultConfirmedAt) {}
     public record PredictionResponse(String model, int revision, List<Integer> numbers, String modelVersion,
                                      String sourceCommit, LocalDateTime generatedAt, String reason, boolean active,
-                                     int hitCount, List<Integer> hitNumbers) {}
+                                     int hitCount, List<Integer> hitNumbers, boolean official) {}
+    public record RecalculatedPrediction(String model, List<Integer> numbers, int hitCount, List<Integer> hitNumbers) {}
+    public record RecalculationResponse(int round, String modelVersion, String sourceCommit, List<RecalculatedPrediction> predictions) {}
     public record RoundResponse(int round, LocalDate drawDate, LocalTime drawTime, String timezone, String timeSource,
                                 String timeSourceDetail, LocalDateTime generatedAt, List<Integer> actualNumbers,
                                 LocalDateTime resultConfirmedAt, List<PredictionResponse> predictions) {}

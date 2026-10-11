@@ -253,6 +253,12 @@ public class AdminController {
                 SecurityUtils.getCurrentUserId(), round, body.reason())));
     }
 
+    @GetMapping("/lotto-future-validations/{round}/strategy-recalculation")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RecalculationResponse>> recalculateLottoStrategies(@PathVariable int round) {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.recalculateStrategies(
+                SecurityUtils.getCurrentUserId(), round)));
+    }
+
     @PatchMapping("/lotto-future-validations/{round}/result")
     public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> confirmLottoFutureValidationResult(
             @PathVariable int round, @RequestBody LottoResultRequest body) {

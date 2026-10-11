@@ -25,6 +25,12 @@ class LottoFutureValidationAuthorizationTest {
     }
 
     @Test
+    void normalUserCannotRecalculateLottoStrategies() throws Exception {
+        mockMvc.perform(get("/api/admin/lotto-future-validations/1245/strategy-recalculation").with(user("2").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void normalUserCannotCreateLottoModelRevision() throws Exception {
         mockMvc.perform(post("/api/admin/lotto-future-validations/1243/model-revision")
                         .contentType("application/json").content("{\"reason\":\"model v2\"}")

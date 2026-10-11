@@ -430,6 +430,7 @@ public class AdminUserActivityService {
         if (path.startsWith("/stats")) return "독서 통계 조회";
         if (path.startsWith("/dojangdan")) return "도장단 조회";
         if (path.startsWith("/cs")) return "고객센터 조회";
+        if (path.startsWith("/unse")) return "운세 페이지 조회";
         return "페이지 조회";
     }
 

@@ -2,9 +2,12 @@ package com.chaekdojang.api.domain.lotto;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +32,15 @@ class LottoFutureValidationPolicyTest {
         assertThat(round1244.drawTime()).isEqualTo(LocalTime.of(21, 35));
         assertThat(round1243.timeSource()).isEqualTo("official_schedule_override");
         assertThat(round1244.timeSource()).isEqualTo("official_schedule_override");
+    }
+
+    @Test
+    void savesTheFiveFrozenModelsAndTheThreeVoteStrategiesMatchingTheDbCheck() throws Exception {
+        assertThat(LottoFutureValidationPolicy.MODELS).containsExactly("A", "D", "E", "F", "H", "S1", "S2", "S3");
+
+        String migration = Files.readString(Path.of("src/main/resources/db/migration/V2026101103__lotto_future_strategy_models.sql"));
+        String allowed = LottoFutureValidationPolicy.MODELS.stream().map(model -> "'" + model + "'").collect(Collectors.joining(", "));
+        assertThat(migration).contains("CHECK (model IN (" + allowed + "))");
     }
 
     @Test

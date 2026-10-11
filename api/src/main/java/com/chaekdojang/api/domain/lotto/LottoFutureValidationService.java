@@ -18,7 +18,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class LottoFutureValidationService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final List<String> MODELS = List.of("A", "D", "E", "F", "H");
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
@@ -128,15 +127,16 @@ public class LottoFutureValidationService {
 
     private void insertPredictions(long roundId, LottoFuturePredictionGenerator.Generated generated, String reason, int revision) {
         Map<String, List<Integer>> predictions = generated.predictions();
-        for (String model : MODELS) {
+        LottoFutureValidationPolicy.MODELS.forEach(model -> LottoFutureValidationPolicy.requireTicket(predictions.get(model)));
+        LocalDateTime generatedAt = LocalDateTime.now(KST);
+        for (String model : LottoFutureValidationPolicy.MODELS) {
             List<Integer> ticket = predictions.get(model);
-            LottoFutureValidationPolicy.requireTicket(ticket);
             jdbcTemplate.update("""
                     INSERT INTO lotto_future_predictions
                     (prediction_round_id, model, revision, numbers, model_version, source_commit, generated_at, reason, active)
                     VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, true)
                     """, roundId, model, revision, json(ticket), generated.modelVersion(), generated.sourceCommit(),
-                    LocalDateTime.now(KST), reason);
+                    generatedAt, reason);
         }
     }
 

@@ -10,6 +10,8 @@ import java.util.List;
 final class LottoFutureValidationPolicy {
     static final LocalDate FIRST_DRAW_DATE = LocalDate.of(2002, 12, 7);
     static final LocalTime DEFAULT_DRAW_TIME = LocalTime.of(20, 35);
+    // S1·S2·S3: 15체계 후보 슬롯 득표 전략(화면명 전략 A·B·C). DB CHECK 제약과 같은 목록이어야 한다.
+    static final List<String> MODELS = List.of("A", "D", "E", "F", "H", "S1", "S2", "S3");
 
     private LottoFutureValidationPolicy() {
     }

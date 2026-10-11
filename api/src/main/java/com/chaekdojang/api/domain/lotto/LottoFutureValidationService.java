@@ -113,7 +113,7 @@ public class LottoFutureValidationService {
             List<Integer> hits = ticket.stream().filter(actual::contains).toList();
             return new RecalculatedPrediction(model, ticket, hits.size(), hits);
         }).toList();
-        return new RecalculationResponse(round, generated.modelVersion(), generated.sourceCommit(), predictions);
+        return new RecalculationResponse(round, generated.modelVersion(), generated.sourceCommit(), generated.engineVersion(), predictions);
     }
 
     private RoundResponse generate(int round, LocalDate drawDate, LocalTime drawTime, String timeSource, String detail, String reason) {
@@ -146,15 +146,18 @@ public class LottoFutureValidationService {
     private void insertPredictions(long roundId, LottoFuturePredictionGenerator.Generated generated, String reason, int revision) {
         Map<String, List<Integer>> predictions = generated.predictions();
         LottoFutureValidationPolicy.MODELS.forEach(model -> LottoFutureValidationPolicy.requireTicket(predictions.get(model)));
+        if (generated.engineVersion() == null || generated.engineVersion().isBlank()) {
+            throw new IllegalStateException("로또 미래검증 계산 결과에 엔진 버전이 없습니다.");
+        }
         LocalDateTime generatedAt = LocalDateTime.now(KST);
         for (String model : LottoFutureValidationPolicy.MODELS) {
             List<Integer> ticket = predictions.get(model);
             jdbcTemplate.update("""
                     INSERT INTO lotto_future_predictions
-                    (prediction_round_id, model, revision, numbers, model_version, source_commit, generated_at, reason, active)
-                    VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, true)
+                    (prediction_round_id, model, revision, numbers, model_version, source_commit, engine_version, generated_at, reason, active)
+                    VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, true)
                     """, roundId, model, revision, json(ticket), generated.modelVersion(), generated.sourceCommit(),
-                    generatedAt, reason);
+                    generated.engineVersion(), generatedAt, reason);
         }
     }
 
@@ -174,7 +177,7 @@ public class LottoFutureValidationService {
 
     private RoundResponse response(RoundRow round) {
         List<PredictionResponse> predictions = jdbcTemplate.query("""
-                SELECT model, revision, numbers::text, model_version, source_commit, generated_at, reason, active
+                SELECT model, revision, numbers::text, model_version, source_commit, generated_at, reason, active, engine_version
                 FROM lotto_future_predictions WHERE prediction_round_id = ? ORDER BY model, revision DESC
                 """, (rs, rowNum) -> {
             List<Integer> ticket = numbers(rs.getString(3));
@@ -183,7 +186,7 @@ public class LottoFutureValidationService {
             LocalDateTime generatedAt = rs.getObject(6, LocalDateTime.class);
             return new PredictionResponse(rs.getString(1), rs.getInt(2), ticket, rs.getString(4), rs.getString(5),
                     generatedAt, rs.getString(7), rs.getBoolean(8), hits.size(), hits,
-                    LottoFutureValidationPolicy.isPreDraw(generatedAt, round.drawDate, round.drawTime));
+                    LottoFutureValidationPolicy.isPreDraw(generatedAt, round.drawDate, round.drawTime), rs.getString(9));
         }, round.id);
         return new RoundResponse(round.round, round.drawDate, round.drawTime, round.timezone, round.timeSource,
                 round.timeSourceDetail, round.generatedAt, round.actualNumbers == null ? null : numbers(round.actualNumbers),
@@ -221,9 +224,10 @@ public class LottoFutureValidationService {
                             String actualNumbers, LocalDateTime resultConfirmedAt) {}
     public record PredictionResponse(String model, int revision, List<Integer> numbers, String modelVersion,
                                      String sourceCommit, LocalDateTime generatedAt, String reason, boolean active,
-                                     int hitCount, List<Integer> hitNumbers, boolean official) {}
+                                     int hitCount, List<Integer> hitNumbers, boolean official, String engineVersion) {}
     public record RecalculatedPrediction(String model, List<Integer> numbers, int hitCount, List<Integer> hitNumbers) {}
-    public record RecalculationResponse(int round, String modelVersion, String sourceCommit, List<RecalculatedPrediction> predictions) {}
+    public record RecalculationResponse(int round, String modelVersion, String sourceCommit, String engineVersion,
+                                        List<RecalculatedPrediction> predictions) {}
     public record RoundResponse(int round, LocalDate drawDate, LocalTime drawTime, String timezone, String timeSource,
                                 String timeSourceDetail, LocalDateTime generatedAt, List<Integer> actualNumbers,
                                 LocalDateTime resultConfirmedAt, List<PredictionResponse> predictions) {}

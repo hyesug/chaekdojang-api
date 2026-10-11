@@ -52,7 +52,7 @@ class LottoFutureValidationServiceTest {
     @Test
     void newRoundStoresAllEightTicketsWithOneRevisionAndOneGeneratedAt() {
         when(generator.generate(anyInt(), any(), any(), anyList()))
-                .thenReturn(new LottoFuturePredictionGenerator.Generated(eightTickets(), "v3-votes", "abc1234"));
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(eightTickets(), "v3-votes", "abc1234", "unse-c991927"));
         when(jdbcTemplate.queryForObject(contains("SELECT id FROM lotto_future_prediction_rounds"), eq(Long.class), anyInt())).thenReturn(7L);
 
         // 응답 조회 단계는 DB 없이 NOT_FOUND 로 끝난다. 저장 호출만 검증한다.
@@ -65,8 +65,9 @@ class LottoFutureValidationServiceTest {
             assertThat(arguments[2]).isEqualTo(1);
             assertThat(arguments[4]).isEqualTo("v3-votes");
             assertThat(arguments[5]).isEqualTo("abc1234");
-            assertThat(arguments[6]).isEqualTo(inserts.getFirst()[6]);
-            assertThat(arguments[7]).isEqualTo("자동 생성");
+            assertThat(arguments[6]).isEqualTo("unse-c991927");
+            assertThat(arguments[7]).isEqualTo(inserts.getFirst()[7]);
+            assertThat(arguments[8]).isEqualTo("자동 생성");
         });
     }
 
@@ -87,11 +88,12 @@ class LottoFutureValidationServiceTest {
         Map<String, List<Integer>> tickets = eightTickets();
         tickets.put("S1", List.of(4, 5, 6, 7, 8, 9));
         when(generator.generate(eq(1245), eq(LocalDate.of(2026, 10, 10)), eq(LocalTime.of(20, 35)), anyList()))
-                .thenReturn(new LottoFuturePredictionGenerator.Generated(tickets, "v4-votes", "abc1234"));
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(tickets, "v4-votes", "abc1234", "unse-c991927"));
 
         LottoFutureValidationService.RecalculationResponse response = service.recalculateStrategies(1L, 1245);
 
         assertThat(response.modelVersion()).isEqualTo("v4-votes");
+        assertThat(response.engineVersion()).isEqualTo("unse-c991927");
         assertThat(response.predictions()).extracting(LottoFutureValidationService.RecalculatedPrediction::model).containsExactly("S1", "S2", "S3");
         assertThat(response.predictions().getFirst().hitNumbers()).containsExactly(4, 5);
         assertThat(response.predictions().getFirst().hitCount()).isEqualTo(2);
@@ -108,11 +110,21 @@ class LottoFutureValidationServiceTest {
     }
 
     @Test
+    void missingEngineVersionFailsBeforeAnyPredictionIsStored() {
+        when(generator.generate(anyInt(), any(), any(), anyList()))
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(eightTickets(), "v4-votes", "abc1234", null));
+        when(jdbcTemplate.queryForObject(contains("SELECT id FROM lotto_future_prediction_rounds"), eq(Long.class), anyInt())).thenReturn(7L);
+
+        assertThatThrownBy(service::generateNext).isInstanceOf(IllegalStateException.class);
+        assertThat(predictionInserts()).isEmpty();
+    }
+
+    @Test
     void missingStrategyTicketFailsBeforeAnyPredictionIsStored() {
         Map<String, List<Integer>> tickets = eightTickets();
         tickets.remove("S3");
         when(generator.generate(anyInt(), any(), any(), anyList()))
-                .thenReturn(new LottoFuturePredictionGenerator.Generated(tickets, "v3-votes", "abc1234"));
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(tickets, "v3-votes", "abc1234", "unse-c991927"));
         when(jdbcTemplate.queryForObject(contains("SELECT id FROM lotto_future_prediction_rounds"), eq(Long.class), anyInt())).thenReturn(7L);
 
         assertThatThrownBy(service::generateNext).isInstanceOf(IllegalArgumentException.class);

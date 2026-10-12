@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class FortuneFeedbackService {
 
-    private static final Set<String> MODES = Set.of("solo", "pair");
+    /** solo·pair = 리포트 칸, ai = AI 답변 한 덩이 */
+    private static final Set<String> MODES = Set.of("solo", "pair", "ai");
     private static final Set<String> VERDICTS = Set.of("up", "down");
 
     // 한 줄 입력에 들어올 수 있는 개인정보 — 이메일, 전화번호, 출생일처럼 보이는 숫자
@@ -41,7 +42,9 @@ public class FortuneFeedbackService {
         }
         String section = clip(req.section(), 80);
         if (section == null) throw new CustomException(ErrorCode.FORTUNE_FEEDBACK_INVALID);
-        repository.save(new FortuneFeedback(mode, section, verdict, clip(req.snippet(), 600), clip(scrub(req.comment()), 300)));
+        // AI 답변은 사람마다 다른 글이라 연락처·날짜처럼 보이는 것을 한 번 더 지운다(사용자 식별자·출생 정보는 받지 않는다)
+        String snippet = "ai".equals(mode) ? scrub(req.snippet()) : req.snippet();
+        repository.save(new FortuneFeedback(mode, section, verdict, clip(snippet, 600), clip(scrub(req.comment()), 300)));
     }
 
     @Transactional(readOnly = true)

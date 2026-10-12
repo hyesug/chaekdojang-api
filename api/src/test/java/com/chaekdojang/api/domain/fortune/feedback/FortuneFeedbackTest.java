@@ -67,6 +67,15 @@ class FortuneFeedbackTest {
     }
 
     @Test
+    void AI_답변_피드백도_받고_답변_발췌에서_연락처와_날짜를_지운다() {
+        service.create(new com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.CreateRequest(
+                "ai", "AI 답변 · 재물", "down", "2027년 3월 2일에 큰돈이 들어와요. 010-1234-5678", "너무 길어요"));
+        var saved = service.summary(10).recent().stream().filter(x -> "ai".equals(x.mode())).findFirst().orElseThrow();
+        assertThat(saved.section()).isEqualTo("AI 답변 · 재물");
+        assertThat(saved.snippet()).doesNotContain("1234").doesNotContain("2027년 3월 2일");
+    }
+
+    @Test
     void 관리자_집계는_칸별로_좋아요와_아니에요를_센다() {
         service.create(new com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.CreateRequest("solo", "일과 돈", "down", null, null));
         service.create(new com.chaekdojang.api.domain.fortune.feedback.dto.FortuneFeedbackDtos.CreateRequest("solo", "일과 돈", "up", null, null));

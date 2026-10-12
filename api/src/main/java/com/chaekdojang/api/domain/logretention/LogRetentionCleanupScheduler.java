@@ -2,6 +2,7 @@ package com.chaekdojang.api.domain.logretention;
 
 import com.chaekdojang.api.domain.accesslog.AccessLogRepository;
 import com.chaekdojang.api.domain.errorlog.ErrorLogRepository;
+import com.chaekdojang.api.domain.fortune.feedback.FortuneFeedbackRepository;
 import com.chaekdojang.api.domain.metrics.MetricEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ public class LogRetentionCleanupScheduler {
     private final AccessLogRepository accessLogRepository;
     private final MetricEventRepository metricEventRepository;
     private final ErrorLogRepository errorLogRepository;
+    private final FortuneFeedbackRepository fortuneFeedbackRepository;
 
     @Value("${app.user-activity.retention-days:90}")
     private int userActivityRetentionDays;
@@ -37,8 +39,10 @@ public class LogRetentionCleanupScheduler {
             int accessDeleted = accessLogRepository.deleteCreatedBefore(now.minusDays(retentionDays));
             int metricDeleted = metricEventRepository.deleteCreatedBefore(now.minusDays(retentionDays));
             int errorDeleted = errorLogRepository.deleteCreatedBefore(now.minusDays(180));
-            log.info("Log retention cleanup completed: accessLogs={}, metricEvents={}, errorLogs={}",
-                    accessDeleted, metricDeleted, errorDeleted);
+            // 운세·AI 답변 피드백은 수집일로부터 1년 보관(개인정보처리방침)
+            int feedbackDeleted = fortuneFeedbackRepository.deleteCreatedBefore(now.minusYears(1));
+            log.info("Log retention cleanup completed: accessLogs={}, metricEvents={}, errorLogs={}, fortuneFeedback={}",
+                    accessDeleted, metricDeleted, errorDeleted, feedbackDeleted);
         } catch (Exception e) {
             log.warn("Log retention cleanup failed: {}", e.getMessage(), e);
         }

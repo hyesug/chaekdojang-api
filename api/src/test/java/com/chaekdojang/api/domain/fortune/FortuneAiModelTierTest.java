@@ -9,7 +9,7 @@ class FortuneAiModelTierTest {
     void chargesCreditsByConfiguredModelCostTier() {
         assertThat(FortuneAiModelTier.CLAUDE_SONNET.creditCost()).isEqualTo(1);
         assertThat(FortuneAiModelTier.GPT_SOL.creditCost()).isEqualTo(1);
-        assertThat(FortuneAiModelTier.CLAUDE_OPUS.creditCost()).isEqualTo(2);
+        assertThat(FortuneAiModelTier.CLAUDE_OPUS.creditCost()).isEqualTo(1);   // 운세 AI 고정 모델 — 질문 한 번에 1회
         assertThat(FortuneAiModelTier.GPT_ASTRA.creditCost()).isEqualTo(5);
     }
 }

@@ -47,7 +47,7 @@ class AiCreditAdminUnlimitedTest {
         try { service.reserve(7L, UUID.randomUUID(), FortuneAiModelTier.CLAUDE_OPUS); } catch (CustomException ignored) {
             // 로트 차감은 목으로 비워 두었으니 여기서 멈출 수 있다 — 확인할 것은 자동 충전 기록이다
         }
-        verify(jdbc).update(startsWith("INSERT INTO ai_credit_ledger"), any(UUID.class), eq(7L), eq(2), eq("ADMIN_GRANT"), isNull(), eq("관리자 무제한 — 자동 충전"));
+        verify(jdbc).update(startsWith("INSERT INTO ai_credit_ledger"), any(UUID.class), eq(7L), eq(1), eq("ADMIN_GRANT"), isNull(), eq("관리자 무제한 — 자동 충전"));
     }
 
     @Test

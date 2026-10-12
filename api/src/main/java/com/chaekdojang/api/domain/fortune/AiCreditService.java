@@ -99,8 +99,38 @@ public class AiCreditService {
     public Statistics statistics() { return jdbc.queryForObject("SELECT COUNT(*), COUNT(*) FILTER (WHERE success), COUNT(*) FILTER (WHERE NOT success), COALESCE(AVG(input_tokens),0), COALESCE(AVG(output_tokens),0), COALESCE(AVG(estimated_cost),0), COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_cost),0), COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY estimated_cost),0), COALESCE(SUM(estimated_cost),0) FROM ai_usage_records", (rs,n)->new Statistics(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getDouble(4),rs.getDouble(5),rs.getBigDecimal(6),rs.getBigDecimal(7),rs.getBigDecimal(8),rs.getBigDecimal(9))); }
     private void grantFreeIfEligible(Long userId) { Long count=jdbc.queryForObject("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id=? AND type='FREE_GRANT'",Long.class,userId); if(count!=null&&count>0)return; Boolean existing=jdbc.queryForObject("SELECT u.created_at < p.rollout_at FROM users u CROSS JOIN ai_credit_policy p WHERE u.id=?",Boolean.class,userId); if(Boolean.TRUE.equals(existing)&&!properties.isGrantExistingUsers())return; UUID ledgerId=UUID.randomUUID(); jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,description) VALUES (?,?,?,?,?)",ledgerId,userId,1,"FREE_GRANT","AI 심층질문 최초 무료 1회"); createLot(userId,ledgerId,"FREE_GRANT",1,null); }
     private int balance(Long userId){ Integer v=jdbc.queryForObject("SELECT COALESCE(SUM(remaining_amount),0) FROM ai_credit_lots WHERE user_id=? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",Integer.class,userId);return v==null?0:v; }
-    private int freeRemaining(Long userId){ Integer v=jdbc.queryForObject("SELECT COALESCE(SUM(remaining_amount),0) FROM ai_credit_lots WHERE user_id=? AND source_type='FREE_GRANT' AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",Integer.class,userId);return v==null?0:v; }
+    /** 무료로 받은 것 — 최초 1회와 독후감 보상 */
+    private int freeRemaining(Long userId){ Integer v=jdbc.queryForObject("SELECT COALESCE(SUM(remaining_amount),0) FROM ai_credit_lots WHERE user_id=? AND source_type IN ('FREE_GRANT','REVIEW_REWARD') AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",Integer.class,userId);return v==null?0:v; }
     private int purchasedBalance(Long userId){ return Math.max(0,balance(userId)-freeRemaining(userId)); }
+
+    /** 독후감 한 편으로 받는 질문권 — 공백을 줄인 본문이 이 글자 수 이상일 때 */
+    static final int REVIEW_REWARD_MIN_CHARS = 100;
+
+    /**
+     * 독후감을 쓰면 질문권 1개. **책 한 권당 한 번** — 같은 책으로 다시 쓰거나 지웠다 다시 써도 더 주지 않는다.
+     * 책을 고르지 않은 글과 100자 미만인 글은 주지 않는다. 짧게 썼다가 100자 넘게 고치면 그때 준다.
+     * @return 이번에 지급했으면 true
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean grantReviewReward(Long userId, Long reviewId, Long bookId, String content) {
+        if (userId == null || reviewId == null || bookId == null) return false;
+        if (reviewTextLength(content) < REVIEW_REWARD_MIN_CHARS) return false;
+        jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
+        Integer done = jdbc.queryForObject("SELECT COUNT(*) FROM ai_credit_review_rewards WHERE user_id=? AND book_id=?", Integer.class, userId, bookId);
+        if (done != null && done > 0) return false;
+        UUID ledgerId = UUID.randomUUID();
+        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)", ledgerId, userId, 1, "REVIEW_REWARD", null, "독후감 작성 보상 (독후감 " + reviewId + ")");
+        jdbc.update("INSERT INTO ai_credit_review_rewards(user_id,book_id,review_id,ledger_id) VALUES (?,?,?,?)", userId, bookId, reviewId, ledgerId);
+        createLot(userId, ledgerId, "REVIEW_REWARD", 1, null);
+        return true;
+    }
+
+    /** 태그를 걷고 공백을 한 칸으로 줄인 글자 수 */
+    static int reviewTextLength(String content) {
+        if (content == null) return 0;
+        String text = content.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").strip();
+        return text.codePointCount(0, text.length());
+    }
 
     @Transactional
     public void grantPurchase(Long userId, UUID orderId, AiCreditProduct product) {

@@ -1,6 +1,7 @@
 package com.chaekdojang.api.domain.review;
 
 import com.chaekdojang.api.domain.book.Book;
+import com.chaekdojang.api.domain.fortune.ReviewRewardListener;
 import com.chaekdojang.api.domain.book.BookRepository;
 import com.chaekdojang.api.domain.chat.ChatBlockRepository;
 import com.chaekdojang.api.domain.library.Library;
@@ -63,6 +64,7 @@ public class ReviewService {
     private final ReviewAiSummaryRepository reviewAiSummaryRepository;
     private final ReviewAiSummaryService reviewAiSummaryService;
     private final MetricEventService metricEventService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ReviewResponse create(ReviewCreateRequest request) {
@@ -126,6 +128,9 @@ public class ReviewService {
         }
         metricEventService.recordCurrentRequestEvent(
                 "review_created", userId, "/reviews/" + saved.id(), activityMeta);
+        // 독후감을 쓰면 AI 질문권 1개(책 한 권당 한 번) — 저장이 확정된 뒤에 준다
+        eventPublisher.publishEvent(new ReviewRewardListener.ReviewWritten(
+                userId, saved.id(), finalBook == null ? null : finalBook.getId(), request.content()));
 
         return saved;
     }
@@ -284,6 +289,9 @@ public class ReviewService {
                             )
                     );
         }
+        // 짧게 썼다가 100자 넘게 고쳤으면 그때 질문권을 준다(책 한 권당 한 번)
+        eventPublisher.publishEvent(new ReviewRewardListener.ReviewWritten(
+                userId, review.getId(), updatedBook == null ? null : updatedBook.getId(), request.content()));
         return ReviewResponse.from(review,
                 reviewLikeRepository.countByReviewId(id),
                 commentRepository.countByReviewIdAndDeletedAtIsNull(id));

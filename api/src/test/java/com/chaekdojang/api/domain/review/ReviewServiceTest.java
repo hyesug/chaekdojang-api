@@ -55,6 +55,7 @@ class ReviewServiceTest {
     @Mock ReviewAiSummaryRepository reviewAiSummaryRepository;
     @Mock ReviewAiSummaryService reviewAiSummaryService;
     @Mock MetricEventService metricEventService;
+    @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks ReviewService reviewService;
 
@@ -99,6 +100,9 @@ class ReviewServiceTest {
                 argThat(meta -> REVIEW_ID.equals(meta.get("reviewId"))
                         && !meta.containsKey("content")
                         && !meta.containsKey("body")));
+        // 질문권 지급은 저장이 확정된 뒤 리스너가 판단한다 — 여기서는 사건만 알린다
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof com.chaekdojang.api.domain.fortune.ReviewRewardListener.ReviewWritten w
+                && USER_ID.equals(w.userId()) && REVIEW_ID.equals(w.reviewId()) && w.bookId() == null));
     }
 
     @Test

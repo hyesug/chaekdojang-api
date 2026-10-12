@@ -54,17 +54,33 @@ public class AiCreditService {
         jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,estimated_cost,requested_at,completed_at,duration_ms,success,provider,session_id,question_category,detail_level,credit_used,cache_write_1h_tokens,context_chars,focus_chars,history_message_count,summarized_turns) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,true,?,?,?,?,?,?,?,?,?,?)", UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,tier.displayName(),tier.model(),usage.inputTokens(),usage.outputTokens(),usage.cacheReadTokens(),usage.cacheWriteTokens(),cost,Timestamp.valueOf(usage.requestedAt()),Timestamp.valueOf(now),Math.max(0,usage.durationMs()),tier.provider(),clip(d.sessionId(),64),clip(d.questionCategory(),80),clip(d.detailLevel(),10),r.creditsReserved(),d.cacheWrite1hTokens(),d.contextChars(),d.focusChars(),d.historyMessageCount(),d.summarizedTurns());
     }
 
+    /** 답을 받다 연결이 끊긴 질문 — 질문권 1회는 질문과 그 답변 한 벌이라 돌려준다. 악용을 막아 하루 이만큼만 */
+    static final String MID_ANSWER_ABORT = "CLIENT_ABORTED_MID_ANSWER";
+    static final int MID_ANSWER_REFUNDS_PER_DAY = 2;
+
+    /**
+     * 실패한 호출의 질문권을 돌려준다.
+     * 답을 받다 끊긴 경우(MID_ANSWER_ABORT)는 하루 {@link #MID_ANSWER_REFUNDS_PER_DAY}번까지만 돌려주고,
+     * 넘으면 돌려주지 않는다 — 그때는 호출한 쪽이 사용으로 확정한다.
+     * @return 돌려줬으면 true
+     */
     @Transactional
-    public void refund(Long userId, UUID requestId, String errorType) {
+    public boolean refund(Long userId, UUID requestId, String errorType) {
         jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId);
         Reservation r = requiredReservation(userId, requestId);
-        if (!"RESERVED".equals(r.status())) return;
+        if (!"RESERVED".equals(r.status())) return "REFUNDED".equals(r.status());
+        if (errorType != null && errorType.startsWith(MID_ANSWER_ABORT)) {
+            Integer today = jdbc.queryForObject("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id=? AND type='REFUND' AND description LIKE ? AND created_at > CURRENT_TIMESTAMP - INTERVAL '1 day'",
+                    Integer.class, userId, "%" + MID_ANSWER_ABORT + "%");
+            if (today != null && today >= MID_ANSWER_REFUNDS_PER_DAY) return false;
+        }
         LocalDateTime now = LocalDateTime.now();
         jdbc.update("UPDATE ai_credit_reservations SET status='REFUNDED', completed_at=? WHERE request_id=?",Timestamp.valueOf(now),requestId);
         jdbc.update("UPDATE ai_credit_lots l SET remaining_amount = l.remaining_amount + a.amount FROM ai_credit_reservation_allocations a WHERE a.request_id=? AND a.lot_id=l.id", requestId);
         jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)",UUID.randomUUID(),userId,r.creditsReserved(),"REFUND",requestId,"AI 호출 실패 자동 복구: "+sanitize(errorType));
         // success 는 false 고정, 마지막 자리가 error_type 이다. 순서가 어긋나면 복구 트랜잭션 전체가 롤백된다
         jdbc.update("INSERT INTO ai_usage_records(id,request_id,user_id,feature,trigger_name,model,requested_at,completed_at,duration_ms,success,error_type) VALUES (?,?,?,?,?,?,?,?,?,false,?)",UUID.randomUUID(),requestId,userId,FORTUNE_DEEP_QUESTION,r.tier().displayName(),r.tier().model(),Timestamp.valueOf(r.createdAt()),Timestamp.valueOf(now),Math.max(0,now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()-r.createdAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()),sanitize(errorType));
+        return true;
     }
 
     @Transactional

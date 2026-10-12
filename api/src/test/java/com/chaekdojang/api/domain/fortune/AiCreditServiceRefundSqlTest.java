@@ -55,6 +55,27 @@ class AiCreditServiceRefundSqlTest {
         assertThat(bound[errorTypeSlot]).isEqualTo("OVERLOADED");
     }
 
+    /** 질문권 1회는 질문과 답변 한 벌 — 답을 받다 끊기면 돌려주되 하루 두 번까지만 */
+    @Test
+    void midAnswerAbortIsRefundedTwiceADayThenCountsAsUsed() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        AiCreditService service = new AiCreditService(jdbc, new AiCreditProperties(),
+                new AiCostCalculator(new AiCreditProperties()), mock(UserRepository.class), mock(AdminAuditLogService.class));
+        UUID requestId = UUID.randomUUID();
+        AiCreditService.Reservation reserved = new AiCreditService.Reservation(requestId, 0, 0, "RESERVED",
+                LocalDateTime.now().minusSeconds(3), FortuneAiModelTier.CLAUDE_SONNET, 1);
+        doReturn(List.of(reserved)).when(jdbc).query(startsWith("SELECT request_id"), any(RowMapper.class), eq(7L), eq(requestId));
+
+        // 오늘 이미 두 번 돌려받았다 → 이번엔 돌려주지 않는다(호출한 쪽이 사용으로 확정)
+        when(jdbc.queryForObject(contains("type='REFUND' AND description LIKE"), eq(Integer.class), eq(7L), anyString())).thenReturn(2);
+        assertThat(service.refund(7L, requestId, AiCreditService.MID_ANSWER_ABORT)).isFalse();
+        verify(jdbc, never()).update(startsWith("UPDATE ai_credit_reservations"), any(Object[].class));
+
+        // 한 번뿐이면 돌려준다
+        when(jdbc.queryForObject(contains("type='REFUND' AND description LIKE"), eq(Integer.class), eq(7L), anyString())).thenReturn(1);
+        assertThat(service.refund(7L, requestId, AiCreditService.MID_ANSWER_ABORT)).isTrue();
+    }
+
     private static String between(String s, String open, String close) {
         int a = s.indexOf(open);
         return s.substring(a + 1, s.indexOf(close, a));

@@ -30,7 +30,7 @@ public class FortuneAiUsageController {
     }
 
     @PostMapping("/reservations/{requestId}/refund")
-    public ApiResponse<Void> refund(@org.springframework.web.bind.annotation.PathVariable java.util.UUID requestId, @RequestBody RefundRequest request) { aiCreditService.refund(SecurityUtils.getCurrentUserId(), requestId, request.errorType()); return ApiResponse.ok(null); }
+    public ApiResponse<Boolean> refund(@org.springframework.web.bind.annotation.PathVariable java.util.UUID requestId, @RequestBody RefundRequest request) { return ApiResponse.ok(aiCreditService.refund(SecurityUtils.getCurrentUserId(), requestId, request.errorType())); }
 
     @GetMapping("/credits/me")
     public ApiResponse<CreditResponse> credits() { Long id=SecurityUtils.getCurrentUserId(); return ApiResponse.ok(new CreditResponse(aiCreditService.balanceView(id), aiCreditService.history(id))); }

@@ -31,6 +31,10 @@ public class AiCreditService {
         if (existing != null) return existing;
         grantFreeIfEligible(userId);
         int balance = balance(userId);
+        if (balance < tier.creditCost() && isAdmin(userId)) {
+            topUpAdmin(userId, tier.creditCost() - balance);
+            balance = balance(userId);
+        }
         if (balance < tier.creditCost()) throw new CustomException(ErrorCode.AI_CREDIT_EXHAUSTED);
         UUID ledgerId = UUID.randomUUID();
         jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)", ledgerId,userId,-tier.creditCost(),"USE",requestId,tier.displayName()+" 선점");
@@ -107,10 +111,22 @@ public class AiCreditService {
         List<AdminOrder> orders = jdbc.query("SELECT id,product,amount,credits,payment_id,status,paid_at,created_at FROM ai_credit_orders WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
                 (rs,n)->new AdminOrder(UUID.fromString(rs.getString(1)),rs.getString(2),rs.getInt(3),rs.getInt(4),rs.getString(5),rs.getString(6),rs.getTimestamp(7)==null?null:rs.getTimestamp(7).toLocalDateTime(),rs.getTimestamp(8).toLocalDateTime()),userId);
         Integer stale = jdbc.queryForObject("SELECT count(*) FROM ai_credit_reservations WHERE user_id=? AND status='RESERVED' AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'",Integer.class,userId);
-        return new AdminView(new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId)), ledger, orders, stale == null ? 0 : stale);
+        return new AdminView(new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId), isAdmin(userId)), ledger, orders, stale == null ? 0 : stale);
     }
     @Transactional
-    public Balance balanceView(Long userId) { jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId); grantFreeIfEligible(userId); return new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId)); }
+    public Balance balanceView(Long userId) { jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId); grantFreeIfEligible(userId); return new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId), isAdmin(userId)); }
+
+    /** 관리자는 질문권 제한 없이 묻는다 — 모자라면 그만큼 자동으로 채운다(원장에 남겨 원가 집계는 그대로) */
+    private boolean isAdmin(Long userId) {
+        return userRepository.findById(userId).map(User::isAdmin).orElse(false);
+    }
+
+    private void topUpAdmin(Long userId, int amount) {
+        if (amount <= 0) return;
+        UUID ledgerId = UUID.randomUUID();
+        jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,reference_id,description) VALUES (?,?,?,?,?,?)", ledgerId, userId, amount, "ADMIN_GRANT", null, "관리자 무제한 — 자동 충전");
+        createLot(userId, ledgerId, "ADMIN_GRANT", amount, null);
+    }
     public List<History> history(Long userId) { return jdbc.query("SELECT amount,type,description,created_at FROM ai_credit_ledger WHERE user_id=? ORDER BY created_at DESC LIMIT 30",(rs,n)->new History(rs.getInt(1),rs.getString(2),rs.getString(3),rs.getTimestamp(4).toLocalDateTime()),userId); }
     public Statistics statistics() { return jdbc.queryForObject("SELECT COUNT(*), COUNT(*) FILTER (WHERE success), COUNT(*) FILTER (WHERE NOT success), COALESCE(AVG(input_tokens),0), COALESCE(AVG(output_tokens),0), COALESCE(AVG(estimated_cost),0), COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY estimated_cost),0), COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY estimated_cost),0), COALESCE(SUM(estimated_cost),0) FROM ai_usage_records", (rs,n)->new Statistics(rs.getLong(1),rs.getLong(2),rs.getLong(3),rs.getDouble(4),rs.getDouble(5),rs.getBigDecimal(6),rs.getBigDecimal(7),rs.getBigDecimal(8),rs.getBigDecimal(9))); }
     private void grantFreeIfEligible(Long userId) { Long count=jdbc.queryForObject("SELECT COUNT(*) FROM ai_credit_ledger WHERE user_id=? AND type='FREE_GRANT'",Long.class,userId); if(count!=null&&count>0)return; Boolean existing=jdbc.queryForObject("SELECT u.created_at < p.rollout_at FROM users u CROSS JOIN ai_credit_policy p WHERE u.id=?",Boolean.class,userId); if(Boolean.TRUE.equals(existing)&&!properties.isGrantExistingUsers())return; UUID ledgerId=UUID.randomUUID(); jdbc.update("INSERT INTO ai_credit_ledger(id,user_id,amount,type,description) VALUES (?,?,?,?,?)",ledgerId,userId,1,"FREE_GRANT","AI 심층질문 최초 무료 1회"); createLot(userId,ledgerId,"FREE_GRANT",1,null); }
@@ -181,7 +197,8 @@ public class AiCreditService {
     public record CallDetail(String sessionId,String questionCategory,String detailLevel,Integer cacheWrite1hTokens,Integer contextChars,Integer focusChars,Integer historyMessageCount,Integer summarizedTurns) {
         public static final CallDetail EMPTY = new CallDetail(null,null,null,null,null,null,null,null);
     }
-    public record Balance(int freeRemaining,int purchasedBalance,int totalBalance) {}
+    /** unlimited — 관리자라 잔액과 관계없이 물을 수 있다 */
+    public record Balance(int freeRemaining,int purchasedBalance,int totalBalance,boolean unlimited) {}
     public record AdminLedger(UUID id,int amount,String type,UUID referenceId,String description,LocalDateTime createdAt) {}
     public record AdminOrder(UUID orderId,String product,int amount,int credits,String paymentId,String status,LocalDateTime paidAt,LocalDateTime createdAt) {}
     public record AdminView(Balance balance,List<AdminLedger> ledger,List<AdminOrder> orders,int staleReservations) {}

@@ -23,6 +23,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,7 +54,7 @@ class FortuneProfileFlowTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
-        profiles.findByUserId(userId).ifPresent(profiles::delete);
+        profiles.deleteAll(profiles.findAllByUserIdOrderBySelfDescCreatedAtAscIdAsc(userId));
     }
 
     /** 실제 JWT 필터처럼 principal 에 사용자 id(Long)를 넣는다 */
@@ -98,7 +99,73 @@ class FortuneProfileFlowTest {
 
         mvc.perform(delete("/api/fortune-profiles/me").with(me()))
                 .andExpect(status().isOk());
-        assertThat(profiles.findByUserId(userId)).isEmpty();
+        assertThat(profiles.countByUserId(userId)).isZero();
+    }
+
+    @Test
+    void savesSeveralPeopleAndKeepsMeSeparate() throws Exception {
+        // 내 프로필
+        mvc.perform(put("/api/fortune-profiles/me").with(me())
+                        .contentType("application/json").content(BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.self").value(true));
+        // 가족 둘 더
+        String momId = com.jayway.jsonpath.JsonPath.read(mvc.perform(post("/api/fortune-profiles").with(me())
+                        .contentType("application/json").content(BODY.replace("홍길동", "엄마")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.self").value(false))
+                .andReturn().getResponse().getContentAsString(), "$.data.id").toString();
+        mvc.perform(post("/api/fortune-profiles").with(me())
+                        .contentType("application/json").content(BODY.replace("홍길동", "동생")))
+                .andExpect(status().isOk());
+
+        // 목록은 본인이 맨 앞
+        mvc.perform(get("/api/fortune-profiles").with(me()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].name").value("홍길동"))
+                .andExpect(jsonPath("$.data[0].self").value(true))
+                .andExpect(jsonPath("$.data[1].name").value("엄마"));
+
+        // 가족 프로필 고치기 — /me 는 그대로
+        mvc.perform(put("/api/fortune-profiles/" + momId).with(me())
+                        .contentType("application/json").content(BODY.replace("홍길동", "어머니")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("어머니"));
+        mvc.perform(get("/api/fortune-profiles/me").with(me()))
+                .andExpect(jsonPath("$.data.name").value("홍길동"));
+
+        // 남의 프로필은 없는 것으로 답한다
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        Long otherId = users.save(User.create("other-" + suffix + "@test.com", "남" + suffix, null)).getId();
+        var other = authentication(new UsernamePasswordAuthenticationToken(otherId, null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+        mvc.perform(put("/api/fortune-profiles/" + momId).with(other)
+                        .contentType("application/json").content(BODY))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/fortune-profiles/" + momId).with(other))
+                .andExpect(status().isNotFound());
+
+        // 지우기 — 내 프로필은 남는다
+        mvc.perform(delete("/api/fortune-profiles/" + momId).with(me()))
+                .andExpect(status().isOk());
+        assertThat(profiles.countByUserId(userId)).isEqualTo(2);
+        assertThat(profiles.findByUserIdAndSelfTrue(userId)).isPresent();
+    }
+
+    @Test
+    void limitsToTwentyProfiles() throws Exception {
+        for (int i = 0; i < FortuneProfileService.MAX_PROFILES; i++) {
+            mvc.perform(post("/api/fortune-profiles").with(me())
+                            .contentType("application/json").content(BODY.replace("홍길동", "사람" + i)))
+                    .andExpect(status().isOk());
+        }
+        mvc.perform(post("/api/fortune-profiles").with(me())
+                        .contentType("application/json").content(BODY))
+                .andExpect(status().isBadRequest());
+        // 처음 저장한 것이 본인 프로필이 된다
+        mvc.perform(get("/api/fortune-profiles/me").with(me()))
+                .andExpect(jsonPath("$.data.name").value("사람0"));
     }
 
     @Test
@@ -107,7 +174,7 @@ class FortuneProfileFlowTest {
                         .contentType("application/json")
                         .content(BODY.replace("\"month\":1,\"day\":30", "\"month\":2,\"day\":30")))
                 .andExpect(status().isBadRequest());
-        assertThat(profiles.findByUserId(userId)).isEmpty();
+        assertThat(profiles.countByUserId(userId)).isZero();
     }
 
     @Test
@@ -119,6 +186,6 @@ class FortuneProfileFlowTest {
         SecurityContextHolder.getContext().setAuthentication(token());
         userService.deleteMe();
 
-        assertThat(profiles.findByUserId(userId)).isEmpty();
+        assertThat(profiles.countByUserId(userId)).isZero();
     }
 }

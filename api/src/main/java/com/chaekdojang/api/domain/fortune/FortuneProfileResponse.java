@@ -1,6 +1,8 @@
 package com.chaekdojang.api.domain.fortune;
 
 public record FortuneProfileResponse(
+        Long id,
+        boolean self,
         String name,
         String gender,
         int year,
@@ -13,7 +15,8 @@ public record FortuneProfileResponse(
         boolean dst
 ) {
     static FortuneProfileResponse from(FortuneProfile p) {
-        return new FortuneProfileResponse(p.getName(), p.getGender(), p.getBirthYear(), p.getBirthMonth(),
-                p.getBirthDay(), p.getBirthHour(), p.getBirthMinute(), p.getBirthPlace(), p.getHomePlace(), p.isDst());
+        return new FortuneProfileResponse(p.getId(), p.isSelf(), p.getName(), p.getGender(), p.getBirthYear(),
+                p.getBirthMonth(), p.getBirthDay(), p.getBirthHour(), p.getBirthMinute(), p.getBirthPlace(),
+                p.getHomePlace(), p.isDst());
     }
 }

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import static lombok.AccessLevel.PROTECTED;
 
 /**
- * 운세 화면에서 저장한 본인 출생 정보. 사용자당 하나.
+ * 운세 화면에서 저장한 출생 정보. 사용자당 여러 개(본인 하나 + 가족·지인, 최대 20).
  * 개인정보라 soft delete 하지 않고, 지우라고 하면 행을 바로 지운다.
  */
 @Entity
@@ -25,9 +25,13 @@ public class FortuneProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    /** '내 프로필'(/me) 인가. 사용자당 하나뿐이다 */
+    @Column(name = "is_self", nullable = false)
+    private boolean self;
 
     @Column(nullable = false, length = 40)
     private String name;
@@ -67,9 +71,10 @@ public class FortuneProfile {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    public static FortuneProfile create(User user) {
+    public static FortuneProfile create(User user, boolean self) {
         FortuneProfile profile = new FortuneProfile();
         profile.user = user;
+        profile.self = self;
         return profile;
     }
 

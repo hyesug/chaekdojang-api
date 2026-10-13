@@ -89,6 +89,10 @@ public class ReviewService {
         if (request.shouldHide()) {
             review.hide();
         }
+        // 예약 발송 — 그 시각까지 비공개로 두고, 알림은 공개될 때 보낸다(아래 !isHidden 조건)
+        if (request.scheduledAt() != null) {
+            review.schedule(validScheduleTime(request.scheduledAt()));
+        }
         ReviewResponse saved = ReviewResponse.from(saveReview(review), 0L, 0L);
         if (request.shouldGenerateAiSummary()) {
             reviewAiSummaryService.enqueueForReview(review);
@@ -133,6 +137,41 @@ public class ReviewService {
                 userId, saved.id(), finalBook == null ? null : finalBook.getId(), request.content()));
 
         return saved;
+    }
+
+    private static final java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
+
+    /** 예약 시각은 5분 뒤 ~ 1년 안 */
+    private LocalDateTime validScheduleTime(LocalDateTime at) {
+        LocalDateTime now = LocalDateTime.now(KST);
+        if (at.isBefore(now.plusMinutes(5)) || at.isAfter(now.plusYears(1))) {
+            throw new CustomException(ErrorCode.INVALID_REVIEW_SCHEDULE);
+        }
+        return at.withSecond(0).withNano(0);
+    }
+
+    /** 예약 시각이 지난 독후감 id */
+    public List<Long> dueScheduledIds() {
+        return reviewRepository.findDueScheduledIds(LocalDateTime.now(KST));
+    }
+
+    /**
+     * 예약 독후감 하나를 공개한다. 작성 시각을 예약 시각으로 옮겨 피드에서 그때 올린 글로 보이게 하고,
+     * 바로 올렸을 때와 같은 알림(같은 책 독자·이어쓰기 원글 작성자)을 이때 보낸다.
+     */
+    @Transactional
+    public void publishScheduled(Long id) {
+        if (reviewRepository.publishScheduled(id) == 0) return;   // 그사이 취소·삭제·비공개 전환
+        Review review = reviewRepository.findById(id).orElse(null);
+        if (review == null || review.getDeletedAt() != null) return;
+        if (review.getBook() != null) {
+            notifySameBookReaders(review.getAuthor(), review.getBook(), review.getId(),
+                    review.getSourceReview() != null ? review.getSourceReview().getAuthor().getId() : null);
+        }
+        if (review.getSourceReview() != null) {
+            notificationService.send(
+                    review.getSourceReview().getAuthor(), review.getAuthor(), NotificationType.REVIEW_CONTINUED, review.getId());
+        }
     }
 
     private void notifySameBookReaders(User author, Book book, Long reviewId, Long excludedReaderId) {
@@ -275,7 +314,9 @@ public class ReviewService {
         validateRereadBookChange(review, book);
         review.update(request.content(), request.rating(), book);
         review.updateDiscoveryMetadata(normalizeKeywords(request.keywords()), request.hasSpoiler());
-        if (request.shouldHide()) review.hide(); else review.unhide();
+        if (request.scheduledAt() != null) {
+            review.schedule(validScheduleTime(request.scheduledAt()));
+        } else if (request.shouldHide()) review.hide(); else review.unhide();
         if (request.shouldGenerateAiSummary()) {
             reviewAiSummaryService.enqueueForReview(review);
         }

@@ -12,6 +12,7 @@ public enum ErrorCode {
     INVALID_REREAD_SOURCE(HttpStatus.BAD_REQUEST, "본인의 같은 책 독후감만 재독 기록으로 연결할 수 있습니다."),
     REREAD_ALREADY_EXISTS(HttpStatus.CONFLICT, "이 기록에서 이어진 재독 독후감이 이미 있습니다."),
     REREAD_BOOK_CHANGE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "재독 기록으로 연결된 독후감은 책을 변경할 수 없습니다."),
+    INVALID_REVIEW_SCHEDULE(HttpStatus.BAD_REQUEST, "예약 시각은 지금부터 5분 뒤 ~ 1년 안으로 정해 주세요."),
     INVALID_REVIEW_LINK(HttpStatus.BAD_REQUEST, "재독 기록과 다른 독후감 이어쓰기를 동시에 연결할 수 없습니다."),
     INVALID_CONTINUATION_SOURCE(HttpStatus.BAD_REQUEST, "다른 사용자의 공개된 같은 책 독후감에서만 이어쓸 수 있습니다."),
     BLOCKED_REVIEW_CONNECTION(HttpStatus.FORBIDDEN, "차단 관계인 사용자의 독후감에는 이어쓸 수 없습니다."),

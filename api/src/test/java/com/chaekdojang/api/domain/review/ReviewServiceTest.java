@@ -395,6 +395,83 @@ class ReviewServiceTest {
     // ── helpers ────────────────────────────────────────────────────────────────
 
     // ReviewResponse.from()에서 사용되는 필드만 stub
+    // ── 예약 발송 ───────────────────────────────────────────────────────────────
+
+    private static final java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
+
+    @Test
+    @DisplayName("예약 독후감 — 예약 시각까지 비공개로 저장되고 같은 책 독자 알림은 보내지 않는다")
+    void create_scheduled_savesHiddenAndSkipsNotifications() {
+        User author = stubUser(USER_ID);
+        Review saved = stubReviewForResponse(REVIEW_ID, author);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
+        org.mockito.ArgumentCaptor<Review> captor = org.mockito.ArgumentCaptor.forClass(Review.class);
+        when(reviewRepository.save(captor.capture())).thenReturn(saved);
+        LocalDateTime at = LocalDateTime.now(KST).plusDays(1).withSecond(30);
+
+        reviewService.create(new ReviewCreateRequest(null, "내일 아침에 올릴 글", 5, false, false, null, null, null, null, at));
+
+        Review entity = captor.getValue();
+        assertThat(entity.isHidden()).isTrue();
+        assertThat(entity.getScheduledAt()).isEqualTo(at.withSecond(0).withNano(0));
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    @DisplayName("예약 독후감 — 5분 안이나 지난 시각은 INVALID_REVIEW_SCHEDULE")
+    void create_scheduledInPast_throws() {
+        User author = stubUser(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(author));
+        LocalDateTime soon = LocalDateTime.now(KST).plusMinutes(1);
+
+        assertThatThrownBy(() -> reviewService.create(new ReviewCreateRequest(null, "내용", 4, false, null, null, null, null, null, soon)))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REVIEW_SCHEDULE);
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("예약 공개 — 공개된 글만 같은 책 독자에게 알린다, 그사이 취소된 글은 건너뛴다")
+    void publishScheduled_notifiesOnlyWhenPublished() {
+        when(reviewRepository.publishScheduled(REVIEW_ID)).thenReturn(0);
+        reviewService.publishScheduled(REVIEW_ID);
+        verify(reviewRepository, never()).findById(any());
+        verifyNoInteractions(notificationService);
+
+        User author = stubUser(USER_ID);
+        Review review = mock(Review.class);
+        Book book = mock(Book.class);
+        when(book.getId()).thenReturn(7L);
+        when(review.getId()).thenReturn(REVIEW_ID);
+        when(review.getAuthor()).thenReturn(author);
+        when(review.getBook()).thenReturn(book);
+        User reader = stubUser(OTHER_ID);
+        Review other = mock(Review.class);
+        when(other.getAuthor()).thenReturn(reader);
+        when(reviewRepository.publishScheduled(REVIEW_ID)).thenReturn(1);
+        when(reviewRepository.findById(REVIEW_ID)).thenReturn(Optional.of(review));
+        when(reviewRepository.findAllByBookIdAndDeletedAtIsNullAndHiddenFalseOrderByCreatedAtDesc(7L)).thenReturn(List.of(other));
+
+        reviewService.publishScheduled(REVIEW_ID);
+
+        verify(notificationService).send(eq(reader), eq(author),
+                eq(com.chaekdojang.api.domain.notification.NotificationType.SAME_BOOK_REVIEW), eq(REVIEW_ID));
+    }
+
+    @Test
+    @DisplayName("예약 독후감을 비공개로 돌리거나 바로 공개하면 예약이 사라진다")
+    void hideOrUnhide_clearsSchedule() {
+        Review r = Review.builder().author(stubUser(USER_ID)).content("x").rating(3).build();
+        r.schedule(LocalDateTime.now(KST).plusDays(1));
+        assertThat(r.isScheduled()).isTrue();
+        r.hide();
+        assertThat(r.isScheduled()).isFalse();
+        r.schedule(LocalDateTime.now(KST).plusDays(1));
+        r.unhide();
+        assertThat(r.isScheduled()).isFalse();
+        assertThat(r.isHidden()).isFalse();
+    }
+
     private User stubUser(Long id) {
         User user = mock(User.class);
         lenient().when(user.getId()).thenReturn(id);

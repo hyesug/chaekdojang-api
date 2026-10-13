@@ -26,7 +26,8 @@ public record ReviewResponse(
         Long previousReviewId,
         Long sourceReviewId,
         List<String> keywords,
-        boolean spoiler
+        boolean spoiler,
+        LocalDateTime scheduledAt
 ) {
     public record AuthorInfo(Long id, String nickname, String profileImage) {
         public static AuthorInfo from(User user) {
@@ -80,7 +81,8 @@ public record ReviewResponse(
                 review.getPreviousReview() != null ? review.getPreviousReview().getId() : null,
                 review.getSourceReview() != null ? review.getSourceReview().getId() : null,
                 parseKeywords(review.getKeywords()),
-                review.isSpoiler()
+                review.isSpoiler(),
+                review.getScheduledAt()
         );
     }
 

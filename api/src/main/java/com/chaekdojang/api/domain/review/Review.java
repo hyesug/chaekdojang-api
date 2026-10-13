@@ -72,6 +72,10 @@ public class Review {
     @Column(nullable = false)
     private boolean spoiler = false;
 
+    /** 예약 발송 시각(KST). 이 시각 전에는 비공개로 두고 스케줄러가 공개한다. null 이면 예약 없음 */
+    @Column(name = "scheduled_at")
+    private LocalDateTime scheduledAt;
+
     @Builder
     private Review(Book book, User author, Review previousReview, Review sourceReview,
                    String content, int rating, String keywords, boolean spoiler) {
@@ -104,7 +108,12 @@ public class Review {
         return this.author.getId().equals(userId);
     }
 
-    public void hide() { this.hidden = true; }
-    public void unhide() { this.hidden = false; }
+    /** 비공개로 돌리면 예약도 함께 거둔다 — 나중에 저절로 공개되지 않게 */
+    public void hide() { this.hidden = true; this.scheduledAt = null; }
+    /** 지금 공개하면 예약은 의미가 없어진다 */
+    public void unhide() { this.hidden = false; this.scheduledAt = null; }
+    /** 예약: 그 시각까지 비공개로 둔다 */
+    public void schedule(LocalDateTime at) { this.hidden = true; this.scheduledAt = at; }
+    public boolean isScheduled() { return scheduledAt != null; }
     public void increaseViewCount() { this.viewCount++; }
 }

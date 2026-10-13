@@ -204,4 +204,21 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "GROUP BY b.id, b.title, b.author " +
            "ORDER BY COUNT(r) DESC")
     List<BookReviewStatResponse> findBookReviewStats();
+
+    /** 예약 시각이 지난 독후감 — 스케줄러가 하나씩 공개한다 */
+    @org.springframework.data.jpa.repository.Query(value = """
+            SELECT id FROM reviews
+            WHERE scheduled_at IS NOT NULL AND scheduled_at <= :now AND deleted_at IS NULL
+            ORDER BY scheduled_at LIMIT 200""", nativeQuery = true)
+    List<Long> findDueScheduledIds(@org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now);
+
+    /**
+     * 예약 독후감을 공개한다. created_at 은 엔티티에서 바꿀 수 없게 막혀 있어(updatable=false) 여기서 옮긴다.
+     * 아직 예약 상태인 행만 바꾸므로, 그사이 취소·비공개 전환된 글은 0을 돌려준다.
+     */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query(value = """
+            UPDATE reviews SET hidden = false, created_at = scheduled_at, updated_at = scheduled_at, scheduled_at = NULL
+            WHERE id = :id AND scheduled_at IS NOT NULL AND deleted_at IS NULL""", nativeQuery = true)
+    int publishScheduled(@org.springframework.data.repository.query.Param("id") Long id);
 }

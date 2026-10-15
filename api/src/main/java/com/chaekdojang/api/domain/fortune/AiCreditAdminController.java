@@ -17,6 +17,14 @@ public class AiCreditAdminController {
         credits.adjust(SecurityUtils.getCurrentUserId(), userId, request.amount(), request.description());
         return ApiResponse.ok(null);
     }
+    @GetMapping("/users")
+    public ApiResponse<AiCreditService.UserPage> users(@RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "30") int size) {
+        return ApiResponse.ok(credits.userList(q, page, size));
+    }
+    @GetMapping("/{userId}/usages")
+    public ApiResponse<java.util.List<AiCreditService.UsageRow>> usages(@PathVariable Long userId, @RequestParam(defaultValue = "100") int limit) {
+        return ApiResponse.ok(credits.usageHistory(userId, limit));
+    }
     @GetMapping("/{userId}")
     public ApiResponse<AiCreditService.AdminView> userCredits(@PathVariable Long userId) { return ApiResponse.ok(credits.adminView(userId)); }
     @GetMapping("/statistics")

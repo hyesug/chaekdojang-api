@@ -113,6 +113,54 @@ public class AiCreditService {
         Integer stale = jdbc.queryForObject("SELECT count(*) FROM ai_credit_reservations WHERE user_id=? AND status='RESERVED' AND created_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes'",Integer.class,userId);
         return new AdminView(new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId), isAdmin(userId)), ledger, orders, stale == null ? 0 : stale);
     }
+    /**
+     * 질문권 기록이 있는 회원 목록 — 잔액·사용 횟수·마지막 사용을 한 줄씩. 최근에 쓴 회원부터.
+     * q 는 닉네임·이메일 일부나 회원 ID.
+     */
+    @Transactional(readOnly = true)
+    public UserPage userList(String q, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int safePage = Math.max(page, 0);
+        String keyword = q == null ? "" : q.trim();
+        String where = "u.deleted_at IS NULL AND EXISTS (SELECT 1 FROM ai_credit_ledger x WHERE x.user_id = u.id)"
+                + (keyword.isEmpty() ? "" : " AND (u.nickname ILIKE ? OR u.email ILIKE ? OR CAST(u.id AS TEXT) = ?)");
+        Object[] filter = keyword.isEmpty() ? new Object[0] : new Object[]{"%" + keyword + "%", "%" + keyword + "%", keyword};
+        Long total = jdbc.queryForObject("SELECT COUNT(*) FROM users u WHERE " + where, Long.class, filter);
+        List<Object> args = new ArrayList<>(Arrays.asList(filter));
+        args.add(safeSize);
+        args.add((long) safePage * safeSize);
+        List<UserRow> rows = jdbc.query("""
+                SELECT u.id, u.nickname, u.email, u.role,
+                       COALESCE((SELECT SUM(l.remaining_amount) FROM ai_credit_lots l WHERE l.user_id=u.id AND (l.expires_at IS NULL OR l.expires_at > CURRENT_TIMESTAMP)),0),
+                       COALESCE((SELECT SUM(l.remaining_amount) FROM ai_credit_lots l WHERE l.user_id=u.id AND l.source_type IN ('FREE_GRANT','REVIEW_REWARD') AND (l.expires_at IS NULL OR l.expires_at > CURRENT_TIMESTAMP)),0),
+                       a.uses, a.failures, a.last_used_at, a.cost
+                FROM users u
+                LEFT JOIN LATERAL (
+                    SELECT COUNT(*) FILTER (WHERE r.success) AS uses, COUNT(*) FILTER (WHERE NOT r.success) AS failures,
+                           MAX(r.completed_at) AS last_used_at, COALESCE(SUM(r.estimated_cost),0) AS cost
+                    FROM ai_usage_records r WHERE r.user_id = u.id
+                ) a ON TRUE
+                WHERE""" + " " + where + " " + """
+                 ORDER BY a.last_used_at DESC NULLS LAST, u.id DESC LIMIT ? OFFSET ?""",
+                (rs, n) -> {
+                    int totalBalance = rs.getInt(5), free = rs.getInt(6);
+                    Timestamp last = rs.getTimestamp(9);
+                    return new UserRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4) != null && rs.getString(4).endsWith("ADMIN"),
+                            totalBalance, free, Math.max(0, totalBalance - free), rs.getLong(7), rs.getLong(8),
+                            last == null ? null : last.toLocalDateTime(), rs.getBigDecimal(10));
+                }, args.toArray());
+        return new UserPage(rows, total == null ? 0 : total, safePage, safeSize);
+    }
+
+    /** 회원 한 명의 AI 질문 이용 기록 — 질문·답 본문은 저장하지 않으므로 언제·어떤 풀이·분류·성공 여부만 */
+    @Transactional(readOnly = true)
+    public List<UsageRow> usageHistory(Long userId, int limit) {
+        if (jdbc.queryForList("SELECT id FROM users WHERE id = ?",Long.class,userId).isEmpty()) throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        return jdbc.query("SELECT request_id,trigger_name,model,question_category,detail_level,session_id,credit_used,success,error_type,input_tokens,output_tokens,estimated_cost,duration_ms,requested_at FROM ai_usage_records WHERE user_id=? ORDER BY requested_at DESC LIMIT ?",
+                (rs,n)->new UsageRow(UUID.fromString(rs.getString(1)),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),(Integer)rs.getObject(7),rs.getBoolean(8),rs.getString(9),(Integer)rs.getObject(10),(Integer)rs.getObject(11),rs.getBigDecimal(12),rs.getLong(13),rs.getTimestamp(14).toLocalDateTime()),
+                userId, Math.min(Math.max(limit, 1), 500));
+    }
+
     @Transactional
     public Balance balanceView(Long userId) { jdbc.queryForObject("SELECT id FROM users WHERE id = ? FOR UPDATE", Long.class, userId); grantFreeIfEligible(userId); return new Balance(freeRemaining(userId), purchasedBalance(userId), balance(userId), isAdmin(userId)); }
 
@@ -202,6 +250,9 @@ public class AiCreditService {
     public record AdminLedger(UUID id,int amount,String type,UUID referenceId,String description,LocalDateTime createdAt) {}
     public record AdminOrder(UUID orderId,String product,int amount,int credits,String paymentId,String status,LocalDateTime paidAt,LocalDateTime createdAt) {}
     public record AdminView(Balance balance,List<AdminLedger> ledger,List<AdminOrder> orders,int staleReservations) {}
+    public record UserRow(long userId,String nickname,String email,boolean admin,int totalBalance,int freeRemaining,int purchasedBalance,long uses,long failures,LocalDateTime lastUsedAt,BigDecimal totalCost) {}
+    public record UserPage(List<UserRow> users,long total,int page,int size) {}
+    public record UsageRow(UUID requestId,String tier,String model,String questionCategory,String detailLevel,String sessionId,Integer creditUsed,boolean success,String errorType,Integer inputTokens,Integer outputTokens,BigDecimal estimatedCost,long durationMs,LocalDateTime requestedAt) {}
     public record History(int amount,String type,String description,LocalDateTime createdAt) {}
     public record Statistics(long calls,long successes,long failures,double averageInputTokens,double averageOutputTokens,BigDecimal averageCost,BigDecimal p50Cost,BigDecimal p95Cost,BigDecimal totalCost) {}
 }

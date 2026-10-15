@@ -192,6 +192,8 @@ app:
   lotto-future:
     generator-url: ${LOTTO_FUTURE_GENERATOR_URL:}
     generator-token: ${LOTTO_FUTURE_GENERATOR_TOKEN:}
+    # 변동 순위표 계산. 비면 generator-url 의 lotto-future-predictions 를 lotto-future-leaderboard 로 바꿔 쓴다.
+    leaderboard-url: ${LOTTO_FUTURE_LEADERBOARD_URL:}
   # 운세 피드백 내보내기 — 매주 도는 사전 자동 수정 작업이 읽는다. 비어 있으면 내보내기를 막는다
   fortune-feedback:
     export-token: ${FORTUNE_FEEDBACK_EXPORT_TOKEN:}

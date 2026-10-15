@@ -109,6 +109,52 @@ class LottoFutureValidationServiceTest {
         assertThat(LottoFutureValidationPolicy.isPreDraw(LocalDateTime.of(2026, 10, 18, 9, 0), date, time)).isFalse();
     }
 
+    private List<Object[]> leaderboardInserts() {
+        return mockingDetails(jdbcTemplate).getInvocations().stream()
+                .filter(invocation -> invocation.getMethod().getName().equals("update"))
+                .map(Invocation::getRawArguments)
+                .filter(arguments -> ((String) arguments[0]).contains("INSERT INTO lotto_future_leaderboard_entries"))
+                .map(arguments -> (Object[]) arguments[1])
+                .toList();
+    }
+
+    @Test
+    void newRoundAlsoStoresLeaderboardWithTopFiveAndBaselineCutoff() {
+        when(generator.generate(anyInt(), any(), any(), anyList()))
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(eightTickets(), "v4-votes", "abc1234", "unse-c991927"));
+        when(jdbcTemplate.queryForObject(contains("SELECT id FROM lotto_future_prediction_rounds"), eq(Long.class), anyInt())).thenReturn(7L);
+        when(jdbcTemplate.queryForObject(contains("FROM lotto_future_leaderboard_entries"), eq(Integer.class), anyLong())).thenReturn(1);
+        when(generator.generateLeaderboard(anyInt(), any(), any(), anyList(), anyList())).thenAnswer(invocation -> new LottoFuturePredictionGenerator.Leaderboard(
+                invocation.getArgument(0), "leaderboard-v1", "unse-c991927+unse-latest", List.of(
+                new LottoFuturePredictionGenerator.LeaderboardEntry("SYS-L-yukim", List.of(8, 9, 18, 19, 20, 31), 1, 0.83, 1144, 0.836, 0.894, 1),
+                new LottoFuturePredictionGenerator.LeaderboardEntry("N4", List.of(1, 2, 3, 4, 5, 6), null, null, 0, null, null, null))));
+
+        assertThatThrownBy(service::generateNext).isInstanceOf(CustomException.class);
+
+        assertThat(predictionInserts()).hasSize(8);
+        List<Object[]> inserts = leaderboardInserts();
+        assertThat(inserts).extracting(arguments -> arguments[2]).containsExactly("SYS-L-yukim", "N4");
+        assertThat(inserts.getFirst()[9]).isEqualTo(1);
+        assertThat(inserts.get(1)[9]).isNull();
+        assertThat(inserts).allSatisfy(arguments -> assertThat(arguments[11]).isEqualTo("unse-c991927+unse-latest"));
+        // 순위표 성적은 기준선(1245) 이후 회차만 웹으로 넘긴다
+        verify(jdbcTemplate).query(contains("JOIN lotto_future_prediction_rounds"), any(RowMapper.class),
+                eq(LottoFutureValidationService.LEADERBOARD_BASELINE_ROUND), anyInt());
+    }
+
+    @Test
+    void leaderboardFailureDoesNotBlockTheEightModels() {
+        when(generator.generate(anyInt(), any(), any(), anyList()))
+                .thenReturn(new LottoFuturePredictionGenerator.Generated(eightTickets(), "v4-votes", "abc1234", "unse-c991927"));
+        when(jdbcTemplate.queryForObject(contains("SELECT id FROM lotto_future_prediction_rounds"), eq(Long.class), anyInt())).thenReturn(7L);
+        when(generator.generateLeaderboard(anyInt(), any(), any(), anyList(), anyList())).thenThrow(new IllegalStateException("web down"));
+
+        assertThatThrownBy(service::generateNext).isInstanceOf(CustomException.class);
+
+        assertThat(predictionInserts()).hasSize(8);
+        assertThat(leaderboardInserts()).isEmpty();
+    }
+
     @Test
     void missingEngineVersionFailsBeforeAnyPredictionIsStored() {
         when(generator.generate(anyInt(), any(), any(), anyList()))

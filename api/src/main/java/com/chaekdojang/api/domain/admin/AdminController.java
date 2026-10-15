@@ -253,6 +253,13 @@ public class AdminController {
                 SecurityUtils.getCurrentUserId(), round, body.reason())));
     }
 
+    @PostMapping("/lotto-future-validations/{round}/leaderboard")
+    public ResponseEntity<ApiResponse<LottoFutureValidationService.RoundResponse>> regenerateLottoLeaderboard(
+            @PathVariable int round, @RequestBody LottoModelRevisionRequest body) {
+        return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.regenerateLeaderboard(
+                SecurityUtils.getCurrentUserId(), round, body.reason())));
+    }
+
     @GetMapping("/lotto-future-validations/{round}/strategy-recalculation")
     public ResponseEntity<ApiResponse<LottoFutureValidationService.RecalculationResponse>> recalculateLottoStrategies(@PathVariable int round) {
         return ResponseEntity.ok(ApiResponse.ok(lottoFutureValidationService.recalculateStrategies(

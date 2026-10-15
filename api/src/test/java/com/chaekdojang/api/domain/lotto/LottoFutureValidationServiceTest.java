@@ -126,8 +126,8 @@ class LottoFutureValidationServiceTest {
         when(jdbcTemplate.queryForObject(contains("FROM lotto_future_leaderboard_entries"), eq(Integer.class), anyLong())).thenReturn(1);
         when(generator.generateLeaderboard(anyInt(), any(), any(), anyList(), anyList())).thenAnswer(invocation -> new LottoFuturePredictionGenerator.Leaderboard(
                 invocation.getArgument(0), "leaderboard-v1", "unse-c991927+unse-latest", List.of(
-                new LottoFuturePredictionGenerator.LeaderboardEntry("SYS-L-yukim", List.of(8, 9, 18, 19, 20, 31), 1, 0.83, 1144, 0.836, 0.894, 1),
-                new LottoFuturePredictionGenerator.LeaderboardEntry("N4", List.of(1, 2, 3, 4, 5, 6), null, null, 0, null, null, null))));
+                new LottoFuturePredictionGenerator.LeaderboardEntry("SYS-L-yukim", List.of(8, 9, 18, 19, 20, 31), 1, 0.83, 1144, 0.836, 0.894, 1, "이번 주 조합: 사주 일주 − 구성학 본명성"),
+                new LottoFuturePredictionGenerator.LeaderboardEntry("N4", List.of(1, 2, 3, 4, 5, 6), null, null, 0, null, null, null, null))));
 
         assertThatThrownBy(service::generateNext).isInstanceOf(CustomException.class);
 
@@ -137,6 +137,8 @@ class LottoFutureValidationServiceTest {
         assertThat(inserts.getFirst()[9]).isEqualTo(1);
         assertThat(inserts.get(1)[9]).isNull();
         assertThat(inserts).allSatisfy(arguments -> assertThat(arguments[11]).isEqualTo("unse-c991927+unse-latest"));
+        assertThat(inserts.getFirst()[14]).isEqualTo("이번 주 조합: 사주 일주 − 구성학 본명성");
+        assertThat(inserts.get(1)[14]).isNull();
         // 순위표 성적은 기준선(1245) 이후 회차만 웹으로 넘긴다
         verify(jdbcTemplate).query(contains("JOIN lotto_future_prediction_rounds"), any(RowMapper.class),
                 eq(LottoFutureValidationService.LEADERBOARD_BASELINE_ROUND), anyInt());

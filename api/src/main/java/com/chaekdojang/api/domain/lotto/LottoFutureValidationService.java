@@ -209,11 +209,11 @@ public class LottoFutureValidationService {
             jdbcTemplate.update("""
                     INSERT INTO lotto_future_leaderboard_entries
                     (prediction_round_id, revision, rule_id, numbers, rank, score, record_rounds, record_mean, recent_mean, top5_rank,
-                     model_version, engine_version, generated_at, reason, active)
-                    VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)
+                     model_version, engine_version, generated_at, reason, active, detail)
+                    VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)
                     """, roundId, revision == null ? 1 : revision, entry.ruleId(), json(entry.numbers()), entry.rank(), entry.score(),
                     entry.recordRounds(), entry.recordMean(), entry.recentMean(), entry.top5Rank(), board.modelVersion(),
-                    board.engineVersion(), generatedAt, reason);
+                    board.engineVersion(), generatedAt, reason, detail(entry.detail()));
         }
     }
 
@@ -235,6 +235,10 @@ public class LottoFutureValidationService {
                     .tickets().put(row.ruleId(), numbers(row.numbers()));
         }
         return List.copyOf(results.values());
+    }
+
+    private static String detail(String value) {
+        return value == null || value.isBlank() ? null : value.length() > 2000 ? value.substring(0, 2000) : value;
     }
 
     private int nextRevision(long roundId) {
@@ -267,7 +271,7 @@ public class LottoFutureValidationService {
         List<Integer> actualNumbers = round.actualNumbers == null ? null : numbers(round.actualNumbers);
         List<LeaderboardEntryResponse> leaderboard = jdbcTemplate.query("""
                 SELECT rule_id, numbers::text, rank, score, record_rounds, record_mean, recent_mean, top5_rank,
-                       model_version, engine_version, generated_at, revision
+                       model_version, engine_version, generated_at, revision, detail
                 FROM lotto_future_leaderboard_entries WHERE prediction_round_id = ? AND active
                 ORDER BY rank NULLS LAST, rule_id
                 """, (rs, rowNum) -> {
@@ -277,7 +281,7 @@ public class LottoFutureValidationService {
             return new LeaderboardEntryResponse(rs.getString(1), ticket, rs.getObject(3, Integer.class), rs.getObject(4, Double.class),
                     rs.getInt(5), rs.getObject(6, Double.class), rs.getObject(7, Double.class), rs.getObject(8, Integer.class),
                     rs.getString(9), rs.getString(10), generatedAt, rs.getInt(12), hits.size(), hits,
-                    LottoFutureValidationPolicy.isPreDraw(generatedAt, round.drawDate, round.drawTime));
+                    LottoFutureValidationPolicy.isPreDraw(generatedAt, round.drawDate, round.drawTime), rs.getString(13));
         }, round.id);
         return new RoundResponse(round.round, round.drawDate, round.drawTime, round.timezone, round.timeSource,
                 round.timeSourceDetail, round.generatedAt, actualNumbers, round.resultConfirmedAt, predictions, leaderboard);
@@ -325,5 +329,5 @@ public class LottoFutureValidationService {
     public record LeaderboardEntryResponse(String ruleId, List<Integer> numbers, Integer rank, Double score, int recordRounds,
                                            Double recordMean, Double recentMean, Integer top5Rank, String modelVersion,
                                            String engineVersion, LocalDateTime generatedAt, int revision, int hitCount,
-                                           List<Integer> hitNumbers, boolean official) {}
+                                           List<Integer> hitNumbers, boolean official, String detail) {}
 }

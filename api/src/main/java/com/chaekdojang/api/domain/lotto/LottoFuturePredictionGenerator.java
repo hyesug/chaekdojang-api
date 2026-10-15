@@ -15,6 +15,6 @@ public interface LottoFuturePredictionGenerator {
     record Generated(Map<String, List<Integer>> predictions, String modelVersion, String sourceCommit, String engineVersion) {}
     record LeaderboardResult(int round, List<Integer> actual, Map<String, List<Integer>> tickets) {}
     record LeaderboardEntry(String ruleId, List<Integer> numbers, Integer rank, Double score, int recordRounds,
-                            Double recordMean, Double recentMean, Integer top5Rank) {}
+                            Double recordMean, Double recentMean, Integer top5Rank, String detail) {}
     record Leaderboard(int round, String modelVersion, String engineVersion, List<LeaderboardEntry> entries) {}
 }
